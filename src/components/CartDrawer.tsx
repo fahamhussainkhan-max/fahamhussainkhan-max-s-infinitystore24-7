@@ -4,6 +4,7 @@ import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Zap, Chec
 import confetti from 'canvas-confetti';
 import { CartItem, CampusZone } from '../types';
 import { recordCampusOrder } from '../lib/supabase';
+import CheckoutForm from './CheckoutForm';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [promoMessage, setPromoMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [placedOrder, setPlacedOrder] = useState<any | null>(null);
+  const [isCheckoutFormOpen, setIsCheckoutFormOpen] = useState(false);
 
   const subtotal = cartItems.reduce(
     (acc, item) => acc + item.product.price * item.quantity,
@@ -100,13 +102,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
           />
 
-          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+          <div className="fixed inset-0 sm:inset-y-0 sm:left-auto sm:right-0 max-w-full flex sm:pl-10 justify-end items-end sm:items-stretch pointer-events-none">
             <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="w-screen max-w-md bg-white shadow-2xl flex flex-col justify-between"
+              initial={{ y: '100%', x: 0 }}
+              animate={{ y: 0, x: 0 }}
+              exit={{ y: '100%', x: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+              className="w-full sm:w-screen sm:max-w-md max-h-[92vh] sm:max-h-full bg-white rounded-t-3xl sm:rounded-t-none shadow-2xl flex flex-col justify-between overflow-hidden pointer-events-auto border-t sm:border-t-0 sm:border-l border-gray-100"
             >
               {/* Drawer Header */}
               <div className="p-5 sm:p-6 border-b border-gray-100 flex items-center justify-between bg-[#FAFAF7]">
@@ -125,7 +127,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
 
                 <button
-                  onClick={onClose}
+                  onClick={() => {
+                    setIsCheckoutFormOpen(false);
+                    onClose();
+                  }}
                   className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-gray-200 transition-colors"
                   aria-label="Close cart"
                 >
@@ -151,27 +156,44 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </p>
 
                   <div className="w-full bg-gray-50 rounded-2xl p-4 border border-gray-100 text-left space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Destination:</span>
-                      <span className="font-bold text-gray-900">{placedOrder.deliveryZone}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Room Info:</span>
-                      <span className="font-bold text-gray-900">{placedOrder.roomDetails}</span>
-                    </div>
+                    {/* order.delivery_address direct JSON object format me milta hai */}
+                    {placedOrder.delivery_address ? (
+                      <div className="pb-2 border-b border-gray-200">
+                        <p className="font-semibold text-neutral-900">{placedOrder.delivery_address?.fullName}</p>
+                        <p className="text-neutral-600">📞 {placedOrder.delivery_address?.phone}</p>
+                        <p className="text-neutral-700 mt-1">
+                          📍 {placedOrder.delivery_address?.area}, {placedOrder.delivery_address?.roomNo}
+                        </p>
+                        {placedOrder.delivery_address?.notes && (
+                          <p className="text-xs text-neutral-500 mt-1 italic">Note: "{placedOrder.delivery_address?.notes}"</p>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Destination:</span>
+                          <span className="font-bold text-gray-900">{placedOrder.deliveryZone}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Room Info:</span>
+                          <span className="font-bold text-gray-900">{placedOrder.roomDetails}</span>
+                        </div>
+                      </>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-gray-500">Est Arrival:</span>
                       <span className="font-bold text-[#0A84FF]">{selectedZone.estMinutes}</span>
                     </div>
                     <div className="flex justify-between border-t pt-2">
-                      <span className="font-bold text-gray-700">Total Paid (COD/UPI):</span>
-                      <span className="font-black text-gray-900">₹{placedOrder.total}</span>
+                      <span className="font-bold text-gray-700">Payment:</span>
+                      <span className="font-black text-gray-900">Cash on Delivery (₹{placedOrder.total})</span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => {
                       setPlacedOrder(null);
+                      setIsCheckoutFormOpen(false);
                       onClose();
                     }}
                     className="w-full py-3.5 bg-[#111111] hover:bg-black text-white font-bold rounded-2xl transition-all shadow-md active:scale-95 text-sm"
@@ -197,6 +219,32 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   >
                     Explore Campus Favourites
                   </button>
+                </div>
+              ) : isCheckoutFormOpen ? (
+                /* Checkout Form Screen */
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+                  <CheckoutForm
+                    cartItems={cartItems}
+                    grandTotal={grandTotal}
+                    onCancel={() => setIsCheckoutFormOpen(false)}
+                    onOrderSuccess={(orderId, deliveryAddress) => {
+                      confetti({
+                        particleCount: 90,
+                        spread: 70,
+                        origin: { y: 0.6 },
+                        colors: ['#FF3B30', '#FFD60A', '#0A84FF', '#30D158'],
+                      });
+                      setPlacedOrder({
+                        id: orderId,
+                        deliveryZone: deliveryAddress?.area || selectedZone.name,
+                        roomDetails: deliveryAddress?.roomNo || 'Hostel Delivery Details Recorded',
+                        delivery_address: deliveryAddress,
+                        total: grandTotal,
+                      });
+                      setIsCheckoutFormOpen(false);
+                      onClearCart();
+                    }}
+                  />
                 </div>
               ) : (
                 /* Active Cart Items List */
@@ -243,26 +291,41 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </div>
 
                         {/* Quantity Controls */}
-                        <div className="flex items-center bg-white rounded-xl border border-gray-200 p-0.5 shadow-2xs">
+                        <div
+                          style={{ pointerEvents: 'auto' }}
+                          className="relative z-20 pointer-events-auto flex items-center bg-white rounded-xl border border-gray-200 p-0.5 shadow-2xs"
+                        >
                           <button
                             type="button"
-                            onClick={() =>
-                              onUpdateQuantity(item.product.id, item.quantity - 1)
-                            }
-                            className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (item.product.minQuantity && item.product.minQuantity > 1 && item.quantity <= item.product.minQuantity) {
+                                onUpdateQuantity(item.product.id, 0);
+                              } else {
+                                onUpdateQuantity(item.product.id, item.quantity - 1);
+                              }
+                            }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            style={{ pointerEvents: 'auto' }}
+                            className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-lg text-gray-600 transition-colors cursor-pointer pointer-events-auto"
                             aria-label="Decrease"
                           >
                             <Minus className="w-3 h-3 stroke-[2.5]" />
                           </button>
-                          <span className="px-2 text-xs font-bold text-gray-800 min-w-[18px] text-center">
+                          <span className="px-2 text-xs font-bold text-gray-800 min-w-[18px] text-center select-none pointer-events-none">
                             {item.quantity}
                           </span>
                           <button
                             type="button"
-                            onClick={() =>
-                              onUpdateQuantity(item.product.id, item.quantity + 1)
-                            }
-                            className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onUpdateQuantity(item.product.id, item.quantity + 1);
+                            }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            style={{ pointerEvents: 'auto' }}
+                            className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-lg text-gray-600 transition-colors cursor-pointer pointer-events-auto"
                             aria-label="Increase"
                           >
                             <Plus className="w-3 h-3 stroke-[2.5]" />
@@ -316,7 +379,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               )}
 
               {/* Drawer Footer & Checkout Action */}
-              {!placedOrder && cartItems.length > 0 && (
+              {!placedOrder && !isCheckoutFormOpen && cartItems.length > 0 && (
                 <div className="p-5 sm:p-6 border-t border-gray-100 bg-[#FAFAF7] space-y-3">
                   <div className="space-y-1.5 text-xs text-gray-600">
                     <div className="flex justify-between">
@@ -347,17 +410,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                   <button
                     type="button"
-                    onClick={handleCheckout}
-                    disabled={isSubmitting}
-                    className="w-full py-4 bg-[#111111] hover:bg-black text-white font-extrabold rounded-2xl shadow-xl flex items-center justify-between px-6 transition-all duration-200 active:scale-95 disabled:opacity-50"
+                    onClick={() => setIsCheckoutFormOpen(true)}
+                    className="w-full py-4 bg-[#FF3B30] hover:bg-red-600 text-white font-extrabold rounded-2xl shadow-xl flex items-center justify-between px-6 transition-all duration-200 active:scale-95 cursor-pointer"
                   >
                     <div className="text-left">
-                      <div className="text-[10px] text-gray-300 font-medium">10-MIN CAMPUS RUSH</div>
+                      <div className="text-[10px] text-red-100 font-medium">10-MIN CAMPUS RUSH</div>
                       <div className="text-base font-black">₹{grandTotal}</div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-sm font-bold text-[#FFD60A]">
-                      <span>{isSubmitting ? 'Confirming...' : 'Place Order'}</span>
+                    <div className="flex items-center gap-1.5 text-sm font-bold text-white">
+                      <span>Enter Delivery Details</span>
                       <ArrowRight className="w-4 h-4" />
                     </div>
                   </button>

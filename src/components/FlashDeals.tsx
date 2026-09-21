@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Zap, Clock, Sparkles, Plus, Check } from 'lucide-react';
+import { Zap, Clock, Sparkles, Plus, Minus, Check } from 'lucide-react';
 import { Product } from '../types';
 
 interface FlashDealsProps {
@@ -8,6 +8,7 @@ interface FlashDealsProps {
   onAddToCart: (product: Product) => void;
   cartQuantities: Record<string, number>;
   onToastMessage: (msg: string) => void;
+  onUpdateQuantity?: (productId: string, quantity: number) => void;
 }
 
 export const FlashDeals: React.FC<FlashDealsProps> = ({
@@ -15,6 +16,7 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
   onAddToCart,
   cartQuantities,
   onToastMessage,
+  onUpdateQuantity,
 }) => {
   // Live ticking countdown timer (starts at 02h 45m 18s)
   const [secondsLeft, setSecondsLeft] = useState(9918);
@@ -128,7 +130,7 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
               </div>
 
               {/* Price & Quick Add */}
-              <div className="pt-3 mt-1 border-t border-gray-200/70 flex items-center justify-between">
+              <div className="relative z-20 pt-3 mt-1 border-t border-gray-200/70 flex items-center justify-between pointer-events-auto">
                 <div>
                   <div className="text-lg font-black text-gray-900">
                     ₹{prod.price}
@@ -140,17 +142,60 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    onAddToCart(prod);
-                    onToastMessage(`Grabbed flash deal: ${prod.name.slice(0, 18)}... ✓`);
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs font-black transition-all active:scale-95 shadow-md"
-                >
-                  <Plus className="w-4 h-4 stroke-[3]" />
-                  <span>{qty > 0 ? `Added (${qty})` : 'Claim Deal'}</span>
-                </button>
+                {qty > 0 && onUpdateQuantity ? (
+                  <div
+                    style={{ pointerEvents: 'auto' }}
+                    className="relative z-20 pointer-events-auto flex items-center rounded-xl bg-[#0A84FF] text-white p-0.5 shadow-md"
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUpdateQuantity(prod.id, Math.max(0, qty - 1));
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={{ pointerEvents: 'auto' }}
+                      className="w-7 h-7 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors cursor-pointer pointer-events-auto"
+                      aria-label="Decrease deal quantity"
+                    >
+                      <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    </button>
+                    <span className="px-2 text-xs font-black min-w-[20px] text-center select-none pointer-events-none">
+                      {qty}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUpdateQuantity(prod.id, qty + 1);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={{ pointerEvents: 'auto' }}
+                      className="w-7 h-7 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors cursor-pointer pointer-events-auto"
+                      aria-label="Increase deal quantity"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    style={{ pointerEvents: 'auto' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddToCart(prod);
+                      onToastMessage(`Grabbed flash deal: ${prod.name.slice(0, 18)}... ✓`);
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="relative z-20 pointer-events-auto cursor-pointer flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs font-black transition-all active:scale-95 shadow-md"
+                  >
+                    <Plus className="w-4 h-4 stroke-[3]" />
+                    <span>{qty > 0 ? `Added (${qty})` : 'Claim Deal'}</span>
+                  </button>
+                )}
               </div>
             </motion.div>
           );

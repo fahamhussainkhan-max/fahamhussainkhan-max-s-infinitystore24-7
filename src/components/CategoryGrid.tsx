@@ -67,7 +67,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
       {/* Grid on desktop & horizontal scrollable on mobile */}
       <div
         ref={scrollRef}
-        className="flex lg:grid lg:grid-cols-6 gap-3.5 sm:gap-4 overflow-x-auto no-scrollbar pb-4 pt-1 snap-x select-none"
+        className="flex lg:grid lg:grid-cols-3 gap-3.5 sm:gap-5 overflow-x-auto no-scrollbar pb-4 pt-1 snap-x select-none"
       >
         {CATEGORIES.map((cat, idx) => {
           const isSelected = selectedCategory === cat.id;

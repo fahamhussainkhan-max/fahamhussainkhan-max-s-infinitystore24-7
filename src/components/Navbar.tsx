@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, MapPin, Heart, Search, Sparkles, ChevronDown, Zap } from 'lucide-react';
+import { ShoppingBag, MapPin, Heart, Search, Sparkles, ChevronDown, User, Grid } from 'lucide-react';
 import { CampusZone } from '../types';
 
 interface NavbarProps {
@@ -11,6 +11,8 @@ interface NavbarProps {
   wishlistCount: number;
   onScrollToSearch: () => void;
   onScrollToFavourites: () => void;
+  onOpenCustomerOrders: () => void;
+  onScrollToCategories?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -22,9 +24,24 @@ export const Navbar: React.FC<NavbarProps> = ({
   wishlistCount,
   onScrollToSearch,
   onScrollToFavourites,
+  onOpenCustomerOrders,
+  onScrollToCategories,
 }) => {
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#FAFAF7]/90 backdrop-blur-xl border-b border-gray-200/80 transition-all select-none">
+    <header className="sticky top-0 z-40 w-full bg-[#FAFAF7]/95 backdrop-blur-xl border-b border-gray-200/80 transition-all select-none">
+      {/* Floating Quick-Delivery pill badge at the top with soft neon pulse glow */}
+      <div className="w-full bg-[#111111] py-1.5 px-3 sm:px-4 flex items-center justify-center border-b border-white/10">
+        <div className="inline-flex items-center gap-2 px-3.5 py-0.5 rounded-full bg-[#1c1c1e] text-xs font-bold text-white border border-[#30D158]/60 shadow-[0_0_18px_rgba(48,209,88,0.4),0_0_6px_rgba(10,132,255,0.3)] animate-pulse">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#30D158] opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#30D158]" />
+          </span>
+          <span className="text-[#FFD60A] font-black tracking-wide">⚡ Campus Express:</span>
+          <span className="text-gray-100 font-semibold">Delivered in 10-15 mins</span>
+          <span className="hidden sm:inline text-[11px] text-gray-400 border-l border-white/20 pl-2">Hostel & Fatak Rush</span>
+        </div>
+      </div>
+
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-3">
         {/* Brand Logo & Tagline */}
         <div className="flex items-center gap-3">
@@ -64,7 +81,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             type="button"
             onClick={onOpenZoneSelector}
-            className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:border-gray-400 transition-all text-left"
+            className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:border-gray-400 transition-all text-left cursor-pointer"
           >
             <MapPin className="w-3.5 h-3.5 text-[#30D158]" />
             <div>
@@ -79,24 +96,40 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
 
-        {/* Right Action Icons: Search, Wishlist, Cart */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right Customer Action Icons: Categories, Search, Wishlist, Profile/Orders, Cart */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
+          {/* Categories / Aisles */}
+          <a
+            href="#categories-section"
+            onClick={(e) => {
+              if (onScrollToCategories) {
+                e.preventDefault();
+                onScrollToCategories();
+              }
+            }}
+            className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-colors text-xs font-bold"
+            title="Browse Categories"
+          >
+            <Grid className="w-4 h-4 text-gray-500" />
+            <span>Categories</span>
+          </a>
+
           {/* Search Trigger */}
           <button
             type="button"
             onClick={onScrollToSearch}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-colors text-xs font-bold"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-colors text-xs font-bold cursor-pointer"
             title="Search catalog"
           >
-            <Search className="w-4 h-4" />
+            <Search className="w-4 h-4 text-gray-500" />
             <span className="hidden sm:inline">Search</span>
           </button>
 
-          {/* Quick Favourites Anchor */}
+          {/* Quick Favourites / Top Picks */}
           <button
             type="button"
             onClick={onScrollToFavourites}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-colors text-xs font-bold"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-colors text-xs font-bold cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-[#FFD60A]" />
             <span>Top Picks</span>
@@ -107,8 +140,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               type="button"
               onClick={onScrollToFavourites}
-              className="p-2.5 rounded-xl text-gray-600 hover:text-[#FF3B30] hover:bg-red-50 transition-colors"
-              title="Saved items"
+              className="p-2 sm:p-2.5 rounded-xl text-gray-600 hover:text-[#FF3B30] hover:bg-red-50 transition-colors cursor-pointer"
+              title="Saved wishlist items"
             >
               <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
               {wishlistCount > 0 && (
@@ -119,11 +152,22 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
-          {/* Cart Trigger */}
+          {/* Customer Profile & Orders Button */}
+          <button
+            type="button"
+            onClick={onOpenCustomerOrders}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-gray-100 text-gray-800 border border-gray-200/90 shadow-2xs transition-all text-xs font-bold cursor-pointer"
+            title="View My Orders & Profile"
+          >
+            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0A84FF]" />
+            <span className="hidden sm:inline">Orders</span>
+          </button>
+
+          {/* Cart / Bag Trigger */}
           <button
             type="button"
             onClick={onOpenCart}
-            className="flex items-center gap-2.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white shadow-md active:scale-95 transition-all text-xs sm:text-sm font-bold"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white shadow-md active:scale-95 transition-all text-xs sm:text-sm font-bold cursor-pointer"
           >
             <div className="relative">
               <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
@@ -133,7 +177,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               )}
             </div>
-            <span className="hidden sm:inline">
+            <span>
               {cartCount > 0 ? `₹${cartTotal}` : 'Bag'}
             </span>
           </button>

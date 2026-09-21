@@ -61,7 +61,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <button
                 type="button"
                 onClick={onShopNow}
-                className="flex items-center gap-2.5 px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white font-extrabold text-sm sm:text-base shadow-xl hover:shadow-2xl transition-all duration-200 active:scale-95 group"
+                className="cursor-pointer pointer-events-auto flex items-center gap-2.5 px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white font-extrabold text-sm sm:text-base shadow-xl hover:shadow-2xl transition-all duration-200 active:scale-95 group"
               >
                 <span>Shop Now</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -70,7 +70,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <button
                 type="button"
                 onClick={onExploreCategories}
-                className="px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-white hover:bg-gray-100/80 text-[#111111] font-extrabold text-sm sm:text-base border border-gray-200 shadow-sm transition-all duration-200 active:scale-95"
+                className="cursor-pointer pointer-events-auto px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-white hover:bg-gray-100/80 text-[#111111] font-extrabold text-sm sm:text-base border border-gray-200 shadow-sm transition-all duration-200 active:scale-95"
               >
                 Explore Categories
               </button>
