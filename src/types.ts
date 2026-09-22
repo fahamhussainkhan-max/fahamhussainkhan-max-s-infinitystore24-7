@@ -45,6 +45,8 @@ export interface CampusZone {
   block: string;
   estMinutes: string;
   isOnline: boolean;
+  deliveryFee: number;
+  coordinates?: { lat: number; lng: number };
 }
 
 export interface CampusLocation {
@@ -124,6 +126,7 @@ export interface UserProfile {
   phone?: string;
   role: 'student' | 'admin' | 'staff' | 'delivery';
   hostel_block?: string;
+  room_number?: string;
   created_at: string;
 }
 

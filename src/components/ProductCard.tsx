@@ -12,6 +12,7 @@ interface ProductCardProps {
   isWishlisted?: boolean;
   onToggleWishlist?: (productId: string) => void;
   variant?: 'light' | 'dark';
+  isHighlighted?: boolean;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -23,6 +24,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isWishlisted = false,
   onToggleWishlist,
   variant = 'light',
+  isHighlighted = false,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
@@ -109,7 +111,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         onMouseLeave={handleMouseLeave}
         whileHover={{ y: -6, scale: 1.02 }}
         transition={{ type: 'spring', stiffness: 380, damping: 24 }}
-        className={`relative group rounded-3xl p-3.5 sm:p-4 transition-all duration-200 flex flex-col justify-between overflow-hidden h-full touch-manipulation ${
+        id={`product-card-${product.id}`}
+        className={`relative group rounded-3xl p-3.5 sm:p-4 transition-all duration-300 flex flex-col justify-between overflow-hidden h-full touch-manipulation ${
+          isHighlighted
+            ? 'ring-4 ring-[#0A84FF] shadow-[0_0_35px_rgba(10,132,255,0.45)] scale-[1.03] animate-pulse z-30'
+            : ''
+        } ${
           isDark
             ? 'bg-[#1a1a1a] border border-white/10 hover:border-purple-500/50 hover:shadow-[0_20px_40px_-10px_rgba(191,90,242,0.35)]'
             : 'bg-white border border-gray-200/90 hover:border-blue-400/60 hover:shadow-[0_20px_40px_-10px_rgba(10,132,255,0.18)]'

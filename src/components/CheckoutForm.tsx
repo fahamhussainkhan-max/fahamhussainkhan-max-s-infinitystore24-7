@@ -16,16 +16,39 @@ export default function CheckoutForm({
   onCancel,
   grandTotal,
 }: CheckoutFormProps) {
-  const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    area: 'Campus Hostels',
-    roomNo: '',
-    notes: '',
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('infinity_student_profile');
+      if (saved) {
+        const p = JSON.parse(saved);
+        return {
+          fullName: p.fullName || '',
+          phone: p.phone || '',
+          area: p.hostel || 'Campus Hostels',
+          roomNo: p.roomNo || '',
+          notes: p.notes || '',
+        };
+      }
+    } catch {}
+    return {
+      fullName: '',
+      phone: '',
+      area: 'Campus Hostels',
+      roomNo: '',
+      notes: '',
+    };
   });
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [hasAutoFilled] = useState(() => {
+    try {
+      const saved = localStorage.getItem('infinity_student_profile');
+      return Boolean(saved);
+    } catch {
+      return false;
+    }
+  });
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -115,6 +138,38 @@ export default function CheckoutForm({
 
       if (!finalOrderId) {
         throw new Error('Could not generate order ID');
+      }
+
+      // Persist profile to localStorage and Supabase 'profiles' table
+      try {
+        const studentProfile = {
+          fullName: formData.fullName,
+          phone: formData.phone,
+          hostel: formData.area,
+          roomNo: formData.roomNo,
+          notes: formData.notes,
+        };
+        localStorage.setItem('infinity_student_profile', JSON.stringify(studentProfile));
+
+        // Upsert to Supabase profiles
+        supabase
+          .from('profiles')
+          .upsert(
+            [
+              {
+                id: `usr-${formData.phone.replace(/\D/g, '') || 'guest'}`,
+                full_name: formData.fullName,
+                phone: formData.phone,
+                role: 'student',
+                hostel_block: `${formData.area} - ${formData.roomNo}`,
+                created_at: new Date().toISOString(),
+              },
+            ],
+            { onConflict: 'id' }
+          )
+          .then(() => {});
+      } catch (profileSaveErr) {
+        console.warn('Profile persistence notice:', profileSaveErr);
       }
 
       console.log(`Order placed successfully! Order ID: ${finalOrderId}`);

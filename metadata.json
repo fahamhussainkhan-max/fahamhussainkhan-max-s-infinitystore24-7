@@ -1,6 +1,6 @@
 {
   "name": "Infinity Store",
   "description": "Hyperlocal quick-commerce delivering snacks, drinks, stationery, and campus essentials in minutes.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

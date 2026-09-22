@@ -4,9 +4,11 @@ export const CAMPUS_ZONES: CampusZone[] = [
   {
     id: 'fatak-main-gate',
     name: 'College Main Gate (Fatak)',
-    block: 'Main Barrier',
+    block: 'Main Barrier & Turnstile',
     estMinutes: '8-12 mins',
     isOnline: true,
+    deliveryFee: 10,
+    coordinates: { lat: 28.5451, lng: 77.1925 },
   },
   {
     id: 'hostel-boys-a',
@@ -14,6 +16,8 @@ export const CAMPUS_ZONES: CampusZone[] = [
     block: 'Hostel Wing A-D',
     estMinutes: '10-15 mins',
     isOnline: true,
+    deliveryFee: 12,
+    coordinates: { lat: 28.547, lng: 77.194 },
   },
   {
     id: 'hostel-girls',
@@ -21,13 +25,26 @@ export const CAMPUS_ZONES: CampusZone[] = [
     block: 'Campus Block GH',
     estMinutes: '10-14 mins',
     isOnline: true,
+    deliveryFee: 12,
+    coordinates: { lat: 28.5435, lng: 77.191 },
+  },
+  {
+    id: 'outer-hostel',
+    name: 'Outer Hostels & PG Enclave',
+    block: 'Outer Quad & South Gate PG Area',
+    estMinutes: '15-20 mins',
+    isOnline: true,
+    deliveryFee: 15,
+    coordinates: { lat: 28.551, lng: 77.198 },
   },
   {
     id: 'academic-block',
     name: 'Academic Complex & Labs',
-    block: 'Library & Labs',
-    estMinutes: '12-16 mins',
+    block: 'Library, Tech Labs & Amphitheatre',
+    estMinutes: '10-14 mins',
     isOnline: true,
+    deliveryFee: 10,
+    coordinates: { lat: 28.5458, lng: 77.1932 },
   },
 ];
 

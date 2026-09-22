@@ -1,19 +1,41 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Zap, MapPin, Clock, ShieldCheck, ChevronDown, Check } from 'lucide-react';
+import { Zap, MapPin, Clock, ShieldCheck, ChevronDown, Check, Navigation, Sparkles } from 'lucide-react';
 import { CAMPUS_ZONES } from '../data/mockData';
 import { CampusZone } from '../types';
+import { detectNearestCampusZone } from '../utils/geolocation';
 
 interface DeliveryStatusCardProps {
   selectedZone: CampusZone;
   onSelectZone: (zone: CampusZone) => void;
+  onToastMessage?: (msg: string) => void;
 }
 
 export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
   selectedZone,
   onSelectZone,
+  onToastMessage,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
+
+  const handleAutoDetect = async () => {
+    setIsDetecting(true);
+    try {
+      const result = await detectNearestCampusZone(CAMPUS_ZONES);
+      onSelectZone(result.zone);
+      if (onToastMessage) {
+        onToastMessage(result.message);
+      }
+      setIsOpen(false);
+    } catch (err: any) {
+      if (onToastMessage) {
+        onToastMessage(err.message || 'Could not auto-detect location');
+      }
+    } finally {
+      setIsDetecting(false);
+    }
+  };
 
   return (
     <section className="w-full max-w-5xl mx-auto px-4 sm:px-6 my-4">
@@ -44,7 +66,9 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
               </div>
               <div className="flex items-center gap-1.5 text-gray-700">
                 <ShieldCheck className="w-4 h-4 text-[#30D158]" />
-                <span>Verified Student Runners</span>
+                <span>
+                  Delivery: <strong className="text-black">₹{selectedZone.deliveryFee ?? 10}</strong> (Free &gt; ₹150)
+                </span>
               </div>
             </div>
           </div>
@@ -62,28 +86,40 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
 
             {/* Campus location dropdown button */}
             <div className="relative w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full sm:w-auto flex items-center justify-between gap-3 px-4 py-2.5 bg-[#111111] hover:bg-black text-white rounded-2xl shadow-md transition-all active:scale-95 text-xs sm:text-sm font-bold"
-              >
-                <div className="flex items-center gap-2">
-                  <motion.div
-                    animate={{
-                      scale: [1, 1.25, 1],
-                    }}
-                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                    className="p-1 rounded-full bg-[#30D158]/20 text-[#30D158]"
-                  >
-                    <MapPin className="w-4 h-4" />
-                  </motion.div>
-                  <div className="text-left">
-                    <div className="text-[10px] text-gray-400 font-medium leading-none">Delivering to</div>
-                    <div className="font-bold text-white leading-tight">{selectedZone.name}</div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(!isOpen)}
+                  className="w-full sm:w-auto flex items-center justify-between gap-3 px-4 py-2.5 bg-[#111111] hover:bg-black text-white rounded-2xl shadow-md transition-all active:scale-95 text-xs sm:text-sm font-bold cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.25, 1],
+                      }}
+                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                      className="p-1 rounded-full bg-[#30D158]/20 text-[#30D158]"
+                    >
+                      <MapPin className="w-4 h-4" />
+                    </motion.div>
+                    <div className="text-left">
+                      <div className="text-[10px] text-gray-400 font-medium leading-none">Delivering to</div>
+                      <div className="font-bold text-white leading-tight">{selectedZone.name}</div>
+                    </div>
                   </div>
-                </div>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-              </button>
+                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAutoDetect}
+                  disabled={isDetecting}
+                  title="Auto-detect campus zone with GPS"
+                  className="p-2.5 bg-blue-50 text-[#0A84FF] hover:bg-blue-100 rounded-2xl border border-blue-200 transition-colors flex items-center justify-center cursor-pointer flex-shrink-0"
+                >
+                  <Navigation className={`w-4 h-4 ${isDetecting ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
 
               {/* Zone Dropdown Menu */}
               {isOpen && (
@@ -93,10 +129,17 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                   exit={{ opacity: 0, y: 6 }}
                   className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-50 overflow-hidden"
                 >
-                  <div className="px-3 py-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                    Select Your Campus Wing / Block
+                  <div className="px-3 py-2 flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                    <span>Campus Wing / Block</span>
+                    <button
+                      type="button"
+                      onClick={handleAutoDetect}
+                      className="text-[#0A84FF] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Navigation className="w-3 h-3" /> Auto-GPS
+                    </button>
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1 mt-1">
                     {CAMPUS_ZONES.map((zone) => (
                       <button
                         key={zone.id}
@@ -105,9 +148,9 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                           onSelectZone(zone);
                           setIsOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-colors text-xs sm:text-sm font-semibold ${
+                        className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-colors text-xs sm:text-sm font-semibold cursor-pointer ${
                           selectedZone.id === zone.id
-                            ? 'bg-gray-100 text-black font-bold'
+                            ? 'bg-blue-50 text-[#0A84FF] font-bold'
                             : 'hover:bg-gray-50 text-gray-700'
                         }`}
                       >
@@ -115,7 +158,9 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                           <MapPin className="w-3.5 h-3.5 text-[#0A84FF]" />
                           <div>
                             <div>{zone.name}</div>
-                            <div className="text-[10px] text-gray-400 font-normal">{zone.block} • {zone.estMinutes}</div>
+                            <div className="text-[10px] text-gray-400 font-normal">
+                              {zone.block} • {zone.estMinutes} • ₹{zone.deliveryFee ?? 10} fee
+                            </div>
                           </div>
                         </div>
                         {selectedZone.id === zone.id && (
@@ -123,6 +168,11 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                         )}
                       </button>
                     ))}
+                  </div>
+
+                  <div className="mt-2 p-2 bg-emerald-50 rounded-xl text-center text-[10px] font-bold text-emerald-800">
+                    <Sparkles className="w-3 h-3 inline mr-1 text-emerald-600" />
+                    Free delivery automatically unlocked on orders &gt; ₹150
                   </div>
                 </motion.div>
               )}

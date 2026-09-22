@@ -13,6 +13,8 @@ interface NavbarProps {
   onScrollToFavourites: () => void;
   onOpenCustomerOrders: () => void;
   onScrollToCategories?: () => void;
+  onOpenWishlist?: () => void;
+  onOpenProfile?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -26,6 +28,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onScrollToFavourites,
   onOpenCustomerOrders,
   onScrollToCategories,
+  onOpenWishlist,
+  onOpenProfile,
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full bg-[#FAFAF7]/95 backdrop-blur-xl border-b border-gray-200/80 transition-all select-none">
@@ -139,7 +143,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="relative">
             <button
               type="button"
-              onClick={onScrollToFavourites}
+              onClick={onOpenWishlist || onScrollToFavourites}
               className="p-2 sm:p-2.5 rounded-xl text-gray-600 hover:text-[#FF3B30] hover:bg-red-50 transition-colors cursor-pointer"
               title="Saved wishlist items"
             >
@@ -155,12 +159,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Customer Profile & Orders Button */}
           <button
             type="button"
-            onClick={onOpenCustomerOrders}
+            onClick={onOpenProfile || onOpenCustomerOrders}
             className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-gray-100 text-gray-800 border border-gray-200/90 shadow-2xs transition-all text-xs font-bold cursor-pointer"
             title="View My Orders & Profile"
           >
             <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0A84FF]" />
-            <span className="hidden sm:inline">Orders</span>
+            <span className="hidden sm:inline">Orders & Profile</span>
           </button>
 
           {/* Cart / Bag Trigger */}

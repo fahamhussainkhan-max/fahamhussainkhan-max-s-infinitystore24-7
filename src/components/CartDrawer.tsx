@@ -31,13 +31,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [placedOrder, setPlacedOrder] = useState<any | null>(null);
   const [isCheckoutFormOpen, setIsCheckoutFormOpen] = useState(false);
 
+  const FREE_DELIVERY_THRESHOLD = 150;
   const subtotal = cartItems.reduce(
     (acc, item) => acc + item.product.price * item.quantity,
     0
   );
-  const deliveryFee = subtotal >= 99 || subtotal === 0 ? 0 : 15;
+  const zoneFee = selectedZone.deliveryFee ?? 10;
+  const isFreeDelivery = subtotal >= FREE_DELIVERY_THRESHOLD || subtotal === 0;
+  const deliveryFee = isFreeDelivery ? 0 : zoneFee;
   const grandTotal = Math.max(0, subtotal + deliveryFee - discountApplied);
-  const freeDeliveryShortfall = Math.max(0, 99 - subtotal);
+  const freeDeliveryShortfall = Math.max(0, FREE_DELIVERY_THRESHOLD - subtotal);
 
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -261,7 +264,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </span>
                     )}
                     <span className="text-[10px] font-bold uppercase bg-white/80 px-2 py-0.5 rounded-full">
-                      ₹99 Min
+                      ₹150 Free Tier
                     </span>
                   </div>
 
@@ -387,8 +390,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <span className="font-semibold text-gray-900">₹{subtotal}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Campus Runner Delivery Fee</span>
-                      <span className="font-semibold">
+                      <span className="truncate pr-2">Runner Delivery Fee ({selectedZone.name.split('(')[0].trim()})</span>
+                      <span className="font-semibold flex-shrink-0">
                         {deliveryFee === 0 ? (
                           <span className="text-[#30D158] font-bold">FREE</span>
                         ) : (

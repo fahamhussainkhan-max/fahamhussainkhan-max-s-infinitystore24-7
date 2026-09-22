@@ -9,6 +9,7 @@ import {
   ArrowRight,
   ShieldCheck,
   Zap,
+  Navigation,
 } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
@@ -25,9 +26,15 @@ import { CustomerOrdersModal } from './components/CustomerOrdersModal';
 import { CategoryPills } from './components/CategoryPills';
 import { QuickDeliveryBanner } from './components/QuickDeliveryBanner';
 import { Footer } from './components/Footer';
+import { TopGlobalSearchBar } from './components/TopGlobalSearchBar';
+import { WishlistView } from './components/WishlistView';
+import { OrdersProfileView } from './components/OrdersProfileView';
+import { CampusPlayHubBanner } from './components/CampusPlayHubBanner';
+import { BottomNavBar, NavigationTab } from './components/BottomNavBar';
 import { CAMPUS_ZONES, CATEGORIES, PRODUCTS } from './data/mockData';
 import { Product, CartItem, CampusZone } from './types';
 import { fetchProducts, supabase } from './lib/supabase';
+import { detectNearestCampusZone } from './utils/geolocation';
 
 /**
  * Infinity Store - Customer Web Application
@@ -134,6 +141,8 @@ function CustomerStorefront() {
     }
   });
 
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+
   const handleSelectZone = (zone: CampusZone) => {
     setSelectedZone(zone);
     try {
@@ -142,6 +151,35 @@ function CustomerStorefront() {
     setIsZoneModalOpen(false);
     triggerToast(`Delivery location set to ${zone.name}`);
   };
+
+  const handleAutoDetectLocation = async () => {
+    setIsDetectingLocation(true);
+    try {
+      const result = await detectNearestCampusZone(CAMPUS_ZONES);
+      handleSelectZone(result.zone);
+      triggerToast(result.message);
+      setIsZoneModalOpen(false);
+    } catch (err: any) {
+      triggerToast(err.message || 'Could not auto-detect location');
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  };
+
+  // Auto-detect nearest zone on first visit if not yet chosen
+  useEffect(() => {
+    const saved = localStorage.getItem('infinity_campus_zone');
+    if (!saved && typeof navigator !== 'undefined' && navigator.geolocation) {
+      detectNearestCampusZone(CAMPUS_ZONES)
+        .then((res) => {
+          setSelectedZone(res.zone);
+          try {
+            localStorage.setItem('infinity_campus_zone', JSON.stringify(res.zone));
+          } catch {}
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   // Cart state
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -240,8 +278,56 @@ function CustomerStorefront() {
   // Active Category Filter
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Search Query
+  // Active Navigation Tab
+  const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
+
+  // Search Query & Feed Filter
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterFeedActive, setIsFilterFeedActive] = useState(false);
+  const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
+
+  // Jump to product and highlight with pulse
+  const handleSelectAndHighlightProduct = (productId: string) => {
+    setCurrentTab('home');
+    setHighlightedProductId(productId);
+    setTimeout(() => {
+      const el = document.getElementById(`product-card-${productId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
+    setTimeout(() => {
+      setHighlightedProductId((prev) => (prev === productId ? null : prev));
+    }, 3500);
+  };
+
+  // Wishlist actions
+  const handleMoveAllWishlistToCart = () => {
+    const itemsToAdd = productsList.filter((p) => wishlist.includes(p.id));
+    if (itemsToAdd.length === 0) return;
+    setCartItems((prev) => {
+      const updated = [...prev];
+      itemsToAdd.forEach((prod) => {
+        const idx = updated.findIndex((it) => it.product.id === prod.id);
+        if (idx >= 0) {
+          updated[idx] = { ...updated[idx], quantity: updated[idx].quantity + 1 };
+        } else {
+          updated.push({ product: prod, quantity: prod.minQuantity || 1 });
+        }
+      });
+      return updated;
+    });
+    setLastCartUpdate(Date.now());
+    triggerToast(`Added ${itemsToAdd.length} wishlist items to bag! 🛍️`);
+  };
+
+  const handleClearWishlist = () => {
+    setWishlist([]);
+    try {
+      localStorage.removeItem('infinity_wishlist');
+    } catch {}
+    triggerToast('Wishlist cleared');
+  };
 
   // Toast notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -259,25 +345,43 @@ function CustomerStorefront() {
 
   // Scroll helpers
   const scrollToSearch = () => {
+    setCurrentTab('home');
     const el = document.getElementById('search-section');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
   const scrollToCategories = () => {
+    setCurrentTab('home');
     const el = document.getElementById('categories-section');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
   const scrollToFavourites = () => {
+    setCurrentTab('home');
     const el = document.getElementById('campus-favourites');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Filtered products when search filter or category is active
+  const displayedProducts = useMemo(() => {
+    if (!isFilterFeedActive || !searchQuery.trim()) {
+      return productsList;
+    }
+    const q = searchQuery.toLowerCase().trim();
+    return productsList.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        (p.tags && p.tags.some((t) => t.toLowerCase().includes(q)))
+    );
+  }, [productsList, isFilterFeedActive, searchQuery]);
+
   // Filtered products when category is selected
   const categoryProducts = useMemo(() => {
     if (!selectedCategory) return [];
-    return productsList.filter((p) => p.category === selectedCategory);
-  }, [productsList, selectedCategory]);
+    return displayedProducts.filter((p) => p.category === selectedCategory);
+  }, [displayedProducts, selectedCategory]);
 
   const activeCategoryObj = useMemo(
     () => CATEGORIES.find((c) => c.id === selectedCategory),
@@ -296,111 +400,178 @@ function CustomerStorefront() {
         wishlistCount={wishlist.length}
         onScrollToSearch={scrollToSearch}
         onScrollToFavourites={scrollToFavourites}
-        onOpenCustomerOrders={() => setIsCustomerOrdersOpen(true)}
+        onOpenCustomerOrders={() => {
+          setCurrentTab('profile');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         onScrollToCategories={scrollToCategories}
-      />
-
-      {/* 2. Hero Section */}
-      <HeroSection
-        onShopNow={scrollToFavourites}
-        onExploreCategories={scrollToCategories}
-      />
-
-      {/* 3. Delivery Speed & Zone Status Card */}
-      <DeliveryStatusCard
-        selectedZone={selectedZone}
-        onSelectZone={handleSelectZone}
-      />
-
-      {/* 4. Smooth Animated Category Pill Filters */}
-      <CategoryPills
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-      />
-
-      {/* 5. Interactive Categories Aisle Selector */}
-      <CategoryGrid
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-      />
-
-      {/* If a category is selected, display its product catalog */}
-      {selectedCategory && activeCategoryObj && (
-        <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 animate-fade-in">
-          <div className="flex items-center justify-between pb-4 border-b border-gray-200 mb-6">
-            <div className="flex items-center gap-2.5">
-              <span className="text-2xl">{activeCategoryObj.emoji}</span>
-              <div>
-                <h3 className="text-xl sm:text-2xl font-black text-gray-900 font-display">
-                  {activeCategoryObj.name}
-                </h3>
-                <p className="text-xs text-gray-500">{activeCategoryObj.description}</p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSelectedCategory(null)}
-              className="text-xs font-bold text-[#0A84FF] hover:underline cursor-pointer flex items-center gap-1"
-            >
-              <span>View All Campus Aisles</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-            {categoryProducts.map((prod) => (
-              <ProductCard
-                key={prod.id}
-                product={prod}
-                quantityInCart={cartQuantities[prod.id] || 0}
-                onAddToCart={handleAddToCart}
-                onUpdateQuantity={handleUpdateQuantity}
-                onToastMessage={triggerToast}
-                isWishlisted={wishlist.includes(prod.id)}
-                onToggleWishlist={handleToggleWishlist}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 6. Flash Deals Countdown Carousel */}
-      <FlashDeals
-        products={productsList}
-        onAddToCart={handleAddToCart}
-        cartQuantities={cartQuantities}
-        onToastMessage={triggerToast}
-        onUpdateQuantity={handleUpdateQuantity}
-      />
-
-      {/* 7. Campus Favourites (High demand student essentials) */}
-      <CampusFavourites
-        products={productsList}
-        cartQuantities={cartQuantities}
-        onAddToCart={handleAddToCart}
-        onUpdateQuantity={handleUpdateQuantity}
-        onToastMessage={triggerToast}
-        wishlist={wishlist}
-        onToggleWishlist={handleToggleWishlist}
-      />
-
-      {/* 8. Live Search Section */}
-      <SearchSection
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        products={productsList}
-        onSelectProduct={(p) => {
-          handleAddToCart(p);
-          triggerToast(`Added ${p.name} to cart!`);
+        onOpenWishlist={() => {
+          setCurrentTab('wishlist');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenProfile={() => {
+          setCurrentTab('profile');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
 
-      {/* 9. Interactive "Request a Product" Campus Box */}
-      <ProductRequestBox onToastMessage={triggerToast} />
+      {/* Main Tab Views Switcher */}
+      {currentTab === 'wishlist' ? (
+        <WishlistView
+          wishlistIds={wishlist}
+          products={productsList}
+          cartQuantities={cartQuantities}
+          onAddToCart={handleAddToCart}
+          onToggleWishlist={handleToggleWishlist}
+          onClearWishlist={handleClearWishlist}
+          onMoveAllToCart={handleMoveAllWishlistToCart}
+          onExploreCatalog={() => {
+            setCurrentTab('home');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onToastMessage={triggerToast}
+        />
+      ) : currentTab === 'profile' ? (
+        <OrdersProfileView
+          allZones={CAMPUS_ZONES}
+          onSelectZone={handleSelectZone}
+          onExploreCatalog={() => {
+            setCurrentTab('home');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onToastMessage={triggerToast}
+        />
+      ) : (
+        /* Home Feed View */
+        <>
+          {/* Top Sticky Global Search Bar with Live Feed Highlighting */}
+          <TopGlobalSearchBar
+            products={productsList}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onSelectAndHighlightProduct={handleSelectAndHighlightProduct}
+            isFilterFeedActive={isFilterFeedActive}
+            onToggleFilterFeed={() => setIsFilterFeedActive((prev) => !prev)}
+            selectedZone={selectedZone}
+            onOpenZoneSelector={() => setIsZoneModalOpen(true)}
+            allZones={CAMPUS_ZONES}
+            onSelectZone={handleSelectZone}
+          />
+
+          {/* 2. Hero Section */}
+          <HeroSection
+            onShopNow={scrollToFavourites}
+            onExploreCategories={scrollToCategories}
+          />
+
+          {/* 3. Delivery Speed & Zone Status Card */}
+          <DeliveryStatusCard
+            selectedZone={selectedZone}
+            onSelectZone={handleSelectZone}
+            onToastMessage={triggerToast}
+          />
+
+          {/* 4. Smooth Animated Category Pill Filters */}
+          <CategoryPills
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+
+          {/* 5. Interactive Categories Aisle Selector */}
+          <CategoryGrid
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+
+          {/* If a category is selected, display its product catalog */}
+          {selectedCategory && activeCategoryObj && (
+            <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 animate-fade-in">
+              <div className="flex items-center justify-between pb-4 border-b border-gray-200 mb-6">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">{activeCategoryObj.emoji}</span>
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-black text-gray-900 font-display">
+                      {activeCategoryObj.name}
+                    </h3>
+                    <p className="text-xs text-gray-500">{activeCategoryObj.description}</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory(null)}
+                  className="text-xs font-bold text-[#0A84FF] hover:underline cursor-pointer flex items-center gap-1"
+                >
+                  <span>View All Campus Aisles</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                {categoryProducts.map((prod) => (
+                  <ProductCard
+                    key={prod.id}
+                    product={prod}
+                    quantityInCart={cartQuantities[prod.id] || 0}
+                    onAddToCart={handleAddToCart}
+                    onUpdateQuantity={handleUpdateQuantity}
+                    onToastMessage={triggerToast}
+                    isWishlisted={wishlist.includes(prod.id)}
+                    onToggleWishlist={handleToggleWishlist}
+                    isHighlighted={highlightedProductId === prod.id}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 6. Flash Deals Countdown Carousel */}
+          <FlashDeals
+            products={displayedProducts}
+            onAddToCart={handleAddToCart}
+            cartQuantities={cartQuantities}
+            onToastMessage={triggerToast}
+            onUpdateQuantity={handleUpdateQuantity}
+          />
+
+          {/* 7. Campus Favourites (High demand student essentials) */}
+          <CampusFavourites
+            products={displayedProducts}
+            cartQuantities={cartQuantities}
+            onAddToCart={handleAddToCart}
+            onUpdateQuantity={handleUpdateQuantity}
+            onToastMessage={triggerToast}
+            wishlist={wishlist}
+            onToggleWishlist={handleToggleWishlist}
+            highlightedProductId={highlightedProductId}
+          />
+
+          {/* 8. Live Search Section */}
+          <SearchSection
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            products={productsList}
+            onSelectProduct={(p) => {
+              handleAddToCart(p);
+              triggerToast(`Added ${p.name} to cart!`);
+            }}
+          />
+
+          {/* 9. Interactive "Request a Product" Campus Box */}
+          <ProductRequestBox onToastMessage={triggerToast} />
+
+          {/* Modular Expansion: Campus Play Hub & Games Banner */}
+          <CampusPlayHubBanner onToastMessage={triggerToast} />
+        </>
+      )}
 
       {/* 10. Customer Footer */}
-      <Footer onOpenCustomerOrders={() => setIsCustomerOrdersOpen(true)} />
+      <Footer
+        onOpenCustomerOrders={() => {
+          setCurrentTab('profile');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
       {/* 11.5 Floating Quick-Delivery Banner with Pulse Animation */}
       <QuickDeliveryBanner
@@ -431,11 +602,12 @@ function CustomerStorefront() {
         onClose={() => setIsCustomerOrdersOpen(false)}
         onOpenStoreCatalog={() => {
           setIsCustomerOrdersOpen(false);
+          setCurrentTab('home');
           scrollToCategories();
         }}
       />
 
-      {/* 15. Campus Delivery Zone Selector Modal */}
+      {/* 15. Campus Delivery Zone Selector Modal with GPS Auto-Detect */}
       <AnimatePresence>
         {isZoneModalOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -464,7 +636,18 @@ function CustomerStorefront() {
                 </button>
               </div>
 
-              <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+              {/* 1-Tap Auto GPS Detect Button */}
+              <button
+                type="button"
+                onClick={handleAutoDetectLocation}
+                disabled={isDetectingLocation}
+                className="w-full mb-3 flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl bg-blue-50 hover:bg-blue-100 text-[#0A84FF] border border-blue-200 text-xs font-bold transition-all active:scale-98 cursor-pointer"
+              >
+                <Navigation className={`w-3.5 h-3.5 ${isDetectingLocation ? 'animate-spin' : ''}`} />
+                <span>{isDetectingLocation ? 'Detecting Campus GPS...' : 'Auto-Detect Nearest Campus Zone (GPS)'}</span>
+              </button>
+
+              <div className="space-y-2 max-h-[50vh] overflow-y-auto">
                 {CAMPUS_ZONES.map((zone) => {
                   const isSelected = zone.id === selectedZone.id;
                   return (
@@ -483,7 +666,9 @@ function CustomerStorefront() {
                           <span>{zone.name}</span>
                           {isSelected && <Check className="w-3.5 h-3.5 text-[#0A84FF]" />}
                         </div>
-                        <div className="text-[11px] text-gray-500 mt-0.5">{zone.block}</div>
+                        <div className="text-[11px] text-gray-500 mt-0.5">
+                          {zone.block} • ₹{zone.deliveryFee ?? 10} fee
+                        </div>
                       </div>
 
                       <div className="text-right">
@@ -507,13 +692,29 @@ function CustomerStorefront() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 15, scale: 0.95 }}
-            className="fixed bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 bg-[#111111] text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl border border-white/20 flex items-center gap-2 pointer-events-none"
+            className="fixed bottom-24 sm:bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#111111] text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl border border-white/20 flex items-center gap-2 pointer-events-none"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#FFD60A]" />
             <span>{toastMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 17. Bottom Navigation Bar with 4 Clear Tabs */}
+      <BottomNavBar
+        activeTab={currentTab}
+        onTabChange={(tab: NavigationTab) => {
+          if (tab === 'cart') {
+            setIsCartOpen(true);
+          } else {
+            setCurrentTab(tab);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        }}
+        cartCount={cartTotalCount}
+        cartTotal={cartTotalPrice}
+        wishlistCount={wishlist.length}
+      />
     </div>
   );
 }

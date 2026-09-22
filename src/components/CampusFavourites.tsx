@@ -11,6 +11,7 @@ interface CampusFavouritesProps {
   onToastMessage: (msg: string) => void;
   wishlist: string[];
   onToggleWishlist: (productId: string) => void;
+  highlightedProductId?: string | null;
 }
 
 export const CampusFavourites: React.FC<CampusFavouritesProps> = ({
@@ -21,6 +22,7 @@ export const CampusFavourites: React.FC<CampusFavouritesProps> = ({
   onToastMessage,
   wishlist,
   onToggleWishlist,
+  highlightedProductId,
 }) => {
   const popularProducts = products.filter((p) => p.isPopular);
 
@@ -57,6 +59,7 @@ export const CampusFavourites: React.FC<CampusFavouritesProps> = ({
             onToastMessage={onToastMessage}
             isWishlisted={wishlist.includes(prod.id)}
             onToggleWishlist={onToggleWishlist}
+            isHighlighted={highlightedProductId === prod.id}
             variant="light"
           />
         ))}
