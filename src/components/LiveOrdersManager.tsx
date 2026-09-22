@@ -110,7 +110,7 @@ export const LiveOrdersManager: React.FC = () => {
         setOrders(mapped);
       } else {
         // Fallback to cached store orders
-        const { fetchOrders } = await import('../lib/supabaseClient');
+        const { fetchOrders } = await import('../lib/supabase');
         const fallbackOrders = await fetchOrders();
         setOrders(
           fallbackOrders.map((o: any) => ({

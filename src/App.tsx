@@ -30,6 +30,7 @@ import { TopGlobalSearchBar } from './components/TopGlobalSearchBar';
 import { WishlistView } from './components/WishlistView';
 import { OrdersProfileView } from './components/OrdersProfileView';
 import { CampusPlayHubBanner } from './components/CampusPlayHubBanner';
+import { CampusLocationModal } from './components/CampusLocationModal';
 import { CAMPUS_ZONES, CATEGORIES, PRODUCTS } from './data/mockData';
 import { Product, CartItem, CampusZone } from './types';
 import { fetchProducts, supabase } from './lib/supabase';
@@ -207,13 +208,18 @@ function CustomerStorefront() {
 
   const handleSelectZone = (zone: CampusZone) => {
     setSelectedZone(zone);
-    // User selected a valid campus spot like Academic Complex, Hostels, Fatak - allow full ordering
-    setIsOutsideBoundary(false);
     try {
       localStorage.setItem('infinity_campus_zone', JSON.stringify(zone));
     } catch {}
+
+    if (zone.isOutsideDelivery) {
+      setIsOutsideBoundary(true);
+      triggerToast('🚀 Coming Soon to Your Area! We deliver exclusively inside campus.');
+    } else {
+      setIsOutsideBoundary(false);
+      triggerToast(`⚡ Express delivery set to: ${zone.name}`);
+    }
     setIsZoneModalOpen(false);
-    triggerToast(`Delivery location set to ${zone.name}`);
   };
 
   const handleAutoDetectLocation = async () => {
@@ -734,95 +740,15 @@ function CustomerStorefront() {
         }}
       />
 
-      {/* 15. Campus Delivery Zone Selector Modal with GPS Auto-Detect */}
-      <AnimatePresence>
-        {isZoneModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.92, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.92, opacity: 0 }}
-              className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-200"
-            >
-              <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-gray-900 text-sm">Select Campus Location</h3>
-                    <p className="text-[11px] text-gray-500">Pick your hostel or campus building</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsZoneModalOpen(false)}
-                  className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {isOutsideBoundary && (
-                <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900">
-                  <div className="font-bold flex items-center gap-1.5 text-amber-800">
-                    <MapPin className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                    <span>Outside Campus Boundary</span>
-                  </div>
-                  <p className="text-[11px] text-amber-700 mt-0.5 leading-snug">
-                    Pick your campus building, hostel, or lab below to enable express delivery there.
-                  </p>
-                </div>
-              )}
-
-              {/* 1-Tap Auto GPS Detect Button */}
-              <button
-                type="button"
-                onClick={handleAutoDetectLocation}
-                disabled={isDetectingLocation}
-                className="w-full mb-3 flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl bg-blue-50 hover:bg-blue-100 text-[#0A84FF] border border-blue-200 text-xs font-bold transition-all active:scale-98 cursor-pointer"
-              >
-                <Navigation className={`w-3.5 h-3.5 ${isDetectingLocation ? 'animate-spin' : ''}`} />
-                <span>{isDetectingLocation ? 'Detecting Campus GPS...' : 'Auto-Detect Nearest Campus Zone (GPS)'}</span>
-              </button>
-
-              <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-                {CAMPUS_ZONES.map((zone) => {
-                  const isSelected = zone.id === selectedZone.id;
-                  return (
-                    <button
-                      key={zone.id}
-                      type="button"
-                      onClick={() => handleSelectZone(zone)}
-                      className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
-                        isSelected
-                          ? 'border-[#0A84FF] bg-blue-50/60 shadow-xs'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div>
-                        <div className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
-                          <span>{zone.name}</span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#0A84FF]" />}
-                        </div>
-                        <div className="text-[11px] text-gray-500 mt-0.5">
-                          {zone.block} • ₹{zone.deliveryFee ?? 10} fee
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                          ⚡ {zone.estMinutes}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* 15. Campus Delivery Zone Selector Modal (1-Tap Campus Location Picker) */}
+      <CampusLocationModal
+        isOpen={isZoneModalOpen}
+        onClose={() => setIsZoneModalOpen(false)}
+        selectedZone={selectedZone}
+        onSelectZone={handleSelectZone}
+        allZones={CAMPUS_ZONES}
+        isOutsideBoundary={isOutsideBoundary}
+      />
 
       {/* 16. Lightweight Global Toast Message */}
       <AnimatePresence>

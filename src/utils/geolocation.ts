@@ -41,6 +41,58 @@ export function isInsideDeliveryZone(lng: number, lat: number): boolean {
 }
 
 /**
+ * Runs KML delivery boundary polygon check (Point-in-Polygon ray casting)
+ * against user's current GPS coordinates.
+ */
+export async function verifyGPSInsideBoundary(): Promise<{
+  isInside: boolean;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  message: string;
+}> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      reject(new Error('GPS / Geolocation is not supported by your browser.'));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        const isInside = isInsideDeliveryZone(longitude, latitude);
+
+        resolve({
+          isInside,
+          latitude,
+          longitude,
+          accuracy: Math.round(accuracy),
+          message: isInside
+            ? '✓ Verified: Within 10-15 Min Express Campus Delivery Zone'
+            : '📍 Location Outside Delivery Area — We currently deliver only within campus and nearby affiliated PGs (10-15 min express). Coming Soon to your area!',
+        });
+      },
+      (error) => {
+        let msg = 'Could not access device location. Please enable GPS permissions.';
+        if (error.code === 1) {
+          msg = 'Location permission was denied. Please allow location access in your browser to verify.';
+        } else if (error.code === 2) {
+          msg = 'GPS signal unavailable. Please ensure location is switched on.';
+        } else if (error.code === 3) {
+          msg = 'Location request timed out. Please retry.';
+        }
+        reject(new Error(msg));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 9000,
+        maximumAge: 30000,
+      }
+    );
+  });
+}
+
+/**
  * Calculates distance in kilometers between two GPS coordinates using Haversine formula
  */
 function getDistanceFromLatLonInKm(

@@ -47,6 +47,10 @@ export interface CampusZone {
   isOnline: boolean;
   deliveryFee: number;
   coordinates?: { lat: number; lng: number };
+  isOutsideDelivery?: boolean;
+  isCustom?: boolean;
+  customLocation?: string;
+  isVerifiedInside?: boolean;
 }
 
 export interface CampusLocation {

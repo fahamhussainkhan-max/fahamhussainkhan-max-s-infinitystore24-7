@@ -72,7 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
           <span className="text-[#FFD60A] font-black tracking-wide">⚡ Campus Express:</span>
           <span className="text-gray-100 font-semibold">Delivered in 10-15 mins</span>
-          <span className="hidden sm:inline text-[11px] text-gray-400 border-l border-white/20 pl-2">Hostel & Fatak Rush</span>
+          <span className="hidden sm:inline text-[11px] text-gray-400 border-l border-white/20 pl-2">Hostels & Main Gate</span>
         </div>
       </div>
 
@@ -129,21 +129,22 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </a>
 
-          {/* Location Picker Pill (Desktop) */}
+          {/* Location Picker Pill (Desktop & Mobile) */}
           <button
             type="button"
             id="nav-location-picker"
             onClick={onOpenZoneSelector}
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:border-gray-400 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-left cursor-pointer pointer-events-auto"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:border-gray-400 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-left cursor-pointer pointer-events-auto"
+            title="Click to change campus delivery spot"
           >
-            <MapPin className="w-3.5 h-3.5 text-[#30D158]" />
-            <div>
-              <div className="text-[10px] text-gray-400 font-medium leading-none">
-                Delivering in {selectedZone.estMinutes}
+            <MapPin className="w-3.5 h-3.5 text-[#30D158] flex-shrink-0" />
+            <div className="min-w-0">
+              <div className="text-[9px] sm:text-[10px] text-gray-400 font-medium leading-none hidden xs:block">
+                {selectedZone.isOutsideDelivery ? 'Outside Campus' : `Express ${selectedZone.estMinutes || '10-15m'}`}
               </div>
-              <div className="text-xs font-bold text-gray-900 leading-tight flex items-center gap-1">
-                <span className="truncate max-w-[130px]">{selectedZone.name}</span>
-                <ChevronDown className="w-3 h-3 text-gray-400" />
+              <div className="text-[11px] sm:text-xs font-bold text-gray-900 leading-tight flex items-center gap-1">
+                <span className="truncate max-w-[85px] sm:max-w-[130px]">{selectedZone.name}</span>
+                <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
               </div>
             </div>
           </button>

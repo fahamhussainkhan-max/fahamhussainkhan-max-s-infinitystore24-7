@@ -234,6 +234,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     cartItems={cartItems}
                     grandTotal={grandTotal}
                     isOutsideBoundary={isOutsideBoundary}
+                    initialArea={selectedZone.name}
                     onSelectCampusZone={() => {
                       setIsCheckoutFormOpen(false);
                       onClose();

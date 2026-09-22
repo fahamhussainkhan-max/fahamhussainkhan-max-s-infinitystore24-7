@@ -55,25 +55,15 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
 
   // Normalize order status to numerical step
   // 1: Received / Placed / Confirmed / Pending
-  // 2: Preparing
+  // 2: Preparing / ready
   // 3: Out for Delivery
   // 4: Delivered
-  const getStepIndex = (status: string): number => {
-    switch (status) {
-      case 'Pending':
-      case 'Confirmed':
-      case 'Received':
-        return 1;
-      case 'Preparing':
-      case 'Ready':
-        return 2;
-      case 'Out for Delivery':
-        return 3;
-      case 'Delivered':
-        return 4;
-      default:
-        return 1;
-    }
+  const getStepIndex = (status: string = ''): number => {
+    const s = (status || '').toLowerCase().trim();
+    if (s === 'delivered') return 4;
+    if (s.includes('out') || s.includes('delivery') || s.includes('dispatched') || s.includes('transit')) return 3;
+    if (s.includes('prep') || s.includes('pack') || s.includes('ready')) return 2;
+    return 1; // pending, confirmed, received, placed
   };
 
   const activeStep = getStepIndex(currentOrder.status);

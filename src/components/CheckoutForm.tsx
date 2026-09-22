@@ -1,7 +1,17 @@
-import React, { useState } from 'react';
-import { supabase } from '../lib/supabaseClient'; // Aapka supabase client path
-import { recordCampusOrder, handleQuickOrder, placeFastOrder } from '../lib/supabase';
-import { ShieldCheck, Truck, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import {
+  ShieldCheck,
+  Truck,
+  ArrowLeft,
+  AlertTriangle,
+  MapPin,
+  Navigation,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+} from 'lucide-react';
+import { verifyGPSInsideBoundary } from '../utils/geolocation';
 
 interface CheckoutFormProps {
   cartItems: any[];
@@ -10,6 +20,7 @@ interface CheckoutFormProps {
   grandTotal?: number;
   isOutsideBoundary?: boolean;
   onSelectCampusZone?: () => void;
+  initialArea?: string;
 }
 
 export default function CheckoutForm({
@@ -19,16 +30,29 @@ export default function CheckoutForm({
   grandTotal,
   isOutsideBoundary = false,
   onSelectCampusZone,
+  initialArea,
 }: CheckoutFormProps) {
+  // Preset list as required
+  const PRESET_OPTIONS = [
+    'Academic Complex & Main Campus',
+    'Boys Hostel (Block A/B/C)',
+    'Girls Hostel',
+    'Campus Main Gate',
+    'Library & Student Labs',
+    'Upper PG & Outside PG Enclave',
+    'Custom PG / Other Specific Location',
+  ];
+
   const [formData, setFormData] = useState(() => {
     try {
       const saved = localStorage.getItem('infinity_student_profile');
       if (saved) {
         const p = JSON.parse(saved);
+        const areaToUse = initialArea || p.hostel || 'Academic Complex & Main Campus';
         return {
           fullName: p.fullName || '',
           phone: p.phone || '',
-          area: p.hostel || 'Campus Hostels',
+          area: areaToUse,
           roomNo: p.roomNo || '',
           notes: p.notes || '',
         };
@@ -37,152 +61,250 @@ export default function CheckoutForm({
     return {
       fullName: '',
       phone: '',
-      area: 'Campus Hostels',
+      area: initialArea || 'Academic Complex & Main Campus',
       roomNo: '',
       notes: '',
     };
   });
 
+  // Custom PG specific fields and verification state
+  const isCustomOption =
+    formData.area === 'Custom PG / Other Specific Location' ||
+    (!PRESET_OPTIONS.includes(formData.area) && Boolean(formData.area));
+
+  const [customPgName, setCustomPgName] = useState(() => {
+    if (!PRESET_OPTIONS.includes(formData.area)) {
+      return formData.area;
+    }
+    return '';
+  });
+
+  const [customVerification, setCustomVerification] = useState<{
+    status: 'idle' | 'verifying' | 'inside' | 'outside' | 'error';
+    message: string;
+  }>({
+    status: 'idle',
+    message: '',
+  });
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [hasAutoFilled] = useState(() => {
-    try {
-      const saved = localStorage.getItem('infinity_student_profile');
-      return Boolean(saved);
-    } catch {
-      return false;
+
+  // Sync initialArea prop if changed
+  useEffect(() => {
+    if (initialArea) {
+      if (initialArea === 'Custom PG / Other Specific Location') {
+        setFormData((prev) => ({ ...prev, area: 'Custom PG / Other Specific Location' }));
+      } else if (PRESET_OPTIONS.includes(initialArea)) {
+        setFormData((prev) => ({ ...prev, area: initialArea }));
+      } else {
+        setFormData((prev) => ({ ...prev, area: 'Custom PG / Other Specific Location' }));
+        setCustomPgName(initialArea);
+        setCustomVerification({
+          status: 'inside',
+          message: '✓ Verified: Within 10-15 Min Express Campus Delivery Zone',
+        });
+      }
     }
-  });
+  }, [initialArea]);
+
+  // Determine if delivery is outside boundary
+  const isOutsideDelivery =
+    isOutsideBoundary ||
+    (isCustomOption && customVerification.status === 'outside');
+
+  // If custom option is chosen, require verification to be inside before enabling checkout
+  const isCustomPendingVerification =
+    isCustomOption && customVerification.status !== 'inside';
+
+  const isCheckoutDisabled =
+    loading || isOutsideDelivery || isCustomPendingVerification;
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === 'area') {
+      if (value === 'Custom PG / Other Specific Location') {
+        setCustomVerification({ status: 'idle', message: '' });
+      } else {
+        setCustomVerification({ status: 'idle', message: '' });
+      }
+    }
+  };
+
+  // Run GPS verification for custom PG
+  const handleVerifyCustomLocation = async () => {
+    if (!customPgName.trim()) {
+      setCustomVerification({
+        status: 'error',
+        message: 'Please enter your PG / Building / House Name & Landmark first.',
+      });
+      return;
+    }
+
+    setCustomVerification({
+      status: 'verifying',
+      message: 'Acquiring GPS coordinates & checking campus KML delivery boundary...',
+    });
+
+    try {
+      const result = await verifyGPSInsideBoundary();
+
+      if (result.isInside) {
+        setCustomVerification({
+          status: 'inside',
+          message: '✓ Verified: Within 10-15 Min Express Campus Delivery Zone',
+        });
+      } else {
+        setCustomVerification({
+          status: 'outside',
+          message:
+            '📍 Location Outside Delivery Area — We currently deliver only within campus and nearby affiliated PGs (10-15 min express). Coming Soon to your area!',
+        });
+      }
+    } catch (err: any) {
+      setCustomVerification({
+        status: 'error',
+        message:
+          err.message || 'GPS location permission denied. Please allow location access.',
+      });
+    }
   };
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setErrorMsg('');
 
-    // Phone validation
-    if (formData.phone.trim().length < 10) {
-      setErrorMsg('Please enter a valid 10-digit phone number');
-      setLoading(false);
+    if (isOutsideDelivery) {
+      setErrorMsg(
+        'We currently deliver only within campus and nearby affiliated PGs. Please select a valid campus location.'
+      );
       return;
     }
 
+    if (isCustomOption && customVerification.status !== 'inside') {
+      setErrorMsg(
+        'Please verify your custom PG / Building location with GPS before placing your order.'
+      );
+      return;
+    }
+
+    if (!formData.roomNo.trim()) {
+      setErrorMsg('Please enter your Room / Flat / Floor Number so the runner can reach you.');
+      return;
+    }
+
+    if (formData.phone.trim().length < 10) {
+      setErrorMsg('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg('');
+
+    // Determine final delivery location string
+    const selectedLocation = isCustomOption
+      ? customPgName.trim()
+      : formData.area;
+    const roomDetails = formData.roomNo.trim();
+    const deliveryLocation = `${selectedLocation} - Room: ${roomDetails || 'N/A'}`;
+
     try {
-      // 1. Prepare Address JSON payload
-      const addressPayload = {
-        fullName: formData.fullName,
-        phone: formData.phone,
-        area: formData.area,
-        roomNo: formData.roomNo,
-        notes: formData.notes,
-      };
-
-      // 2. Calculate Order Total
-      const mappedItems = cartItems.map((item: any) => ({
-        id: item.id || item.product?.id || 'item',
-        name: item.name || item.title || item.product?.name || 'Campus Item',
-        quantity: item.quantity || 1,
-        price: item.price !== undefined ? item.price : (item.product?.price || 0),
-      }));
-
-      const calculatedSubtotal = mappedItems.reduce(
-        (acc: number, it: any) => acc + it.price * it.quantity,
+      const calculatedSubtotal = cartItems.reduce(
+        (acc: number, item: any) =>
+          acc +
+          (item.price !== undefined ? item.price : item.product?.price || 0) *
+            (item.quantity || 1),
         0
       );
-      const orderTotal = grandTotal !== undefined ? grandTotal : calculatedSubtotal;
+      const cartTotal = grandTotal !== undefined ? grandTotal : calculatedSubtotal;
+      const customerName = formData.fullName.trim();
+      const customerPhone = formData.phone.trim();
 
-      let finalOrderId: string | null = null;
-
-      // 3. Primary Fast Checkout: Direct single-roundtrip insert using placeFastOrder
-      try {
-        const fastOrder = await placeFastOrder(
-          {
-            name: formData.fullName,
-            phone: formData.phone,
-            zone: formData.area,
-            room: formData.roomNo,
-            notes: formData.notes,
+      // 1. Insert into orders table using verified Supabase schema
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert([{
+          status: 'preparing',
+          payment_method: 'COD',
+          payment_status: 'unpaid',
+          subtotal: Number(cartTotal),
+          total: Number(cartTotal),
+          delivery_fee: 0,
+          discount: 0,
+          delivery_address: {
+            fullName: customerName || 'Campus Student',
+            phone: customerPhone,
+            area: selectedLocation,
+            roomNo: roomDetails || 'N/A',
+            notes: formData.notes || '',
+            formatted: deliveryLocation,
           },
-          mappedItems.map((it: any) => ({
-            id: it.id,
-            title: it.name,
-            price: it.price,
-            quantity: it.quantity,
-          })),
-          orderTotal
-        );
+        }])
+        .select()
+        .single();
 
-        if (fastOrder?.id) {
-          finalOrderId = fastOrder.order_number || fastOrder.id;
-        }
-      } catch (fastErr) {
-        console.warn('placeFastOrder direct attempt notice, falling back:', fastErr);
+      if (orderError) {
+        console.error('Order Insert Error:', orderError);
+        throw new Error(orderError.message || 'Database rejected order insertion');
       }
 
-      // 4. Resilient Fallback to recordCampusOrder
-      if (!finalOrderId) {
-        const recordRes = await recordCampusOrder({
-          customerName: formData.fullName,
-          studentPhone: formData.phone,
-          deliveryZone: formData.area,
-          roomDetails: `${formData.roomNo}${formData.notes ? ` • Note: ${formData.notes}` : ''}`,
-          deliveryAddress: addressPayload,
-          items: mappedItems,
-          total: orderTotal,
-          paymentMethod: 'Cash on Delivery',
+      // 2. Insert items using verified order_items schema
+      if (cartItems && cartItems.length > 0 && orderData) {
+        const itemsPayload = cartItems.map((item: any) => {
+          const itemPrice = item.price !== undefined ? Number(item.price) : Number(item.product?.price || 0);
+          const itemQty = Number(item.quantity || 1);
+          return {
+            order_id: orderData.id,
+            product_id: item.id || item.product?.id || null,
+            product_name_snapshot: item.name || item.title || item.product?.name || 'Campus Item',
+            price_snapshot: itemPrice,
+            quantity: itemQty,
+            subtotal: itemPrice * itemQty,
+          };
         });
 
-        finalOrderId = recordRes.order.id;
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(itemsPayload);
+
+        if (itemsError) {
+          console.error('Order Items Insert Error:', itemsError);
+        }
       }
 
-      if (!finalOrderId) {
-        throw new Error('Could not generate order ID');
-      }
-
-      // Persist profile to localStorage and Supabase 'profiles' table
+      // 3. Save student profile locally for convenience in next orders
       try {
         const studentProfile = {
-          fullName: formData.fullName,
-          phone: formData.phone,
-          hostel: formData.area,
-          roomNo: formData.roomNo,
+          fullName: customerName,
+          phone: customerPhone,
+          hostel: selectedLocation,
+          roomNo: roomDetails,
           notes: formData.notes,
         };
         localStorage.setItem('infinity_student_profile', JSON.stringify(studentProfile));
-
-        // Upsert to Supabase profiles
-        supabase
-          .from('profiles')
-          .upsert(
-            [
-              {
-                id: `usr-${formData.phone.replace(/\D/g, '') || 'guest'}`,
-                full_name: formData.fullName,
-                phone: formData.phone,
-                role: 'student',
-                hostel_block: `${formData.area} - ${formData.roomNo}`,
-                created_at: new Date().toISOString(),
-              },
-            ],
-            { onConflict: 'id' }
-          )
-          .then(() => {});
       } catch (profileSaveErr) {
         console.warn('Profile persistence notice:', profileSaveErr);
       }
 
-      console.log(`Order placed successfully! Order ID: ${finalOrderId}`);
+      const finalOrderId = orderData?.id || `INF-${Date.now()}`;
 
+      // 4. Complete checkout: immediate success transition & cart clear
       if (onOrderSuccess) {
-        onOrderSuccess(finalOrderId, addressPayload);
+        onOrderSuccess(finalOrderId, {
+          fullName: customerName,
+          phone: customerPhone,
+          area: selectedLocation,
+          roomNo: roomDetails,
+          notes: formData.notes,
+        });
       }
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Order failed to submit');
+      console.error('Checkout failure:', err);
+      const displayMsg = 'Failed to place order: ' + (err?.message || 'Check connection');
+      setErrorMsg(displayMsg);
     } finally {
       setLoading(false);
     }
@@ -196,7 +318,7 @@ export default function CheckoutForm({
             <button
               type="button"
               onClick={onCancel}
-              className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors mr-1"
+              className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors mr-1 cursor-pointer"
               aria-label="Back to Cart"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -204,7 +326,7 @@ export default function CheckoutForm({
           )}
           <div>
             <h2 className="text-xl font-bold text-neutral-900">Delivery Details</h2>
-            <p className="text-xs text-neutral-500">10-Minute Campus Hostel Delivery</p>
+            <p className="text-xs text-neutral-500">10-15 Min Campus Express Delivery (COD)</p>
           </div>
         </div>
 
@@ -217,12 +339,44 @@ export default function CheckoutForm({
       </div>
 
       {errorMsg && (
-        <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">
-          {errorMsg}
+        <div
+          id="checkout-error-toast"
+          className="mb-4 p-3.5 bg-red-50 text-red-700 rounded-xl text-xs sm:text-sm border border-red-200 flex items-start gap-2 shadow-xs animate-shake"
+        >
+          <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 font-semibold">{errorMsg}</div>
+        </div>
+      )}
+
+      {/* Outside Boundary Notice */}
+      {isOutsideDelivery && (
+        <div className="mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-950 text-xs space-y-2">
+          <div className="font-bold flex items-center gap-1.5 text-rose-900 text-sm">
+            <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+            <span>📍 Location Outside Delivery Area</span>
+          </div>
+          <p className="text-xs text-rose-800 leading-relaxed">
+            We currently deliver only within campus and nearby affiliated PGs (10-15 min express).
+            Coming Soon to your area!
+          </p>
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setFormData((prev) => ({ ...prev, area: 'Academic Complex & Main Campus' }));
+                setCustomVerification({ status: 'idle', message: '' });
+                if (onSelectCampusZone) onSelectCampusZone();
+              }}
+              className="px-3 py-1.5 bg-neutral-900 hover:bg-black text-white rounded-xl font-bold text-xs transition cursor-pointer"
+            >
+              Switch to Campus Location (10-15 Mins)
+            </button>
+          </div>
         </div>
       )}
 
       <form onSubmit={handleSubmitOrder} className="space-y-4">
+        {/* Full Name */}
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">
             Full Name
@@ -238,6 +392,7 @@ export default function CheckoutForm({
           />
         </div>
 
+        {/* Phone Number */}
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">
             Phone Number
@@ -253,28 +408,119 @@ export default function CheckoutForm({
           />
         </div>
 
+        {/* Campus Delivery Location Dropdown */}
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">
-            Delivery Area
+            Campus Delivery Location
           </label>
           <select
             name="area"
-            value={formData.area}
+            value={
+              PRESET_OPTIONS.includes(formData.area)
+                ? formData.area
+                : 'Custom PG / Other Specific Location'
+            }
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+            className="w-full px-4 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium cursor-pointer"
           >
-            <option value="College Main Gate (Fatak)">
-              College Main Gate (Fatak)
+            <option value="Academic Complex & Main Campus">
+              Academic Complex & Main Campus
             </option>
-            <option value="Campus Hostels">Campus Hostels</option>
-            <option value="Faculty Quarters">Faculty Quarters</option>
-            <option value="Upper PG Area">Upper PG Area</option>
+            <option value="Boys Hostel (Block A/B/C)">
+              Boys Hostel (Block A/B/C)
+            </option>
+            <option value="Girls Hostel">
+              Girls Hostel
+            </option>
+            <option value="Campus Main Gate">
+              Campus Main Gate
+            </option>
+            <option value="Library & Student Labs">
+              Library & Student Labs
+            </option>
+            <option value="Upper PG & Outside PG Enclave">
+              Upper PG & Outside PG Enclave
+            </option>
+            <option value="Custom PG / Other Specific Location">
+              Custom PG / Other Specific Location (GPS Verified)
+            </option>
           </select>
         </div>
 
+        {/* CUSTOM PG / MANUAL LOCATION INPUT & GPS VERIFICATION */}
+        {isCustomOption && (
+          <div className="p-3.5 rounded-2xl bg-orange-50/50 border border-orange-200 space-y-3">
+            <div>
+              <label className="block text-xs font-bold text-neutral-800 mb-1">
+                Custom PG / Building Name & Landmark
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={customPgName}
+                  onChange={(e) => {
+                    setCustomPgName(e.target.value);
+                    setCustomVerification({ status: 'idle', message: '' });
+                  }}
+                  placeholder="Enter your PG / Building / House Name & Landmark..."
+                  className="flex-1 px-3.5 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm bg-white"
+                />
+
+                <button
+                  type="button"
+                  id="checkout-verify-custom-location-btn"
+                  onClick={handleVerifyCustomLocation}
+                  disabled={customVerification.status === 'verifying'}
+                  className="px-3.5 py-2 rounded-xl bg-[#111111] hover:bg-black text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0"
+                >
+                  {customVerification.status === 'verifying' ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FFD60A]" />
+                      <span>Verifying...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="w-3.5 h-3.5 text-[#30D158]" />
+                      <span>Verify Location</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Verification Status Feedback */}
+            {customVerification.status === 'inside' && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span className="font-semibold">{customVerification.message}</span>
+              </div>
+            )}
+
+            {customVerification.status === 'outside' && (
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-start gap-2">
+                <XCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                <span className="font-semibold">{customVerification.message}</span>
+              </div>
+            )}
+
+            {customVerification.status === 'error' && (
+              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                {customVerification.message}
+              </div>
+            )}
+
+            {customVerification.status === 'idle' && (
+              <p className="text-[11px] text-neutral-500">
+                💡 Click <strong>Verify Location</strong> to confirm your PG coordinates fall within our 10-15 min express delivery boundary.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ALWAYS PROMPT FOR ROOM / FLAT / FLOOR NUMBER */}
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">
-            Room / Flat / Block No
+            Room / Flat / Floor Number <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -282,11 +528,15 @@ export default function CheckoutForm({
             required
             value={formData.roomNo}
             onChange={handleChange}
-            placeholder="e.g. Room 302, Hostel B"
+            placeholder="e.g. Room 302, 3rd Floor / Flat 4B / Desk 12"
             className="w-full px-4 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
+          <p className="text-[11px] text-neutral-400 mt-1">
+            Required so our student delivery runner can hand over directly to your doorstep.
+          </p>
         </div>
 
+        {/* Delivery Note (Optional) */}
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">
             Delivery Note (Optional)
@@ -296,45 +546,28 @@ export default function CheckoutForm({
             name="notes"
             value={formData.notes}
             onChange={handleChange}
-            placeholder="e.g. Call when outside"
+            placeholder="e.g. Call upon reaching the gate / Leave at reception"
             className="w-full px-4 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
         </div>
 
-        {isOutsideBoundary && (
-          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1.5">
-            <div className="font-bold flex items-center gap-1.5 text-amber-800">
-              <span>📍 Outside Campus Delivery Boundary</span>
-            </div>
-            <p className="text-[11px] text-amber-700 leading-snug">
-              We currently deliver exclusively within campus hostels and labs (10-15 min express). Coming Soon to your location!
-            </p>
-            {onSelectCampusZone && (
-              <button
-                type="button"
-                onClick={onSelectCampusZone}
-                className="w-full mt-1 py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition cursor-pointer"
-              >
-                Deliver to a Campus Hostel / Lab Instead
-              </button>
-            )}
-          </div>
-        )}
-
+        {/* Place Order Submit Button */}
         <div className="pt-2">
           <button
             type="submit"
-            disabled={loading || isOutsideBoundary}
-            className={`w-full py-3 text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md transition ${
-              isOutsideBoundary
+            disabled={isCheckoutDisabled}
+            className={`w-full py-3.5 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md transition ${
+              isCheckoutDisabled
                 ? 'bg-gray-400 cursor-not-allowed opacity-80'
                 : 'bg-[#FF3B30] hover:bg-red-600 cursor-pointer active:scale-98'
             }`}
           >
             <Truck className="w-4 h-4" />
             <span>
-              {isOutsideBoundary
-                ? 'Delivery Locked - Outside Campus Boundary'
+              {isOutsideDelivery
+                ? 'Checkout Disabled — Outside Campus Boundary'
+                : isCustomPendingVerification
+                ? 'Verify Custom PG Location to Enable Checkout'
                 : loading
                 ? 'Placing Order...'
                 : 'Place Order (Cash on Delivery)'}
