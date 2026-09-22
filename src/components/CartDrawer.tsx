@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Zap, CheckCircle2, Bike } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Zap, CheckCircle2, Bike, MapPin } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CartItem, CampusZone } from '../types';
 import { recordCampusOrder } from '../lib/supabase';
@@ -13,6 +13,8 @@ interface CartDrawerProps {
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onClearCart: () => void;
   selectedZone: CampusZone;
+  isOutsideBoundary?: boolean;
+  onOpenZoneSelector?: () => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -22,6 +24,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onUpdateQuantity,
   onClearCart,
   selectedZone,
+  isOutsideBoundary = false,
+  onOpenZoneSelector,
 }) => {
   const [roomDetails, setRoomDetails] = useState('Room 204, 2nd Floor');
   const [promoCode, setPromoCode] = useState('');
@@ -229,6 +233,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <CheckoutForm
                     cartItems={cartItems}
                     grandTotal={grandTotal}
+                    isOutsideBoundary={isOutsideBoundary}
+                    onSelectCampusZone={() => {
+                      setIsCheckoutFormOpen(false);
+                      onClose();
+                      onOpenZoneSelector?.();
+                    }}
                     onCancel={() => setIsCheckoutFormOpen(false)}
                     onOrderSuccess={(orderId, deliveryAddress) => {
                       confetti({
@@ -411,21 +421,45 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsCheckoutFormOpen(true)}
-                    className="w-full py-4 bg-[#FF3B30] hover:bg-red-600 text-white font-extrabold rounded-2xl shadow-xl flex items-center justify-between px-6 transition-all duration-200 active:scale-95 cursor-pointer"
-                  >
-                    <div className="text-left">
-                      <div className="text-[10px] text-red-100 font-medium">10-MIN CAMPUS RUSH</div>
-                      <div className="text-base font-black">₹{grandTotal}</div>
+                  {isOutsideBoundary ? (
+                    <div className="w-full p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col gap-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-amber-800">
+                        <MapPin className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                        <span>📍 Delivery Locked - Outside Campus Boundary</span>
+                      </div>
+                      <p className="text-[11px] text-amber-700 leading-tight">
+                        We currently deliver exclusively within campus hostels and labs (10-15 min express). Coming Soon to your location!
+                      </p>
+                      {onOpenZoneSelector && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            onOpenZoneSelector();
+                          }}
+                          className="mt-1 w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                        >
+                          Select Campus Drop Spot to Order
+                        </button>
+                      )}
                     </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsCheckoutFormOpen(true)}
+                      className="w-full py-4 bg-[#FF3B30] hover:bg-red-600 text-white font-extrabold rounded-2xl shadow-xl flex items-center justify-between px-6 transition-all duration-200 active:scale-95 cursor-pointer"
+                    >
+                      <div className="text-left">
+                        <div className="text-[10px] text-red-100 font-medium">10-MIN CAMPUS RUSH</div>
+                        <div className="text-base font-black">₹{grandTotal}</div>
+                      </div>
 
-                    <div className="flex items-center gap-1.5 text-sm font-bold text-white">
-                      <span>Enter Delivery Details</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </div>
-                  </button>
+                      <div className="flex items-center gap-1.5 text-sm font-bold text-white">
+                        <span>Enter Delivery Details</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>

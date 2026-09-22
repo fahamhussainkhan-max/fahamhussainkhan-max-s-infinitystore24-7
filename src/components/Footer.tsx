@@ -7,7 +7,7 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
   return (
-    <footer className="w-full bg-[#111111] text-white border-t border-gray-800 pt-12 sm:pt-16 pb-24 sm:pb-12 mt-16 select-none">
+    <footer className="w-full bg-[#111111] text-white border-t border-gray-800 py-12 sm:py-16 mt-16 select-none">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-12 border-b border-gray-800/80">
           {/* Col 1: Brand Info & Operational Status */}

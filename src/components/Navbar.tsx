@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingBag, MapPin, Heart, Search, Sparkles, ChevronDown, User, Grid } from 'lucide-react';
 import { CampusZone } from '../types';
 
@@ -15,6 +15,8 @@ interface NavbarProps {
   onScrollToCategories?: () => void;
   onOpenWishlist?: () => void;
   onOpenProfile?: () => void;
+  onGoHome?: () => void;
+  activeTab?: 'home' | 'wishlist' | 'profile';
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -30,11 +32,39 @@ export const Navbar: React.FC<NavbarProps> = ({
   onScrollToCategories,
   onOpenWishlist,
   onOpenProfile,
+  onGoHome,
+  activeTab = 'home',
 }) => {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#FAFAF7]/95 backdrop-blur-xl border-b border-gray-200/80 transition-all select-none">
+    <header
+      id="main-top-navbar"
+      style={{
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        backgroundColor: isScrolled ? 'rgba(255, 255, 255, 0.90)' : 'rgba(255, 255, 255, 0.85)',
+        boxShadow: isScrolled ? '0 4px 20px -2px rgba(0, 0, 0, 0.08)' : 'none',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+      className="sticky top-0 z-50 w-full border-b border-gray-200/80 pointer-events-auto select-none"
+    >
       {/* Floating Quick-Delivery pill badge at the top with soft neon pulse glow */}
-      <div className="w-full bg-[#111111] py-1.5 px-3 sm:px-4 flex items-center justify-center border-b border-white/10">
+      <div
+        className={`w-full bg-[#111111] px-3 sm:px-4 flex items-center justify-center border-b border-white/10 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+          isScrolled ? 'py-1' : 'py-1.5'
+        }`}
+      >
         <div className="inline-flex items-center gap-2 px-3.5 py-0.5 rounded-full bg-[#1c1c1e] text-xs font-bold text-white border border-[#30D158]/60 shadow-[0_0_18px_rgba(48,209,88,0.4),0_0_6px_rgba(10,132,255,0.3)] animate-pulse">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#30D158] opacity-75" />
@@ -46,12 +76,30 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between gap-3">
+      <div
+        className={`max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-3 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+          isScrolled ? 'h-14 sm:h-16 py-1.5 sm:py-2' : 'h-16 sm:h-20 py-2.5 sm:py-3.5'
+        }`}
+      >
         {/* Brand Logo & Tagline */}
         <div className="flex items-center gap-3">
-          <a href="#" className="flex items-center gap-2 group">
+          <a
+            href="#"
+            id="nav-logo-link"
+            onClick={(e) => {
+              if (onGoHome) {
+                e.preventDefault();
+                onGoHome();
+              }
+            }}
+            className="flex items-center gap-2 group cursor-pointer transition-transform duration-200 ease-out hover:scale-105 active:scale-95 pointer-events-auto"
+          >
             {/* Custom Multi-Color Infinity Symbol */}
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-[#111111] p-1.5 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+            <div
+              className={`rounded-2xl bg-[#111111] p-1.5 flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-300 ${
+                isScrolled ? 'w-8 h-8 sm:w-10 sm:h-10' : 'w-9 h-9 sm:w-11 sm:h-11'
+              }`}
+            >
               <svg viewBox="0 0 100 50" className="w-full h-full">
                 <defs>
                   <linearGradient id="navInfGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -84,8 +132,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Location Picker Pill (Desktop) */}
           <button
             type="button"
+            id="nav-location-picker"
             onClick={onOpenZoneSelector}
-            className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:border-gray-400 transition-all text-left cursor-pointer"
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:border-gray-400 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-left cursor-pointer pointer-events-auto"
           >
             <MapPin className="w-3.5 h-3.5 text-[#30D158]" />
             <div>
@@ -105,13 +154,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Categories / Aisles */}
           <a
             href="#categories-section"
+            id="nav-categories-btn"
             onClick={(e) => {
               if (onScrollToCategories) {
                 e.preventDefault();
                 onScrollToCategories();
               }
             }}
-            className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-colors text-xs font-bold"
+            className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-xs font-bold pointer-events-auto cursor-pointer"
             title="Browse Categories"
           >
             <Grid className="w-4 h-4 text-gray-500" />
@@ -121,8 +171,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Search Trigger */}
           <button
             type="button"
+            id="nav-search-btn"
             onClick={onScrollToSearch}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-colors text-xs font-bold cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-xs font-bold cursor-pointer pointer-events-auto"
             title="Search catalog"
           >
             <Search className="w-4 h-4 text-gray-500" />
@@ -132,8 +183,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Quick Favourites / Top Picks */}
           <button
             type="button"
+            id="nav-toppicks-btn"
             onClick={onScrollToFavourites}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-colors text-xs font-bold cursor-pointer"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-xs font-bold cursor-pointer pointer-events-auto"
           >
             <Sparkles className="w-4 h-4 text-[#FFD60A]" />
             <span>Top Picks</span>
@@ -143,13 +195,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="relative">
             <button
               type="button"
+              id="nav-wishlist-btn"
               onClick={onOpenWishlist || onScrollToFavourites}
-              className="p-2 sm:p-2.5 rounded-xl text-gray-600 hover:text-[#FF3B30] hover:bg-red-50 transition-colors cursor-pointer"
+              className={`p-2 sm:p-2.5 rounded-xl transition-all duration-200 ease-out hover:scale-105 active:scale-95 cursor-pointer pointer-events-auto ${
+                activeTab === 'wishlist'
+                  ? 'text-[#FF3B30] bg-red-50 ring-2 ring-[#FF3B30]/30 shadow-xs'
+                  : 'text-gray-600 hover:text-[#FF3B30] hover:bg-red-50'
+              }`}
               title="Saved wishlist items"
             >
-              <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${activeTab === 'wishlist' ? 'fill-[#FF3B30]' : ''}`} />
               {wishlistCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#FF3B30] text-white text-[9px] font-black flex items-center justify-center">
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#FF3B30] text-white text-[9px] font-black flex items-center justify-center animate-pulse shadow-[0_0_8px_rgba(255,59,48,0.7)]">
                   {wishlistCount}
                 </span>
               )}
@@ -159,24 +216,30 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Customer Profile & Orders Button */}
           <button
             type="button"
+            id="nav-profile-btn"
             onClick={onOpenProfile || onOpenCustomerOrders}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-gray-100 text-gray-800 border border-gray-200/90 shadow-2xs transition-all text-xs font-bold cursor-pointer"
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-xs font-bold cursor-pointer pointer-events-auto ${
+              activeTab === 'profile'
+                ? 'bg-blue-50 text-[#0A84FF] border-[#0A84FF]/40 ring-2 ring-[#0A84FF]/20 shadow-xs'
+                : 'bg-white hover:bg-gray-100 text-gray-800 border-gray-200/90 shadow-2xs'
+            }`}
             title="View My Orders & Profile"
           >
-            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0A84FF]" />
+            <User className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0A84FF] ${activeTab === 'profile' ? 'stroke-[2.5]' : ''}`} />
             <span className="hidden sm:inline">Orders & Profile</span>
           </button>
 
           {/* Cart / Bag Trigger */}
           <button
             type="button"
+            id="nav-cart-btn"
             onClick={onOpenCart}
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white shadow-md active:scale-95 transition-all text-xs sm:text-sm font-bold cursor-pointer"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white shadow-md transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-xs sm:text-sm font-bold cursor-pointer pointer-events-auto"
           >
             <div className="relative">
               <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#FF3B30] text-white text-[9px] font-black flex items-center justify-center border border-[#111111]">
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#FF3B30] text-white text-[9px] font-black flex items-center justify-center border border-[#111111] animate-pulse shadow-[0_0_10px_rgba(255,59,48,0.8)]">
                   {cartCount}
                 </span>
               )}
@@ -190,3 +253,4 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
+

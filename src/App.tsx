@@ -30,11 +30,12 @@ import { TopGlobalSearchBar } from './components/TopGlobalSearchBar';
 import { WishlistView } from './components/WishlistView';
 import { OrdersProfileView } from './components/OrdersProfileView';
 import { CampusPlayHubBanner } from './components/CampusPlayHubBanner';
-import { BottomNavBar, NavigationTab } from './components/BottomNavBar';
 import { CAMPUS_ZONES, CATEGORIES, PRODUCTS } from './data/mockData';
 import { Product, CartItem, CampusZone } from './types';
 import { fetchProducts, supabase } from './lib/supabase';
-import { detectNearestCampusZone } from './utils/geolocation';
+import { detectNearestCampusZone, isInsideDeliveryZone } from './utils/geolocation';
+
+export type NavigationTab = 'home' | 'wishlist' | 'profile';
 
 /**
  * Infinity Store - Customer Web Application
@@ -46,6 +47,66 @@ export default function App() {
     if (window.location.hash.includes('admin')) {
       window.history.replaceState(null, '', window.location.pathname);
     }
+  }, []);
+
+  // Content Protection & Anti-Copy Lock
+  useEffect(() => {
+    // 1. Prevent right-click context menu
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // 2. Intercept inspect shortcut keys: F12, Ctrl+U, Ctrl+Shift+I/J/C, Ctrl+S
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+      // F12 (Developer tools)
+      if (e.key === 'F12' || e.keyCode === 123) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+
+      // Ctrl+U / Cmd+U (View source)
+      if (modKey && (e.key === 'u' || e.key === 'U')) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+
+      // Ctrl+S / Cmd+S (Save page)
+      if (modKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+
+      // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (DevTools Inspect)
+      if (modKey && e.shiftKey && ['i', 'I', 'j', 'J', 'c', 'C'].includes(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    // 3. Prevent dragging images across storefront
+    const handleDragStart = (e: DragEvent) => {
+      if ((e.target as HTMLElement)?.tagName === 'IMG') {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('dragstart', handleDragStart);
+
+    return () => {
+      window.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('dragstart', handleDragStart);
+    };
   }, []);
 
   return <CustomerStorefront />;
@@ -131,7 +192,7 @@ function CustomerStorefront() {
     };
   }, []);
 
-  // Campus Zone state
+  // Campus Zone & Delivery Boundary Geofence state
   const [selectedZone, setSelectedZone] = useState<CampusZone>(() => {
     try {
       const saved = localStorage.getItem('infinity_campus_zone');
@@ -141,10 +202,13 @@ function CustomerStorefront() {
     }
   });
 
+  const [isOutsideBoundary, setIsOutsideBoundary] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
   const handleSelectZone = (zone: CampusZone) => {
     setSelectedZone(zone);
+    // User selected a valid campus spot like Academic Complex, Hostels, Fatak - allow full ordering
+    setIsOutsideBoundary(false);
     try {
       localStorage.setItem('infinity_campus_zone', JSON.stringify(zone));
     } catch {}
@@ -156,8 +220,17 @@ function CustomerStorefront() {
     setIsDetectingLocation(true);
     try {
       const result = await detectNearestCampusZone(CAMPUS_ZONES);
-      handleSelectZone(result.zone);
-      triggerToast(result.message);
+      setSelectedZone(result.zone);
+      try {
+        localStorage.setItem('infinity_campus_zone', JSON.stringify(result.zone));
+      } catch {}
+      if (!result.isInsideGeofence) {
+        setIsOutsideBoundary(true);
+        triggerToast('📍 Outside Campus Delivery Boundary - Catalog Only Mode');
+      } else {
+        setIsOutsideBoundary(false);
+        triggerToast(result.message);
+      }
       setIsZoneModalOpen(false);
     } catch (err: any) {
       triggerToast(err.message || 'Could not auto-detect location');
@@ -166,18 +239,24 @@ function CustomerStorefront() {
     }
   };
 
-  // Auto-detect nearest zone on first visit if not yet chosen
+  // On initial load: request navigator.geolocation.getCurrentPosition to check boundary
   useEffect(() => {
-    const saved = localStorage.getItem('infinity_campus_zone');
-    if (!saved && typeof navigator !== 'undefined' && navigator.geolocation) {
-      detectNearestCampusZone(CAMPUS_ZONES)
-        .then((res) => {
-          setSelectedZone(res.zone);
-          try {
-            localStorage.setItem('infinity_campus_zone', JSON.stringify(res.zone));
-          } catch {}
-        })
-        .catch(() => {});
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { longitude, latitude } = position.coords;
+          const inside = isInsideDeliveryZone(longitude, latitude);
+          if (!inside) {
+            setIsOutsideBoundary(true);
+          } else {
+            setIsOutsideBoundary(false);
+          }
+        },
+        (error) => {
+          console.warn('Geolocation check status:', error.message);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
     }
   }, []);
 
@@ -389,7 +468,7 @@ function CustomerStorefront() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7] text-[#111111] font-sans antialiased selection:bg-[#0A84FF]/20 selection:text-[#0A84FF] pb-28 sm:pb-16">
+    <div className="min-h-screen bg-[#FAFAF7] text-[#111111] font-sans antialiased selection:bg-[#0A84FF]/20 selection:text-[#0A84FF]">
       {/* 1. Header & Navigation */}
       <Navbar
         selectedZone={selectedZone}
@@ -413,7 +492,53 @@ function CustomerStorefront() {
           setCurrentTab('profile');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
+        onGoHome={() => {
+          setCurrentTab('home');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        activeTab={currentTab}
       />
+
+      {/* Floating Outside Boundary Lockout Banner */}
+      <AnimatePresence>
+        {isOutsideBoundary && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="sticky top-[60px] sm:top-[68px] z-40 max-w-5xl mx-auto px-4 pt-2 pb-1"
+          >
+            <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white rounded-2xl p-3.5 sm:p-4 shadow-xl border border-white/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs sm:text-sm">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 text-white shadow-inner">
+                  <MapPin className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="font-extrabold flex items-center gap-2">
+                    <span>📍 Outside Campus Delivery Boundary</span>
+                    <span className="text-[10px] bg-white/25 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                      Catalog Only
+                    </span>
+                  </div>
+                  <p className="text-white/95 text-xs mt-0.5 max-w-2xl leading-relaxed">
+                    We currently deliver exclusively within campus hostels and labs (10-15 min express). Coming Soon to your location!
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsZoneModalOpen(true)}
+                  className="w-full sm:w-auto px-4 py-2 bg-white hover:bg-neutral-100 text-neutral-900 font-bold text-xs rounded-xl shadow-md transition active:scale-95 cursor-pointer whitespace-nowrap"
+                >
+                  Deliver to Campus Hostel / Lab
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Tab Views Switcher */}
       {currentTab === 'wishlist' ? (
@@ -594,6 +719,8 @@ function CustomerStorefront() {
         onUpdateQuantity={handleUpdateQuantity}
         onClearCart={handleClearCart}
         selectedZone={selectedZone}
+        isOutsideBoundary={isOutsideBoundary}
+        onOpenZoneSelector={() => setIsZoneModalOpen(true)}
       />
 
       {/* 14. Customer Live Orders Tracking Modal */}
@@ -635,6 +762,18 @@ function CustomerStorefront() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
+
+              {isOutsideBoundary && (
+                <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                    <MapPin className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                    <span>Outside Campus Boundary</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 mt-0.5 leading-snug">
+                    Pick your campus building, hostel, or lab below to enable express delivery there.
+                  </p>
+                </div>
+              )}
 
               {/* 1-Tap Auto GPS Detect Button */}
               <button
@@ -692,29 +831,13 @@ function CustomerStorefront() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 15, scale: 0.95 }}
-            className="fixed bottom-24 sm:bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#111111] text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl border border-white/20 flex items-center gap-2 pointer-events-none"
+            className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 bg-[#111111] text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl border border-white/20 flex items-center gap-2 pointer-events-none"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#FFD60A]" />
             <span>{toastMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* 17. Bottom Navigation Bar with 4 Clear Tabs */}
-      <BottomNavBar
-        activeTab={currentTab}
-        onTabChange={(tab: NavigationTab) => {
-          if (tab === 'cart') {
-            setIsCartOpen(true);
-          } else {
-            setCurrentTab(tab);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }
-        }}
-        cartCount={cartTotalCount}
-        cartTotal={cartTotalPrice}
-        wishlistCount={wishlist.length}
-      />
     </div>
   );
 }

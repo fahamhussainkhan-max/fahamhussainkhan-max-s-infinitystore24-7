@@ -8,6 +8,8 @@ interface CheckoutFormProps {
   onOrderSuccess?: (orderId: string, deliveryAddress?: any) => void;
   onCancel?: () => void;
   grandTotal?: number;
+  isOutsideBoundary?: boolean;
+  onSelectCampusZone?: () => void;
 }
 
 export default function CheckoutForm({
@@ -15,6 +17,8 @@ export default function CheckoutForm({
   onOrderSuccess,
   onCancel,
   grandTotal,
+  isOutsideBoundary = false,
+  onSelectCampusZone,
 }: CheckoutFormProps) {
   const [formData, setFormData] = useState(() => {
     try {
@@ -297,14 +301,44 @@ export default function CheckoutForm({
           />
         </div>
 
+        {isOutsideBoundary && (
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1.5">
+            <div className="font-bold flex items-center gap-1.5 text-amber-800">
+              <span>📍 Outside Campus Delivery Boundary</span>
+            </div>
+            <p className="text-[11px] text-amber-700 leading-snug">
+              We currently deliver exclusively within campus hostels and labs (10-15 min express). Coming Soon to your location!
+            </p>
+            {onSelectCampusZone && (
+              <button
+                type="button"
+                onClick={onSelectCampusZone}
+                className="w-full mt-1 py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition cursor-pointer"
+              >
+                Deliver to a Campus Hostel / Lab Instead
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="pt-2">
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-[#FF3B30] text-white font-semibold rounded-xl hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-md cursor-pointer"
+            disabled={loading || isOutsideBoundary}
+            className={`w-full py-3 text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md transition ${
+              isOutsideBoundary
+                ? 'bg-gray-400 cursor-not-allowed opacity-80'
+                : 'bg-[#FF3B30] hover:bg-red-600 cursor-pointer active:scale-98'
+            }`}
           >
             <Truck className="w-4 h-4" />
-            <span>{loading ? 'Placing Order...' : 'Place Order (Cash on Delivery)'}</span>
+            <span>
+              {isOutsideBoundary
+                ? 'Delivery Locked - Outside Campus Boundary'
+                : loading
+                ? 'Placing Order...'
+                : 'Place Order (Cash on Delivery)'}
+            </span>
           </button>
         </div>
 
