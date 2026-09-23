@@ -223,26 +223,29 @@ export default function CheckoutForm({
       const customerName = formData.fullName.trim();
       const customerPhone = formData.phone.trim();
 
+      const isValidUUID = (str: any) =>
+        typeof str === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
       // 1. Insert into orders table using verified Supabase schema
+      const orderPayload: Record<string, any> = {
+        customer_name: customerName || 'Campus Student',
+        phone: customerPhone || '',
+        delivery_location: deliveryLocation,
+        delivery_note: formData.notes || '',
+        status: 'preparing',
+        payment_method: 'COD',
+        payment_status: 'unpaid',
+        subtotal: Number(cartTotal),
+        total: Number(cartTotal),
+        delivery_fee: 0,
+        discount: 0,
+        delivery_address: deliveryLocation,
+      };
+
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .insert([{
-          status: 'preparing',
-          payment_method: 'COD',
-          payment_status: 'unpaid',
-          subtotal: Number(cartTotal),
-          total: Number(cartTotal),
-          delivery_fee: 0,
-          discount: 0,
-          delivery_address: {
-            fullName: customerName || 'Campus Student',
-            phone: customerPhone,
-            area: selectedLocation,
-            roomNo: roomDetails || 'N/A',
-            notes: formData.notes || '',
-            formatted: deliveryLocation,
-          },
-        }])
+        .insert([orderPayload])
         .select()
         .single();
 
@@ -256,9 +259,10 @@ export default function CheckoutForm({
         const itemsPayload = cartItems.map((item: any) => {
           const itemPrice = item.price !== undefined ? Number(item.price) : Number(item.product?.price || 0);
           const itemQty = Number(item.quantity || 1);
+          const rawId = item.id || item.product?.id;
           return {
             order_id: orderData.id,
-            product_id: item.id || item.product?.id || null,
+            product_id: isValidUUID(rawId) ? rawId : null,
             product_name_snapshot: item.name || item.title || item.product?.name || 'Campus Item',
             price_snapshot: itemPrice,
             quantity: itemQty,

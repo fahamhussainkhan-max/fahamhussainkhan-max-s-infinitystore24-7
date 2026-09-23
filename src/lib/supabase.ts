@@ -474,6 +474,7 @@ export async function createProduct(product: Omit<AdminProduct, 'id' | 'created_
           unit: fullProduct.unit,
           description: fullProduct.description,
           in_stock: fullProduct.in_stock,
+          is_active: fullProduct.is_active !== undefined ? fullProduct.is_active : true,
           is_popular: fullProduct.is_popular,
           is_late_night: fullProduct.is_late_night,
           is_flash_deal: fullProduct.is_flash_deal,

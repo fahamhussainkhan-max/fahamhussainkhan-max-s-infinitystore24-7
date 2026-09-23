@@ -114,81 +114,105 @@ export default function App() {
 }
 
 function CustomerStorefront() {
-  // Catalog products (seeded from mockData, synced with Supabase catalog)
-  const [productsList, setProductsList] = useState<Product[]>(PRODUCTS);
+  // 1. LIVE CATALOG: State for live Supabase products
+  const [products, setProductsState] = useState<Product[]>([]);
+  const productsList = products; // Alias for seamless backward compatibility across all child components
 
-  // Sync with live Supabase products where is_active = true
-  useEffect(() => {
-    let isMounted = true;
-    const loadLiveProducts = async () => {
-      try {
-        // 3. Load items dynamically from 'products' where is_active = true
-        const remote = await fetchProducts(true);
-        if (remote && remote.length > 0 && isMounted) {
-          const CORE_CATEGORIES = ['stationery', 'drinks', 'snacks'];
-          const validRemote = remote.filter((rp) => {
-            const cat = (rp.category || '').toLowerCase().trim();
-            return CORE_CATEGORIES.includes(cat) || cat === 'food' || cat === 'beverages' || cat === 'study';
-          });
+  // Transform raw Supabase rows so all UI properties (image, category, price, discount, stock, etc.) are populated
+  const mapStorefrontProduct = (item: any): Product => {
+    const rawCat = (item.category || '').toLowerCase().trim();
+    let category = rawCat;
+    if (rawCat === 'beverages' || rawCat === 'drink') category = 'drinks';
+    if (rawCat === 'food' || rawCat === 'munchies') category = 'snacks';
+    if (rawCat === 'study' || rawCat === 'pens') category = 'stationery';
+    if (rawCat === 'tech' || rawCat === 'gadgets') category = 'electronics';
+    if (!category) category = 'snacks';
 
-          const merged = [...PRODUCTS];
-          validRemote.forEach((rp) => {
-            let cat = (rp.category || 'snacks').toLowerCase().trim();
-            if (cat === 'beverages' || cat === 'drink') cat = 'drinks';
-            if (cat === 'food' || cat === 'munchies') cat = 'snacks';
-            if (cat === 'study' || cat === 'pens') cat = 'stationery';
-            if (!CORE_CATEGORIES.includes(cat)) cat = 'snacks';
+    const stock = Number(item.stock ?? item.stock_quantity ?? item.stock_count ?? 10);
+    const price = Number(item.price || 0);
+    const originalPrice = item.original_price
+      ? Number(item.original_price)
+      : item.originalPrice
+      ? Number(item.originalPrice)
+      : undefined;
+    const discount =
+      originalPrice && originalPrice > price
+        ? `${Math.round(((originalPrice - price) / originalPrice) * 100)}% OFF`
+        : undefined;
+    const image =
+      item.image_url ||
+      item.image ||
+      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
 
-            const existingIdx = merged.findIndex((p) => String(p.id) === String(rp.id));
-            const stock = rp.stock_count ?? rp.stock_quantity ?? 0;
-            const item: Product = {
-              id: String(rp.id),
-              name: rp.name || rp.title || 'Product',
-              category: cat,
-              price: rp.price,
-              originalPrice: rp.original_price,
-              rating: 4.8,
-              reviewsCount: 118,
-              image: rp.image || rp.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80',
-              inStock: rp.in_stock && stock > 0,
-              isActive: rp.is_active !== undefined ? rp.is_active : true,
-              stockCount: stock,
-              isPopular: rp.is_popular,
-              isLateNight: rp.is_late_night,
-              isFlashDeal: rp.is_flash_deal,
-              unit: rp.unit || '1 pc',
-              description: rp.description || '',
-              tags: [cat],
-            };
-            if (existingIdx >= 0) {
-              merged[existingIdx] = { ...merged[existingIdx], ...item };
-            } else {
-              merged.push(item);
-            }
-          });
-          setProductsList(merged);
-        }
-      } catch (err) {
-        console.warn('Live products sync using defaults:', err);
-      }
+    return {
+      ...item,
+      id: String(item.id),
+      name: item.name || 'Campus Item',
+      category,
+      price,
+      originalPrice,
+      discount,
+      rating: item.rating || 4.8,
+      reviewsCount: item.reviewsCount || 118,
+      image,
+      image_url: image,
+      inStock: item.in_stock !== undefined ? Boolean(item.in_stock && stock > 0) : stock > 0,
+      isActive: item.is_active !== undefined ? item.is_active : true,
+      stockCount: stock,
+      stock: stock,
+      isPopular: item.is_popular !== undefined ? item.is_popular : true,
+      isLateNight: Boolean(item.is_late_night),
+      isFlashDeal: Boolean(discount) || Boolean(item.is_flash_deal),
+      unit: item.unit || '1 pc',
+      description: item.description || '',
+      tags: item.tags || [category],
     };
+  };
 
-    loadLiveProducts();
+  const setProducts = (rawOrMapped: any[]) => {
+    if (!Array.isArray(rawOrMapped)) return;
+    setProductsState(rawOrMapped.map(mapStorefrontProduct));
+  };
 
-    // Realtime Postgres changes subscription for live product inventory
+  // 1. LIVE CATALOG: fetchStorefrontProducts directly from Supabase
+  async function fetchStorefrontProducts() {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching storefront products:', error);
+        return;
+      }
+
+      if (data) {
+        setProducts(data);
+      }
+    } catch (err) {
+      console.error('fetchStorefrontProducts error:', err);
+    }
+  }
+
+  // 2. INSTANT REALTIME UPDATES: Subscribe to 'products' table changes
+  useEffect(() => {
+    fetchStorefrontProducts();
+
     const channel = supabase
-      .channel('public:products:live-store')
+      .channel('public:products:storefront-live')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products' },
-        () => {
-          loadLiveProducts();
+        (payload) => {
+          console.log('Realtime product change received:', payload.eventType);
+          fetchStorefrontProducts();
         }
       )
       .subscribe();
 
     return () => {
-      isMounted = false;
       supabase.removeChannel(channel);
     };
   }, []);

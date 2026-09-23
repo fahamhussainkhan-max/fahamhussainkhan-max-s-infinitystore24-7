@@ -100,6 +100,17 @@ export const CATEGORIES: Category[] = [
     description: 'Chips, 2-minute noodles, cookies, chocolates & midnight snacks',
     itemCount: 11,
   },
+  {
+    id: 'electronics',
+    name: 'Electronics & Gadgets',
+    emoji: '🔌',
+    accentColor: '#BF5AF2',
+    bgGradient: 'from-purple-500/10 via-indigo-500/10 to-violet-500/10 border-purple-200/80',
+    textColor: 'text-purple-800',
+    image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
+    description: 'Extension boards, charging cables, adapters & student tech',
+    itemCount: 5,
+  },
 ];
 
 export const PRODUCTS: Product[] = [
