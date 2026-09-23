@@ -9,6 +9,7 @@ interface FlashDealsProps {
   cartQuantities: Record<string, number>;
   onToastMessage: (msg: string) => void;
   onUpdateQuantity?: (productId: string, quantity: number) => void;
+  isStoreOpen?: boolean;
 }
 
 export const FlashDeals: React.FC<FlashDealsProps> = ({
@@ -17,6 +18,7 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
   cartQuantities,
   onToastMessage,
   onUpdateQuantity,
+  isStoreOpen = true,
 }) => {
   // Live ticking countdown timer (starts at 02h 45m 18s)
   const [secondsLeft, setSecondsLeft] = useState(9918);
@@ -182,18 +184,27 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
                 ) : (
                   <button
                     type="button"
+                    disabled={!isStoreOpen}
                     style={{ pointerEvents: 'auto' }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (!isStoreOpen) {
+                        onToastMessage('⚠️ Store is currently closed for orders.');
+                        return;
+                      }
                       onAddToCart(prod);
                       onToastMessage(`Grabbed flash deal: ${prod.name.slice(0, 18)}... ✓`);
                     }}
                     onPointerDown={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
-                    className="relative z-20 pointer-events-auto cursor-pointer flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs font-black transition-all active:scale-95 shadow-md"
+                    className={`relative z-20 pointer-events-auto flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-md ${
+                      !isStoreOpen
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 shadow-none'
+                        : 'cursor-pointer bg-[#111111] hover:bg-[#0A84FF] text-white active:scale-95'
+                    }`}
                   >
                     <Plus className="w-4 h-4 stroke-[3]" />
-                    <span>{qty > 0 ? `Added (${qty})` : 'Claim Deal'}</span>
+                    <span>{!isStoreOpen ? 'Closed' : qty > 0 ? `Added (${qty})` : 'Claim Deal'}</span>
                   </button>
                 )}
               </div>

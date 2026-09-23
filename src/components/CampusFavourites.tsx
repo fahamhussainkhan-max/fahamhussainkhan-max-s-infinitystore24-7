@@ -12,6 +12,7 @@ interface CampusFavouritesProps {
   wishlist: string[];
   onToggleWishlist: (productId: string) => void;
   highlightedProductId?: string | null;
+  isStoreOpen?: boolean;
 }
 
 export const CampusFavourites: React.FC<CampusFavouritesProps> = ({
@@ -23,6 +24,7 @@ export const CampusFavourites: React.FC<CampusFavouritesProps> = ({
   wishlist,
   onToggleWishlist,
   highlightedProductId,
+  isStoreOpen = true,
 }) => {
   const popularProducts = products.filter((p) => p.isPopular);
 
@@ -61,6 +63,7 @@ export const CampusFavourites: React.FC<CampusFavouritesProps> = ({
             onToggleWishlist={onToggleWishlist}
             isHighlighted={highlightedProductId === prod.id}
             variant="light"
+            isStoreOpen={isStoreOpen}
           />
         ))}
       </div>

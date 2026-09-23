@@ -12,6 +12,7 @@ interface WishlistViewProps {
   onMoveAllToCart: () => void;
   onExploreCatalog: () => void;
   onToastMessage: (msg: string) => void;
+  isStoreOpen?: boolean;
 }
 
 export const WishlistView: React.FC<WishlistViewProps> = ({
@@ -24,10 +25,15 @@ export const WishlistView: React.FC<WishlistViewProps> = ({
   onMoveAllToCart,
   onExploreCatalog,
   onToastMessage,
+  isStoreOpen = true,
 }) => {
   const wishlistedProducts = products.filter((p) => wishlistIds.includes(p.id));
 
   const handleMoveToCart = (product: Product) => {
+    if (!isStoreOpen) {
+      onToastMessage('⚠️ Store is currently closed for orders.');
+      return;
+    }
     onAddToCart(product);
     onToastMessage(`Moved ${product.name} to your campus bag! 🛍️`);
   };
@@ -63,11 +69,16 @@ export const WishlistView: React.FC<WishlistViewProps> = ({
 
             <button
               type="button"
+              disabled={!isStoreOpen}
               onClick={onMoveAllToCart}
-              className="px-4 py-2.5 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+              className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all flex items-center gap-2 ${
+                !isStoreOpen
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 shadow-none'
+                  : 'bg-[#111111] hover:bg-[#0A84FF] text-white active:scale-95 cursor-pointer'
+              }`}
             >
               <ShoppingBag className="w-4 h-4" />
-              <span>Move All to Bag ({wishlistedProducts.length})</span>
+              <span>{!isStoreOpen ? 'Store Closed' : `Move All to Bag (${wishlistedProducts.length})`}</span>
             </button>
           </div>
         )}
@@ -114,12 +125,17 @@ export const WishlistView: React.FC<WishlistViewProps> = ({
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     type="button"
+                    disabled={!isStoreOpen}
                     onClick={() => handleMoveToCart(product)}
-                    className="p-2.5 sm:px-3 sm:py-2 rounded-xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs font-bold shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                    title="1-click move to cart"
+                    className={`p-2.5 sm:px-3 sm:py-2 rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 ${
+                      !isStoreOpen
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 shadow-none'
+                        : 'bg-[#111111] hover:bg-[#0A84FF] text-white active:scale-95 cursor-pointer'
+                    }`}
+                    title={!isStoreOpen ? 'Store is currently closed' : '1-click move to cart'}
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{inCart ? 'Add Another' : 'Move to Bag'}</span>
+                    <span className="hidden sm:inline">{!isStoreOpen ? 'Closed' : inCart ? 'Add Another' : 'Move to Bag'}</span>
                   </button>
 
                   <button

@@ -217,6 +217,47 @@ function CustomerStorefront() {
     };
   }, []);
 
+  // 3. FETCH LIVE STORE STATUS & INSTANT REALTIME UPDATES
+  const [isStoreOpen, setIsStoreOpen] = useState(true);
+
+  useEffect(() => {
+    async function fetchStoreStatus() {
+      try {
+        const { data, error } = await supabase
+          .from('store_settings')
+          .select('*')
+          .eq('id', 'primary')
+          .single();
+        if (data && typeof data.is_open === 'boolean') {
+          setIsStoreOpen(data.is_open);
+        }
+      } catch (err) {
+        console.error('Error fetching store status:', err);
+      }
+    }
+
+    fetchStoreStatus();
+
+    const channel = supabase
+      .channel('public:store_settings:live-storefront')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'store_settings' },
+        (payload: any) => {
+          if (payload.new && typeof payload.new.is_open === 'boolean') {
+            setIsStoreOpen(payload.new.is_open);
+          } else {
+            fetchStoreStatus();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Campus Zone & Delivery Boundary Geofence state
   const [selectedZone, setSelectedZone] = useState<CampusZone>(() => {
     try {
@@ -327,6 +368,10 @@ function CustomerStorefront() {
   );
 
   const handleAddToCart = (product: Product) => {
+    if (!isStoreOpen) {
+      triggerToast('⚠️ Store is currently closed for orders.');
+      return;
+    }
     setCartItems((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       const initialQty = product.minQuantity && product.minQuantity > 1 ? product.minQuantity : 1;
@@ -341,6 +386,11 @@ function CustomerStorefront() {
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
+    const current = cartItems.find((i) => i.product.id === productId)?.quantity || 0;
+    if (quantity > current && !isStoreOpen) {
+      triggerToast('⚠️ Store is currently closed for orders.');
+      return;
+    }
     setCartItems((prev) => {
       if (quantity <= 0) {
         return prev.filter((item) => item.product.id !== productId);
@@ -412,6 +462,10 @@ function CustomerStorefront() {
 
   // Wishlist actions
   const handleMoveAllWishlistToCart = () => {
+    if (!isStoreOpen) {
+      triggerToast('⚠️ Store is currently closed for orders.');
+      return;
+    }
     const itemsToAdd = productsList.filter((p) => wishlist.includes(p.id));
     if (itemsToAdd.length === 0) return;
     setCartItems((prev) => {
@@ -499,6 +553,17 @@ function CustomerStorefront() {
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] text-[#111111] font-sans antialiased selection:bg-[#0A84FF]/20 selection:text-[#0A84FF]">
+      {/* 0. Prominent Store Closed Top Alert Banner */}
+      {!isStoreOpen && (
+        <div
+          id="store-closed-top-banner"
+          className="sticky top-0 z-50 w-full bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white font-black text-xs sm:text-sm py-3 px-4 shadow-xl border-b border-red-800/40 flex items-center justify-center gap-2 text-center select-none"
+        >
+          <span className="text-base sm:text-lg">⚠️</span>
+          <span>Store is Currently Closed — We are not accepting new orders right now. Check back soon!</span>
+        </div>
+      )}
+
       {/* 1. Header & Navigation */}
       <Navbar
         selectedZone={selectedZone}
@@ -573,6 +638,7 @@ function CustomerStorefront() {
       {/* Main Tab Views Switcher */}
       {currentTab === 'wishlist' ? (
         <WishlistView
+          isStoreOpen={isStoreOpen}
           wishlistIds={wishlist}
           products={productsList}
           cartQuantities={cartQuantities}
@@ -674,6 +740,7 @@ function CustomerStorefront() {
                     isWishlisted={wishlist.includes(prod.id)}
                     onToggleWishlist={handleToggleWishlist}
                     isHighlighted={highlightedProductId === prod.id}
+                    isStoreOpen={isStoreOpen}
                   />
                 ))}
               </div>
@@ -682,6 +749,7 @@ function CustomerStorefront() {
 
           {/* 6. Flash Deals Countdown Carousel */}
           <FlashDeals
+            isStoreOpen={isStoreOpen}
             products={displayedProducts}
             onAddToCart={handleAddToCart}
             cartQuantities={cartQuantities}
@@ -691,6 +759,7 @@ function CustomerStorefront() {
 
           {/* 7. Campus Favourites (High demand student essentials) */}
           <CampusFavourites
+            isStoreOpen={isStoreOpen}
             products={displayedProducts}
             cartQuantities={cartQuantities}
             onAddToCart={handleAddToCart}
@@ -707,6 +776,10 @@ function CustomerStorefront() {
             onSearchChange={setSearchQuery}
             products={productsList}
             onSelectProduct={(p) => {
+              if (!isStoreOpen) {
+                triggerToast('⚠️ Store is currently closed for orders.');
+                return;
+              }
               handleAddToCart(p);
               triggerToast(`Added ${p.name} to cart!`);
             }}
@@ -743,6 +816,7 @@ function CustomerStorefront() {
 
       {/* 13. Slide-over Cart Drawer */}
       <CartDrawer
+        isStoreOpen={isStoreOpen}
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={cartItems}

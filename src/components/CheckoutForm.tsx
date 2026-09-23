@@ -21,6 +21,7 @@ interface CheckoutFormProps {
   isOutsideBoundary?: boolean;
   onSelectCampusZone?: () => void;
   initialArea?: string;
+  isStoreOpen?: boolean;
 }
 
 export default function CheckoutForm({
@@ -31,6 +32,7 @@ export default function CheckoutForm({
   isOutsideBoundary = false,
   onSelectCampusZone,
   initialArea,
+  isStoreOpen = true,
 }: CheckoutFormProps) {
   // Preset list as required
   const PRESET_OPTIONS = [
@@ -42,6 +44,51 @@ export default function CheckoutForm({
     'Upper PG & Outside PG Enclave',
     'Custom PG / Other Specific Location',
   ];
+
+  const [storeOpen, setStoreOpen] = useState(isStoreOpen);
+
+  useEffect(() => {
+    setStoreOpen(isStoreOpen);
+  }, [isStoreOpen]);
+
+  // Realtime listener directly in checkout form
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const { data } = await supabase
+          .from('store_settings')
+          .select('*')
+          .eq('id', 'primary')
+          .single();
+        if (data && typeof data.is_open === 'boolean') {
+          setStoreOpen(data.is_open);
+        }
+      } catch (err) {
+        console.error('Error fetching store settings in checkout form:', err);
+      }
+    };
+
+    fetchStatus();
+
+    const channel = supabase
+      .channel('public:store_settings:checkout-modal')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'store_settings' },
+        (payload: any) => {
+          if (payload.new && typeof payload.new.is_open === 'boolean') {
+            setStoreOpen(payload.new.is_open);
+          } else {
+            fetchStatus();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const [formData, setFormData] = useState(() => {
     try {
@@ -118,7 +165,7 @@ export default function CheckoutForm({
     isCustomOption && customVerification.status !== 'inside';
 
   const isCheckoutDisabled =
-    loading || isOutsideDelivery || isCustomPendingVerification;
+    !storeOpen || loading || isOutsideDelivery || isCustomPendingVerification;
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -176,6 +223,12 @@ export default function CheckoutForm({
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!storeOpen) {
+      setErrorMsg('Store is currently closed for orders.');
+      alert('Store is currently closed for orders.');
+      return;
+    }
 
     if (isOutsideDelivery) {
       setErrorMsg(
@@ -341,6 +394,18 @@ export default function CheckoutForm({
           </div>
         )}
       </div>
+
+      {!storeOpen && (
+        <div
+          id="checkout-store-closed-banner"
+          className="mb-4 p-3.5 bg-red-50 text-red-800 rounded-xl text-xs sm:text-sm border border-red-300 flex items-start gap-2 shadow-xs"
+        >
+          <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 font-bold">
+            ⚠️ Store is Currently Closed — We are not accepting new orders right now. Check back soon!
+          </div>
+        </div>
+      )}
 
       {errorMsg && (
         <div
@@ -568,7 +633,9 @@ export default function CheckoutForm({
           >
             <Truck className="w-4 h-4" />
             <span>
-              {isOutsideDelivery
+              {!storeOpen
+                ? 'Store Closed for Deliveries'
+                : isOutsideDelivery
                 ? 'Checkout Disabled — Outside Campus Boundary'
                 : isCustomPendingVerification
                 ? 'Verify Custom PG Location to Enable Checkout'

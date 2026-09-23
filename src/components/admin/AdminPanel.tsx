@@ -182,6 +182,64 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
   const [realtimeEventCount, setRealtimeEventCount] = useState<number>(0);
   const [realtimeToast, setRealtimeToast] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isStoreOpen, setIsStoreOpen] = useState(true);
+  const [togglingStore, setTogglingStore] = useState(false);
+
+  // Sync store_settings live in Admin
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const { data } = await supabase
+          .from('store_settings')
+          .select('*')
+          .eq('id', 'primary')
+          .single();
+        if (data && typeof data.is_open === 'boolean') {
+          setIsStoreOpen(data.is_open);
+        }
+      } catch (err) {
+        console.error('Error fetching store settings in Admin:', err);
+      }
+    };
+
+    fetchStatus();
+
+    const channel = supabase
+      .channel('public:store_settings:admin-header')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'store_settings' },
+        (payload: any) => {
+          if (payload.new && typeof payload.new.is_open === 'boolean') {
+            setIsStoreOpen(payload.new.is_open);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handleToggleStoreStatus = async () => {
+    setTogglingStore(true);
+    const newStatus = !isStoreOpen;
+    try {
+      const { error } = await supabase
+        .from('store_settings')
+        .update({ is_open: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', 'primary');
+      if (error) throw error;
+      setIsStoreOpen(newStatus);
+      setRealtimeToast(`Store is now ${newStatus ? 'OPEN (Accepting orders)' : 'CLOSED (Orders paused)'}`);
+    } catch (err: any) {
+      console.error('Failed to toggle store status:', err);
+      alert('Error updating store status: ' + err.message);
+    } finally {
+      setTogglingStore(false);
+    }
+  };
 
   // Sync hash with active tab
   useEffect(() => {
@@ -540,6 +598,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
 
           {/* Top Navigation Bar Controls: Online Status, Staff Info & Logout */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Live Store Status Switcher for Instant Storefront Control */}
+            <button
+              type="button"
+              disabled={togglingStore}
+              onClick={handleToggleStoreStatus}
+              title="Click to toggle store open / closed status for customers"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition shadow-xs cursor-pointer ${
+                isStoreOpen
+                  ? 'bg-emerald-500/10 text-emerald-800 border-emerald-300 hover:bg-emerald-500/20'
+                  : 'bg-rose-500/10 text-rose-800 border-rose-300 hover:bg-rose-500/20'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${isStoreOpen ? 'bg-emerald-600 animate-pulse' : 'bg-rose-600'}`} />
+              <span>{togglingStore ? 'Updating...' : isStoreOpen ? 'Store: OPEN' : 'Store: CLOSED'}</span>
+            </button>
+
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
               <span>Live Terminal</span>

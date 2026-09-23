@@ -13,6 +13,7 @@ interface ProductCardProps {
   onToggleWishlist?: (productId: string) => void;
   variant?: 'light' | 'dark';
   isHighlighted?: boolean;
+  isStoreOpen?: boolean;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -25,6 +26,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onToggleWishlist,
   variant = 'light',
   isHighlighted = false,
+  isStoreOpen = true,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
@@ -61,6 +63,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isStoreOpen) {
+      if (onToastMessage) {
+        onToastMessage('⚠️ Store is currently closed for orders.');
+      }
+      return;
+    }
     if (product.minQuantity && product.minQuantity > 1 && quantityInCart === 0) {
       onUpdateQuantity(product.id, product.minQuantity);
     } else {
@@ -76,6 +84,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const handleIncrement = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isStoreOpen) {
+      if (onToastMessage) {
+        onToastMessage('⚠️ Store is currently closed for orders.');
+      }
+      return;
+    }
     onUpdateQuantity(product.id, quantityInCart + 1);
   };
 
@@ -278,21 +292,30 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {quantityInCart === 0 ? (
                 <motion.button
                   type="button"
+                  disabled={!isStoreOpen}
                   onClick={handleAdd}
                   onPointerDown={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
-                  whileHover={{ scale: 1.06 }}
-                  whileTap={{ scale: 0.92 }}
+                  whileHover={isStoreOpen ? { scale: 1.06 } : undefined}
+                  whileTap={isStoreOpen ? { scale: 0.92 } : undefined}
                   transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                   style={{ pointerEvents: 'auto' }}
-                  className={`relative z-20 pointer-events-auto cursor-pointer flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-extrabold shadow-sm active:scale-95 ${
-                    isDark
-                      ? 'bg-white text-black hover:bg-gray-200'
-                      : 'bg-[#111111] hover:bg-[#0A84FF] text-white shadow-[0_4px_12px_rgba(0,0,0,0.12)]'
+                  className={`relative z-20 pointer-events-auto flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-extrabold shadow-sm ${
+                    !isStoreOpen
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 shadow-none'
+                      : isDark
+                      ? 'cursor-pointer bg-white text-black hover:bg-gray-200 active:scale-95'
+                      : 'cursor-pointer bg-[#111111] hover:bg-[#0A84FF] text-white shadow-[0_4px_12px_rgba(0,0,0,0.12)] active:scale-95'
                   }`}
                 >
                   <Plus className="w-4 h-4 stroke-[2.5]" />
-                  <span>{product.minQuantity && product.minQuantity > 1 ? `Add (Min ${product.minQuantity})` : 'Add'}</span>
+                  <span>
+                    {!isStoreOpen
+                      ? 'Closed'
+                      : product.minQuantity && product.minQuantity > 1
+                      ? `Add (Min ${product.minQuantity})`
+                      : 'Add'}
+                  </span>
                 </motion.button>
               ) : (
                 <motion.div

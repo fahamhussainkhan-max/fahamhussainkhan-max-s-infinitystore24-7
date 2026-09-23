@@ -15,6 +15,7 @@ interface CartDrawerProps {
   selectedZone: CampusZone;
   isOutsideBoundary?: boolean;
   onOpenZoneSelector?: () => void;
+  isStoreOpen?: boolean;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -26,6 +27,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   selectedZone,
   isOutsideBoundary = false,
   onOpenZoneSelector,
+  isStoreOpen = true,
 }) => {
   const [roomDetails, setRoomDetails] = useState('Room 204, 2nd Floor');
   const [promoCode, setPromoCode] = useState('');
@@ -62,6 +64,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const handleCheckout = async () => {
+    if (!isStoreOpen) {
+      alert('Store is currently closed for orders.');
+      return;
+    }
     if (cartItems.length === 0) return;
     setIsSubmitting(true);
 
@@ -231,6 +237,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 /* Checkout Form Screen */
                 <div className="flex-1 overflow-y-auto p-4 sm:p-5">
                   <CheckoutForm
+                    isStoreOpen={isStoreOpen}
                     cartItems={cartItems}
                     grandTotal={grandTotal}
                     isOutsideBoundary={isOutsideBoundary}
@@ -263,6 +270,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               ) : (
                 /* Active Cart Items List */
                 <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
+                  {/* Store Closed Alert Banner */}
+                  {!isStoreOpen && (
+                    <div className="rounded-2xl bg-red-50 border border-red-300 p-3 text-xs font-bold text-red-900 flex items-center gap-2 shadow-xs">
+                      <span className="text-base">⚠️</span>
+                      <span>Store is Currently Closed — We are not accepting new orders right now. Check back soon!</span>
+                    </div>
+                  )}
+
                   {/* Free delivery tracker banner */}
                   <div className="rounded-2xl bg-amber-500/10 border border-amber-300/60 p-3 text-xs font-medium text-amber-900 flex items-center justify-between">
                     {freeDeliveryShortfall > 0 ? (
@@ -422,7 +437,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     </div>
                   </div>
 
-                  {isOutsideBoundary ? (
+                  {!isStoreOpen ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full py-4 bg-gray-400 text-white font-extrabold rounded-2xl shadow-md flex items-center justify-center gap-2 px-6 cursor-not-allowed opacity-85"
+                    >
+                      <span>Store Closed for Deliveries</span>
+                    </button>
+                  ) : isOutsideBoundary ? (
                     <div className="w-full p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col gap-2">
                       <div className="flex items-center gap-2 text-xs font-bold text-amber-800">
                         <MapPin className="w-4 h-4 text-amber-600 flex-shrink-0" />
