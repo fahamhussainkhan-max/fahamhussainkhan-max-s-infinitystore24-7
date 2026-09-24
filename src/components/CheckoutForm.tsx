@@ -63,8 +63,8 @@ export default function CheckoutForm({
         if (data && typeof data.is_open === 'boolean') {
           setStoreOpen(data.is_open);
         }
-      } catch (err) {
-        console.error('Error fetching store settings in checkout form:', err);
+      } catch (err: any) {
+        console.warn('Notice fetching store settings in checkout form:', err?.message || err);
       }
     };
 
@@ -265,61 +265,76 @@ export default function CheckoutForm({
     const deliveryLocation = `${selectedLocation} - Room: ${roomDetails || 'N/A'}`;
 
     try {
-      const calculatedSubtotal = cartItems.reduce(
+      // 1. Calculate totals
+      const deliveryFee = 15;
+      const handlingFee = 9;
+      const itemsSubtotal = cartItems.reduce(
         (acc: number, item: any) =>
           acc +
-          (item.price !== undefined ? item.price : item.product?.price || 0) *
-            (item.quantity || 1),
+          (item.price !== undefined ? Number(item.price) : Number(item.product?.price || 0)) *
+            Number(item.quantity || 1),
         0
       );
-      const cartTotal = grandTotal !== undefined ? grandTotal : calculatedSubtotal;
-      const customerName = formData.fullName.trim();
-      const customerPhone = formData.phone.trim();
+      const calculatedGrandTotal = itemsSubtotal + deliveryFee + handlingFee;
+      const finalGrandTotal = grandTotal !== undefined ? grandTotal : calculatedGrandTotal;
+
+      const checkoutDetails = {
+        name: formData.fullName.trim() || 'Campus Student',
+        phone: formData.phone.trim(),
+        location: deliveryLocation,
+        notes: formData.notes || '',
+        paymentMethod: 'COD',
+      };
 
       const isValidUUID = (str: any) =>
         typeof str === 'string' &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
-      // 1. Insert into orders table using verified Supabase schema
+      // 2. Insert main order
       const orderPayload: Record<string, any> = {
-        customer_name: customerName || 'Campus Student',
-        phone: customerPhone || '',
-        delivery_location: deliveryLocation,
-        delivery_note: formData.notes || '',
-        status: 'preparing',
-        payment_method: 'COD',
+        customer_name: checkoutDetails.name,
+        phone: checkoutDetails.phone,
+        delivery_location: checkoutDetails.location,
+        delivery_address: checkoutDetails.location,
+        delivery_note: checkoutDetails.notes,
+        delivery_fee: deliveryFee,
+        handling_fee: handlingFee,
+        subtotal: itemsSubtotal,
+        total: finalGrandTotal,
+        payment_method: checkoutDetails.paymentMethod || 'COD',
         payment_status: 'unpaid',
-        subtotal: Number(cartTotal),
-        total: Number(cartTotal),
-        delivery_fee: 0,
-        discount: 0,
-        delivery_address: deliveryLocation,
+        status: 'pending',
       };
 
-      const { data: orderData, error: orderError } = await supabase
+      const { data: orderData, error: orderErr } = await supabase
         .from('orders')
         .insert([orderPayload])
         .select()
         .single();
 
-      if (orderError) {
-        console.error('Order Insert Error:', orderError);
-        throw new Error(orderError.message || 'Database rejected order insertion');
+      if (orderErr) {
+        console.error('Order Insert Error:', orderErr);
+        throw new Error(orderErr.message || 'Database rejected order insertion');
       }
 
-      // 2. Insert items using verified order_items schema
-      if (cartItems && cartItems.length > 0 && orderData) {
+      // 3. Insert items with product image and price
+      if (orderData && cartItems.length > 0) {
         const itemsPayload = cartItems.map((item: any) => {
           const itemPrice = item.price !== undefined ? Number(item.price) : Number(item.product?.price || 0);
           const itemQty = Number(item.quantity || 1);
+          const itemName = item.name || item.title || item.product?.name || 'Campus Item';
+          const itemImage = item.image_url || item.image || item.product?.image || item.product?.image_url || '';
           const rawId = item.id || item.product?.id;
+
           return {
             order_id: orderData.id,
             product_id: isValidUUID(rawId) ? rawId : null,
-            product_name_snapshot: item.name || item.title || item.product?.name || 'Campus Item',
+            product_name_snapshot: itemName,
             price_snapshot: itemPrice,
+            item_price: itemPrice,
             quantity: itemQty,
             subtotal: itemPrice * itemQty,
+            image_url: itemImage,
           };
         });
 
@@ -328,15 +343,15 @@ export default function CheckoutForm({
           .insert(itemsPayload);
 
         if (itemsError) {
-          console.error('Order Items Insert Error:', itemsError);
+          console.error('Error saving order items:', itemsError);
         }
       }
 
-      // 3. Save student profile locally for convenience in next orders
+      // 4. Save student profile locally for convenience in next orders
       try {
         const studentProfile = {
-          fullName: customerName,
-          phone: customerPhone,
+          fullName: checkoutDetails.name,
+          phone: checkoutDetails.phone,
           hostel: selectedLocation,
           roomNo: roomDetails,
           notes: formData.notes,
@@ -348,11 +363,11 @@ export default function CheckoutForm({
 
       const finalOrderId = orderData?.id || `INF-${Date.now()}`;
 
-      // 4. Complete checkout: immediate success transition & cart clear
+      // 5. Complete checkout: immediate success transition & cart clear
       if (onOrderSuccess) {
         onOrderSuccess(finalOrderId, {
-          fullName: customerName,
-          phone: customerPhone,
+          fullName: checkoutDetails.name,
+          phone: checkoutDetails.phone,
           area: selectedLocation,
           roomNo: roomDetails,
           notes: formData.notes,

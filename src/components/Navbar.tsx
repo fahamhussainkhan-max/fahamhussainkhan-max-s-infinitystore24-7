@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, MapPin, Heart, Search, Sparkles, ChevronDown, User, Grid } from 'lucide-react';
+import { ShoppingBag, MapPin, Heart, Search, Sparkles, ChevronDown, User, Grid, Printer } from 'lucide-react';
 import { CampusZone } from '../types';
 
 interface NavbarProps {
@@ -16,6 +16,7 @@ interface NavbarProps {
   onOpenWishlist?: () => void;
   onOpenProfile?: () => void;
   onGoHome?: () => void;
+  onOpenPrint?: () => void;
   activeTab?: 'home' | 'wishlist' | 'profile';
 }
 
@@ -33,6 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenWishlist,
   onOpenProfile,
   onGoHome,
+  onOpenPrint,
   activeTab = 'home',
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -191,6 +193,23 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Sparkles className="w-4 h-4 text-[#FFD60A]" />
             <span>Top Picks</span>
           </button>
+
+          {/* Instant Campus Print & Xerox Button */}
+          {onOpenPrint && (
+            <button
+              type="button"
+              id="nav-print-btn"
+              onClick={onOpenPrint}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 text-emerald-800 border border-emerald-300/60 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-xs font-black cursor-pointer pointer-events-auto shadow-2xs"
+              title="Campus Xerox & Printout Desk"
+            >
+              <Printer className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden xs:inline">Printout</span>
+              <span className="text-[10px] bg-emerald-600 text-white font-extrabold px-1.5 py-0.2 rounded-md">
+                ₹10
+              </span>
+            </button>
+          )}
 
           {/* Wishlist button */}
           <div className="relative">

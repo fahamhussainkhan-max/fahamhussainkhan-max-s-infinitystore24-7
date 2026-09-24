@@ -24,13 +24,15 @@ import { CartDrawer } from './components/CartDrawer';
 import { FloatingCart } from './components/FloatingCart';
 import { CustomerOrdersModal } from './components/CustomerOrdersModal';
 import { CategoryPills } from './components/CategoryPills';
-import { QuickDeliveryBanner } from './components/QuickDeliveryBanner';
 import { Footer } from './components/Footer';
 import { TopGlobalSearchBar } from './components/TopGlobalSearchBar';
 import { WishlistView } from './components/WishlistView';
 import { OrdersProfileView } from './components/OrdersProfileView';
 import { CampusPlayHubBanner } from './components/CampusPlayHubBanner';
 import { CampusLocationModal } from './components/CampusLocationModal';
+import { CampusPrintModal } from './components/CampusPrintModal';
+import { CampusPrintBanner } from './components/CampusPrintBanner';
+import { CampusPrintWidget } from './components/CampusPrintWidget';
 import { CAMPUS_ZONES, CATEGORIES, PRODUCTS } from './data/mockData';
 import { Product, CartItem, CampusZone } from './types';
 import { fetchProducts, supabase } from './lib/supabase';
@@ -114,12 +116,23 @@ export default function App() {
 }
 
 function CustomerStorefront() {
-  // 1. LIVE CATALOG: State for live Supabase products
-  const [products, setProductsState] = useState<Product[]>([]);
+  // 1. LIVE CATALOG: State for live Supabase products with graceful instant fallback
+  const [products, setProductsState] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem('infinity_cached_products');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(mapStorefrontProduct);
+        }
+      }
+    } catch {}
+    return PRODUCTS;
+  });
   const productsList = products; // Alias for seamless backward compatibility across all child components
 
   // Transform raw Supabase rows so all UI properties (image, category, price, discount, stock, etc.) are populated
-  const mapStorefrontProduct = (item: any): Product => {
+  function mapStorefrontProduct(item: any): Product {
     const rawCat = (item.category || '').toLowerCase().trim();
     let category = rawCat;
     if (rawCat === 'beverages' || rawCat === 'drink') category = 'drinks';
@@ -167,7 +180,7 @@ function CustomerStorefront() {
       description: item.description || '',
       tags: item.tags || [category],
     };
-  };
+  }
 
   const setProducts = (rawOrMapped: any[]) => {
     if (!Array.isArray(rawOrMapped)) return;
@@ -184,15 +197,22 @@ function CustomerStorefront() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching storefront products:', error);
+        console.warn('Storefront products fetch notice, keeping active catalog:', error.message || error);
+        setProductsState((prev) => (prev && prev.length > 0 ? prev : PRODUCTS));
         return;
       }
 
-      if (data) {
+      if (data && data.length > 0) {
         setProducts(data);
+        try {
+          localStorage.setItem('infinity_cached_products', JSON.stringify(data));
+        } catch {}
+      } else {
+        setProductsState((prev) => (prev && prev.length > 0 ? prev : PRODUCTS));
       }
-    } catch (err) {
-      console.error('fetchStorefrontProducts error:', err);
+    } catch (err: any) {
+      console.warn('Network issue fetching storefront products, using offline catalog cache:', err?.message || err);
+      setProductsState((prev) => (prev && prev.length > 0 ? prev : PRODUCTS));
     }
   }
 
@@ -206,7 +226,6 @@ function CustomerStorefront() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products' },
         (payload) => {
-          console.log('Realtime product change received:', payload.eventType);
           fetchStorefrontProducts();
         }
       )
@@ -231,8 +250,8 @@ function CustomerStorefront() {
         if (data && typeof data.is_open === 'boolean') {
           setIsStoreOpen(data.is_open);
         }
-      } catch (err) {
-        console.error('Error fetching store status:', err);
+      } catch (err: any) {
+        console.warn('Notice fetching store status:', err?.message || err);
       }
     }
 
@@ -433,6 +452,7 @@ function CustomerStorefront() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
   const [isCustomerOrdersOpen, setIsCustomerOrdersOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // Active Category Filter
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -591,6 +611,7 @@ function CustomerStorefront() {
           setCurrentTab('home');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
+        onOpenPrint={() => setIsPrintModalOpen(true)}
         activeTab={currentTab}
       />
 
@@ -788,6 +809,9 @@ function CustomerStorefront() {
           {/* 9. Interactive "Request a Product" Campus Box */}
           <ProductRequestBox onToastMessage={triggerToast} />
 
+          {/* 9.5 Campus Printout Widget (B&W ₹10 & Color ₹20 Direct WhatsApp) */}
+          <CampusPrintWidget />
+
           {/* Modular Expansion: Campus Play Hub & Games Banner */}
           <CampusPlayHubBanner onToastMessage={triggerToast} />
         </>
@@ -799,12 +823,6 @@ function CustomerStorefront() {
           setCurrentTab('profile');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
-      />
-
-      {/* 11.5 Floating Quick-Delivery Banner with Pulse Animation */}
-      <QuickDeliveryBanner
-        selectedZone={selectedZone}
-        onOpenZoneSelector={() => setIsZoneModalOpen(true)}
       />
 
       {/* 12. Floating Action Cart Pill */}
@@ -846,6 +864,13 @@ function CustomerStorefront() {
         onSelectZone={handleSelectZone}
         allZones={CAMPUS_ZONES}
         isOutsideBoundary={isOutsideBoundary}
+      />
+
+      {/* 16. Campus Print & Xerox Station Modal */}
+      <CampusPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        onToastMessage={triggerToast}
       />
 
       {/* 16. Lightweight Global Toast Message */}

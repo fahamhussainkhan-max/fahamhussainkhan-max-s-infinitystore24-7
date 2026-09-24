@@ -197,8 +197,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
         if (data && typeof data.is_open === 'boolean') {
           setIsStoreOpen(data.is_open);
         }
-      } catch (err) {
-        console.error('Error fetching store settings in Admin:', err);
+      } catch (err: any) {
+        console.warn('Notice fetching store settings in Admin:', err?.message || err);
       }
     };
 

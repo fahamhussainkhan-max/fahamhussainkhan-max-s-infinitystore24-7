@@ -639,6 +639,7 @@ export async function fetchOrders(): Promise<AdminOrder[]> {
             name: oi.product_name_snapshot || oi.product_name || oi.name || 'Campus Item',
             price: Number(oi.price_snapshot ?? oi.price ?? oi.unit_price ?? 0),
             quantity: Number(oi.quantity || 1),
+            image_url: oi.image_url || '',
           }));
         }
 
@@ -799,6 +800,7 @@ export function subscribeToOrders(
               name: oi.product_name_snapshot || oi.product_name || oi.name || 'Campus Item',
               price: Number(oi.price_snapshot ?? oi.price ?? oi.unit_price ?? 0),
               quantity: Number(oi.quantity || 1),
+              image_url: oi.image_url || '',
             }));
           }
 

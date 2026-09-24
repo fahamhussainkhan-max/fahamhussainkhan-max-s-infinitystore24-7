@@ -37,16 +37,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [placedOrder, setPlacedOrder] = useState<any | null>(null);
   const [isCheckoutFormOpen, setIsCheckoutFormOpen] = useState(false);
 
-  const FREE_DELIVERY_THRESHOLD = 150;
+  const deliveryFee = 15;
+  const handlingFee = 9;
   const subtotal = cartItems.reduce(
     (acc, item) => acc + item.product.price * item.quantity,
     0
   );
-  const zoneFee = selectedZone.deliveryFee ?? 10;
-  const isFreeDelivery = subtotal >= FREE_DELIVERY_THRESHOLD || subtotal === 0;
-  const deliveryFee = isFreeDelivery ? 0 : zoneFee;
-  const grandTotal = Math.max(0, subtotal + deliveryFee - discountApplied);
-  const freeDeliveryShortfall = Math.max(0, FREE_DELIVERY_THRESHOLD - subtotal);
+  const grandTotal = Math.max(0, subtotal + deliveryFee + handlingFee - discountApplied);
 
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,19 +275,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     </div>
                   )}
 
-                  {/* Free delivery tracker banner */}
+                  {/* Express delivery tracker banner */}
                   <div className="rounded-2xl bg-amber-500/10 border border-amber-300/60 p-3 text-xs font-medium text-amber-900 flex items-center justify-between">
-                    {freeDeliveryShortfall > 0 ? (
-                      <span>
-                        Add <strong>₹{freeDeliveryShortfall}</strong> more for <strong>FREE campus delivery</strong>
-                      </span>
-                    ) : (
-                      <span className="text-emerald-700 font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" /> You've unlocked FREE Campus Delivery!
-                      </span>
-                    )}
-                    <span className="text-[10px] font-bold uppercase bg-white/80 px-2 py-0.5 rounded-full">
-                      ₹150 Free Tier
+                    <span className="flex items-center gap-1.5 font-semibold text-neutral-800">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Express 10-15 Min Campus Delivery
+                    </span>
+                    <span className="text-[10px] font-bold uppercase bg-white/80 px-2 py-0.5 rounded-full text-neutral-700">
+                      ₹15 Delivery • ₹9 Handling
                     </span>
                   </div>
 
@@ -416,13 +407,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <span className="font-semibold text-gray-900">₹{subtotal}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="truncate pr-2">Runner Delivery Fee ({selectedZone.name.split('(')[0].trim()})</span>
-                      <span className="font-semibold flex-shrink-0">
-                        {deliveryFee === 0 ? (
-                          <span className="text-[#30D158] font-bold">FREE</span>
-                        ) : (
-                          `₹${deliveryFee}`
-                        )}
+                      <span className="truncate pr-2">Runner Delivery Fee</span>
+                      <span className="font-semibold flex-shrink-0 text-gray-900">
+                        ₹{deliveryFee}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="truncate pr-2">Handling Fee</span>
+                      <span className="font-semibold flex-shrink-0 text-gray-900">
+                        ₹{handlingFee}
                       </span>
                     </div>
                     {discountApplied > 0 && (

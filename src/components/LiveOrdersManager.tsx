@@ -42,8 +42,11 @@ export interface LiveOrder {
     name: string;
     quantity: number;
     price: number;
+    image_url?: string;
   }>;
   total_amount: number;
+  delivery_fee?: number;
+  handling_fee?: number;
   status: LiveOrderStatus;
   payment_method: string;
   created_at: string;
@@ -103,8 +106,11 @@ export const LiveOrdersManager: React.FC = () => {
               name: it.product_name_snapshot || it.product_name || it.name || 'Campus Item',
               quantity: Number(it.quantity || 1),
               price: Number(it.price_snapshot ?? it.price ?? it.subtotal ?? 0),
+              image_url: it.image_url || '',
             })),
             total_amount: Number(o.total || o.total_amount || 0),
+            delivery_fee: Number(o.delivery_fee || 0),
+            handling_fee: Number(o.handling_fee || 0),
             status: normalizeStatus(o.status),
             payment_method: o.payment_method || 'Cash on Delivery',
             created_at: o.created_at || new Date().toISOString(),
@@ -192,8 +198,11 @@ export const LiveOrdersManager: React.FC = () => {
                 name: it.product_name_snapshot || it.product_name || it.name || 'Campus Item',
                 quantity: Number(it.quantity || 1),
                 price: Number(it.price_snapshot ?? it.price ?? it.subtotal ?? 0),
+                image_url: it.image_url || '',
               })),
               total_amount: Number(src.total || src.total_amount || 0),
+              delivery_fee: Number(src.delivery_fee || 0),
+              handling_fee: Number(src.handling_fee || 0),
               status: normalizeStatus(src.status),
               payment_method: src.payment_method || 'Cash on Delivery',
               created_at: src.created_at || new Date().toISOString(),
