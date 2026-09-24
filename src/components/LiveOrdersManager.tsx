@@ -81,32 +81,36 @@ export const LiveOrdersManager: React.FC = () => {
       // First try Supabase table
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('*, order_items(*)')
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (!error && data && data.length > 0) {
-        const mapped: LiveOrder[] = data.map((o: any) => ({
-          id: o.id,
-          order_number: o.order_number || o.id,
-          customer_name: o.customer_name || o.delivery_address?.fullName || 'Campus Student',
-          customer_phone: o.customer_phone || o.delivery_address?.phone || '',
-          delivery_zone: o.delivery_zone || o.delivery_address?.area || 'Campus Hostels',
-          room_details: o.room_details || o.delivery_address?.roomNo || 'Room 101',
-          items: Array.isArray(o.items)
-            ? o.items.map((it: any) => ({
-                id: it.id,
-                name: it.name || it.product_name_snapshot || 'Campus Snack',
-                quantity: it.quantity || 1,
-                price: it.price || it.subtotal || 0,
-              }))
-            : [],
-          total_amount: Number(o.total_amount || o.total || 0),
-          status: normalizeStatus(o.status),
-          payment_method: o.payment_method || 'Cash on Delivery',
-          created_at: o.created_at || new Date().toISOString(),
-          notes: o.notes || o.delivery_address?.notes,
-        }));
+        const mapped: LiveOrder[] = data.map((o: any) => {
+          const rawItems = Array.isArray(o.order_items) && o.order_items.length > 0
+            ? o.order_items
+            : (Array.isArray(o.items) ? o.items : []);
+
+          return {
+            id: o.id,
+            order_number: o.order_number ? `#${o.order_number}` : o.id,
+            customer_name: o.customer_name || o.delivery_address?.fullName || 'Campus Student',
+            customer_phone: o.customer_phone || o.phone || o.delivery_address?.phone || '',
+            delivery_zone: o.delivery_zone || o.delivery_location || o.delivery_address?.area || 'Campus Hostels',
+            room_details: o.room_details || o.delivery_address?.roomNo || '',
+            items: rawItems.map((it: any) => ({
+              id: it.id || it.product_id,
+              name: it.product_name_snapshot || it.product_name || it.name || 'Campus Item',
+              quantity: Number(it.quantity || 1),
+              price: Number(it.price_snapshot ?? it.price ?? it.subtotal ?? 0),
+            })),
+            total_amount: Number(o.total || o.total_amount || 0),
+            status: normalizeStatus(o.status),
+            payment_method: o.payment_method || 'Cash on Delivery',
+            created_at: o.created_at || new Date().toISOString(),
+            notes: o.delivery_note || o.notes || o.delivery_address?.notes,
+          };
+        });
         setOrders(mapped);
       } else {
         // Fallback to cached store orders
@@ -162,26 +166,46 @@ export const LiveOrdersManager: React.FC = () => {
         (payload: any) => {
           const newRow = payload.new;
           if (!newRow || !newRow.id) return;
-          const mappedOrder: LiveOrder = {
-            id: newRow.id,
-            order_number: newRow.order_number || newRow.id,
-            customer_name: newRow.customer_name || newRow.delivery_address?.fullName || 'Campus Student',
-            customer_phone: newRow.customer_phone || newRow.delivery_address?.phone || '',
-            delivery_zone: newRow.delivery_zone || newRow.delivery_address?.area || 'Campus Hostels',
-            room_details: newRow.room_details || newRow.delivery_address?.roomNo || '',
-            items: Array.isArray(newRow.items) ? newRow.items : [],
-            total_amount: Number(newRow.total_amount || newRow.total || 0),
-            status: normalizeStatus(newRow.status),
-            payment_method: newRow.payment_method || 'Cash on Delivery',
-            created_at: newRow.created_at || new Date().toISOString(),
-            notes: newRow.notes || newRow.delivery_address?.notes,
-          };
 
-          // On INSERT events, prepend the new order and trigger the audio alert
-          setOrders((prev) => [mappedOrder, ...prev.filter((o) => o.id !== mappedOrder.id)]);
-          playAlert();
-          setActionNotice(`🔔 New Order #${mappedOrder.order_number} received!`);
-          setTimeout(() => setActionNotice(null), 5000);
+          // Fetch full order with items (slight delay ensures order_items batch insert completed)
+          setTimeout(async () => {
+            const { data: fullOrder } = await supabase
+              .from('orders')
+              .select('*, order_items(*)')
+              .eq('id', newRow.id)
+              .single();
+
+            const src = fullOrder || newRow;
+            const rawItems = Array.isArray(src.order_items) && src.order_items.length > 0
+              ? src.order_items
+              : (Array.isArray(src.items) ? src.items : []);
+
+            const mappedOrder: LiveOrder = {
+              id: src.id,
+              order_number: src.order_number ? `#${src.order_number}` : src.id,
+              customer_name: src.customer_name || src.delivery_address?.fullName || 'Campus Student',
+              customer_phone: src.customer_phone || src.phone || src.delivery_address?.phone || '',
+              delivery_zone: src.delivery_zone || src.delivery_location || src.delivery_address?.area || 'Campus Hostels',
+              room_details: src.room_details || src.delivery_address?.roomNo || '',
+              items: rawItems.map((it: any) => ({
+                id: it.id || it.product_id,
+                name: it.product_name_snapshot || it.product_name || it.name || 'Campus Item',
+                quantity: Number(it.quantity || 1),
+                price: Number(it.price_snapshot ?? it.price ?? it.subtotal ?? 0),
+              })),
+              total_amount: Number(src.total || src.total_amount || 0),
+              status: normalizeStatus(src.status),
+              payment_method: src.payment_method || 'Cash on Delivery',
+              created_at: src.created_at || new Date().toISOString(),
+              notes: src.delivery_note || src.notes || src.delivery_address?.notes,
+            };
+
+            // Prepend new order and trigger audio alert
+            setOrders((prev) => [mappedOrder, ...prev.filter((o) => o.id !== mappedOrder.id)]);
+            playAlert();
+            setActionNotice(`🔔 New Order #${mappedOrder.order_number} received!`);
+            setTimeout(() => setActionNotice(null), 5000);
+          }, 350);
         }
       )
       .on(

@@ -636,8 +636,8 @@ export async function fetchOrders(): Promise<AdminOrder[]> {
         if ((!resolvedItems || resolvedItems.length === 0) && Array.isArray(o.order_items)) {
           resolvedItems = o.order_items.map((oi: any) => ({
             id: oi.id || oi.product_id || 'item',
-            name: oi.product_name || oi.product_name_snapshot || oi.name || 'Campus Item',
-            price: Number(oi.price || oi.unit_price || 0),
+            name: oi.product_name_snapshot || oi.product_name || oi.name || 'Campus Item',
+            price: Number(oi.price_snapshot ?? oi.price ?? oi.unit_price ?? 0),
             quantity: Number(oi.quantity || 1),
           }));
         }
@@ -780,21 +780,54 @@ export function subscribeToOrders(
       (payload) => {
         const o = payload.new as any;
         if (!o || !o.id) return;
-        const mapped: AdminOrder = {
-          id: o.id,
-          order_number: o.order_number || o.id,
-          customer_name: o.customer_name || o.delivery_address?.fullName || 'Campus Student',
-          customer_phone: o.customer_phone || o.delivery_address?.phone || '',
-          delivery_zone: o.delivery_zone || o.delivery_address?.area || 'Campus Zone',
-          room_details: o.room_details || o.delivery_address?.roomNo || 'Room',
-          items: Array.isArray(o.items) ? o.items : [],
-          total_amount: Number(o.total_amount ?? o.total ?? 0),
-          status: (o.status as OrderStatus) || 'Pending',
-          payment_method: o.payment_method || 'Cash on Delivery',
-          created_at: o.created_at || new Date().toISOString(),
-          updated_at: o.updated_at,
-        };
-        onInsert(mapped);
+        setTimeout(async () => {
+          const { data: fullOrder } = await supabase
+            .from('orders')
+            .select('*, order_items(*)')
+            .eq('id', o.id)
+            .single();
+
+          const src = fullOrder || o;
+          const delLoc = src.delivery_location || '';
+          const zoneMatch = delLoc.split(',')[0]?.trim() || src.delivery_zone || 'Academic Complex & Main Campus';
+          const roomMatch = delLoc.split(',').slice(1).join(',').trim() || src.room_details || '';
+
+          let resolvedItems = Array.isArray(src.items) && src.items.length > 0 ? src.items : [];
+          if ((!resolvedItems || resolvedItems.length === 0) && Array.isArray(src.order_items)) {
+            resolvedItems = src.order_items.map((oi: any) => ({
+              id: oi.id || oi.product_id || 'item',
+              name: oi.product_name_snapshot || oi.product_name || oi.name || 'Campus Item',
+              price: Number(oi.price_snapshot ?? oi.price ?? oi.unit_price ?? 0),
+              quantity: Number(oi.quantity || 1),
+            }));
+          }
+
+          const mapped: AdminOrder = {
+            id: src.id,
+            order_number: src.order_number || src.id,
+            customer_name: src.customer_name || (typeof src.delivery_address === 'object' && src.delivery_address?.fullName) || 'Campus Student',
+            customer_phone: src.customer_phone || src.phone || (typeof src.delivery_address === 'object' && src.delivery_address?.phone) || '',
+            customer_id: src.customer_id,
+            delivery_zone: src.delivery_zone || zoneMatch,
+            room_details: src.room_details || roomMatch || 'Hostel Room',
+            delivery_address: typeof src.delivery_address === 'object' && src.delivery_address !== null
+              ? src.delivery_address
+              : {
+                  fullName: src.customer_name || 'Campus Student',
+                  phone: src.customer_phone || src.phone || '',
+                  area: src.delivery_zone || zoneMatch,
+                  roomNo: src.room_details || roomMatch,
+                  notes: src.delivery_note || src.notes || undefined,
+                },
+            items: resolvedItems,
+            total_amount: Number(src.total ?? src.total_amount ?? 0),
+            status: (src.status as OrderStatus) || 'Pending',
+            payment_method: src.payment_method || 'Cash on Delivery',
+            created_at: src.created_at || src.timestamp || new Date().toISOString(),
+            updated_at: src.updated_at,
+          };
+          onInsert(mapped);
+        }, 350);
       }
     )
     .on(
