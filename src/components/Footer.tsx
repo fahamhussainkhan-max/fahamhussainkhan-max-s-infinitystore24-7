@@ -99,7 +99,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
                 </div>
                 <div>
                   <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Store Operations</div>
-                  <div className="font-semibold text-gray-200">Authorized Store Operator: <span className="text-white font-bold">fahamhussainkhan@gmail.com</span></div>
+                  <div className="font-semibold text-gray-200">Authorized Store Operator: <span className="text-white font-bold">infinitys486@gmail.com</span></div>
                 </div>
               </div>
 
