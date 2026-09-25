@@ -176,18 +176,18 @@ export const CampusPlayHubBanner: React.FC<CampusPlayHubBannerProps> = ({
             ) : (
               <form
                 onSubmit={handleNotifySubmit}
-                className="flex items-center gap-2 w-full sm:w-auto"
+                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto"
               >
                 <input
                   type="text"
                   value={emailOrPhone}
                   onChange={(e) => setEmailOrPhone(e.target.value)}
                   placeholder="Hostel & Room # or Phone"
-                  className="px-3.5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-xs font-semibold focus:outline-none focus:border-[#0A84FF] w-full sm:w-60"
+                  className="px-3.5 py-2.5 sm:py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 text-xs font-semibold focus:outline-none focus:border-[#0A84FF] w-full sm:w-60 min-h-[44px]"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2.5 rounded-xl bg-[#0A84FF] hover:bg-blue-600 text-white font-bold text-xs shadow-md transition-all active:scale-95 whitespace-nowrap cursor-pointer flex items-center gap-1"
+                  className="px-4 py-2.5 sm:py-3 rounded-xl bg-[#0A84FF] hover:bg-blue-600 text-white font-bold text-xs shadow-md transition-all active:scale-95 whitespace-nowrap cursor-pointer flex items-center justify-center gap-1 w-full sm:w-auto min-h-[44px]"
                 >
                   <span>Notify Me</span>
                   <ChevronRight className="w-3.5 h-3.5" />

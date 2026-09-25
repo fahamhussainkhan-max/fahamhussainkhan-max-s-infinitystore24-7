@@ -216,7 +216,7 @@ export const ProductRequestBox: React.FC<ProductRequestBoxProps> = ({ onToastMes
                     whileHover={{ scale: isSubmitting ? 1 : 1.02, y: isSubmitting ? 0 : -1 }}
                     whileTap={{ scale: isSubmitting ? 1 : 0.96 }}
                     transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#111111] hover:bg-black text-white font-black text-sm tracking-wide shadow-md shadow-black/15 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-all touch-manipulation"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#111111] hover:bg-black text-white font-black text-sm tracking-wide shadow-md shadow-black/15 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-all touch-manipulation w-full sm:w-auto min-h-[48px]"
                   >
                     {isSubmitting ? (
                       <>

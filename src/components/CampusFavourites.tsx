@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Flame, ArrowRight } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import { ProductCard } from './ProductCard';
 import { Product } from '../types';
 
@@ -29,14 +29,14 @@ export const CampusFavourites: React.FC<CampusFavouritesProps> = ({
   const popularProducts = products.filter((p) => p.isPopular);
 
   return (
-    <section id="campus-favourites" className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 sm:mb-8 gap-2">
+    <section id="campus-favourites" className="w-full max-w-6xl mx-auto px-3.5 xs:px-4 sm:px-6 py-6 sm:py-12 overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-4 sm:mb-8 gap-2">
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-700 text-xs font-black uppercase tracking-wider mb-1.5">
             <Flame className="w-3.5 h-3.5 text-[#FF3B30] fill-[#FF3B30]" />
             <span>High Demand On Campus</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#111111] font-display tracking-tight">
+          <h2 className="text-xl xs:text-2xl sm:text-3xl lg:text-4xl font-black text-[#111111] font-display tracking-tight">
             🔥 Campus Favourites
           </h2>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
@@ -49,8 +49,8 @@ export const CampusFavourites: React.FC<CampusFavouritesProps> = ({
         </div>
       </div>
 
-      {/* Responsive Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6">
+      {/* Clean 2-column layout on mobile devices (@media max-width: 640px) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 xs:gap-3.5 sm:gap-6 w-full">
         {popularProducts.map((prod) => (
           <ProductCard
             key={prod.id}

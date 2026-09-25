@@ -39,8 +39,8 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
   const flashDealItems = products.filter((p) => p.isFlashDeal);
 
   return (
-    <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
+    <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 sm:mb-6 gap-3">
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF3B30]/10 text-[#FF3B30] text-xs font-black uppercase tracking-wider mb-1.5">
             <Zap className="w-3.5 h-3.5 fill-[#FF3B30]" />
@@ -55,8 +55,8 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
         </div>
 
         {/* Live Tasteful Countdown Display */}
-        <div className="flex items-center gap-2 bg-[#111111] text-white px-4 py-2 rounded-2xl shadow-md border border-gray-800">
-          <Clock className="w-4 h-4 text-[#FFD60A]" />
+        <div className="flex items-center gap-2 bg-[#111111] text-white px-3.5 py-2 rounded-2xl shadow-md border border-gray-800 self-start sm:self-auto min-h-[44px]">
+          <Clock className="w-4 h-4 text-[#FFD60A] flex-shrink-0" />
           <span className="text-xs font-bold text-gray-300">Ends in:</span>
           <div className="flex items-center gap-1 font-mono text-sm sm:text-base font-black text-[#FFD60A]">
             <span className="px-1.5 py-0.5 rounded bg-white/10">{pad(hours)}h</span>
@@ -68,8 +68,8 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
         </div>
       </div>
 
-      {/* Colourful Deal Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+      {/* Clean single-column or 2-column layout on mobile devices (@media max-width: 640px) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-6">
         {flashDealItems.map((prod, idx) => {
           const qty = cartQuantities[prod.id] || 0;
           const claimedPercent = prod.claimedPercent || 80;
@@ -86,7 +86,7 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
             <motion.div
               key={prod.id}
               whileHover={{ y: -4 }}
-              className={`rounded-3xl bg-gradient-to-b ${accent.bg} border ${accent.border} p-5 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between`}
+              className={`rounded-3xl bg-gradient-to-b ${accent.bg} border ${accent.border} p-4 sm:p-5 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between w-full`}
             >
               {/* Top Badge: Discount & Remaining */}
               <div className="flex items-center justify-between mb-3">
@@ -99,7 +99,7 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
               </div>
 
               {/* Product Image */}
-              <div className="relative w-full h-40 rounded-2xl bg-white p-3 shadow-inner flex items-center justify-center my-2 overflow-hidden">
+              <div className="relative w-full h-36 sm:h-40 rounded-2xl bg-white p-3 shadow-inner flex items-center justify-center my-2 overflow-hidden">
                 <img
                   src={prod.image}
                   alt={prod.name}
@@ -134,7 +134,7 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
               {/* Price & Quick Add */}
               <div className="relative z-20 pt-3 mt-1 border-t border-gray-200/70 flex items-center justify-between pointer-events-auto">
                 <div>
-                  <div className="text-lg font-black text-gray-900">
+                  <div className="text-base sm:text-lg font-black text-gray-900">
                     ₹{prod.price}
                   </div>
                   {prod.originalPrice && (
@@ -147,7 +147,7 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
                 {qty > 0 && onUpdateQuantity ? (
                   <div
                     style={{ pointerEvents: 'auto' }}
-                    className="relative z-20 pointer-events-auto flex items-center rounded-xl bg-[#0A84FF] text-white p-0.5 shadow-md"
+                    className="relative z-20 pointer-events-auto flex items-center rounded-xl bg-[#0A84FF] text-white p-0.5 shadow-md min-h-[38px]"
                   >
                     <button
                       type="button"
@@ -158,7 +158,7 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
                       onPointerDown={(e) => e.stopPropagation()}
                       onMouseDown={(e) => e.stopPropagation()}
                       style={{ pointerEvents: 'auto' }}
-                      className="w-7 h-7 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors cursor-pointer pointer-events-auto"
+                      className="w-8 h-8 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors cursor-pointer pointer-events-auto"
                       aria-label="Decrease deal quantity"
                     >
                       <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -175,7 +175,7 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
                       onPointerDown={(e) => e.stopPropagation()}
                       onMouseDown={(e) => e.stopPropagation()}
                       style={{ pointerEvents: 'auto' }}
-                      className="w-7 h-7 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors cursor-pointer pointer-events-auto"
+                      className="w-8 h-8 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors cursor-pointer pointer-events-auto"
                       aria-label="Increase deal quantity"
                     >
                       <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -197,10 +197,10 @@ export const FlashDeals: React.FC<FlashDealsProps> = ({
                     }}
                     onPointerDown={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
-                    className={`relative z-20 pointer-events-auto flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-md ${
+                    className={`relative z-20 pointer-events-auto flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-black transition-all shadow-md min-h-[40px] cursor-pointer ${
                       !isStoreOpen
                         ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 shadow-none'
-                        : 'cursor-pointer bg-[#111111] hover:bg-[#0A84FF] text-white active:scale-95'
+                        : 'bg-[#111111] hover:bg-[#0A84FF] text-white active:scale-95'
                     }`}
                   >
                     <Plus className="w-4 h-4 stroke-[3]" />

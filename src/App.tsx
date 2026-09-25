@@ -572,7 +572,7 @@ function CustomerStorefront() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7] text-[#111111] font-sans antialiased selection:bg-[#0A84FF]/20 selection:text-[#0A84FF]">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#FAFAF7] text-[#111111] font-sans antialiased selection:bg-[#0A84FF]/20 selection:text-[#0A84FF]">
       {/* 0. Prominent Store Closed Top Alert Banner */}
       {!isStoreOpen && (
         <div
@@ -646,7 +646,7 @@ function CustomerStorefront() {
                 <button
                   type="button"
                   onClick={() => setIsZoneModalOpen(true)}
-                  className="w-full sm:w-auto px-4 py-2 bg-white hover:bg-neutral-100 text-neutral-900 font-bold text-xs rounded-xl shadow-md transition active:scale-95 cursor-pointer whitespace-nowrap"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-white hover:bg-neutral-100 text-neutral-900 font-bold text-xs rounded-xl shadow-md transition active:scale-95 cursor-pointer whitespace-nowrap min-h-[44px] flex items-center justify-center"
                 >
                   Deliver to Campus Hostel / Lab
                 </button>

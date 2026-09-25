@@ -17,19 +17,19 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const offset = direction === 'left' ? -320 : 320;
+      const offset = direction === 'left' ? -280 : 280;
       scrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
     }
   };
 
   return (
-    <section id="categories-section" className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-      <div className="flex items-end justify-between mb-6">
+    <section id="categories-section" className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-10">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-4 sm:mb-6 gap-3">
         <div>
           <span className="text-xs font-black uppercase tracking-wider text-[#0A84FF]">
             Browse by Aisle
           </span>
-          <h2 className="text-2xl sm:text-3xl font-black text-[#111111] font-display tracking-tight mt-0.5">
+          <h2 className="text-xl xs:text-2xl sm:text-3xl font-black text-[#111111] font-display tracking-tight mt-0.5">
             Campus Essentials Categories
           </h2>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
@@ -38,69 +38,66 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
         </div>
 
         {/* Carousel controls for mobile / overflow */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           {selectedCategory && (
             <button
               onClick={() => onSelectCategory(null)}
-              className="text-xs font-bold text-gray-500 hover:text-black px-2.5 py-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              className="text-xs font-bold text-gray-600 hover:text-black px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors min-h-[36px] flex items-center cursor-pointer"
             >
               Show All
             </button>
           )}
           <button
             onClick={() => scroll('left')}
-            className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 active:scale-95 shadow-sm text-gray-700 transition-all"
-            aria-label="Scroll left"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-gray-200 bg-white hover:bg-gray-50 active:scale-95 shadow-sm text-gray-700 transition-all flex items-center justify-center cursor-pointer"
+            aria-label="Scroll categories left"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button
             onClick={() => scroll('right')}
-            className="p-2 rounded-full border border-gray-200 bg-white hover:bg-gray-50 active:scale-95 shadow-sm text-gray-700 transition-all"
-            aria-label="Scroll right"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-gray-200 bg-white hover:bg-gray-50 active:scale-95 shadow-sm text-gray-700 transition-all flex items-center justify-center cursor-pointer"
+            aria-label="Scroll categories right"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Grid on desktop & horizontal scrollable on mobile */}
+      {/* Grid on desktop & smooth horizontal touch scrolling on mobile */}
       <div
         ref={scrollRef}
-        className="flex lg:grid lg:grid-cols-3 gap-3.5 sm:gap-5 overflow-x-auto no-scrollbar pb-4 pt-1 snap-x select-none"
+        className="flex lg:grid lg:grid-cols-3 gap-3 sm:gap-5 overflow-x-auto no-scrollbar pb-3 pt-1 snap-x snap-mandatory select-none overscroll-x-contain touch-pan-x"
       >
-        {CATEGORIES.map((cat, idx) => {
+        {CATEGORIES.map((cat) => {
           const isSelected = selectedCategory === cat.id;
 
           return (
             <motion.div
               key={cat.id}
               onClick={() => onSelectCategory(isSelected ? null : cat.id)}
-              whileHover={{ y: -6, rotateX: 4, rotateY: -3, scale: 1.02 }}
+              whileHover={{ y: -6, scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className={`group flex-shrink-0 w-44 sm:w-48 lg:w-auto snap-start cursor-pointer rounded-3xl p-3.5 sm:p-4 border transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              className={`group flex-shrink-0 w-36 xs:w-44 sm:w-48 lg:w-auto snap-start cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-4 border transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
                 cat.bgGradient
               } ${
                 isSelected
-                  ? 'ring-2 ring-black shadow-xl scale-[1.03] bg-white'
+                  ? 'ring-2 ring-black shadow-xl scale-[1.02] bg-white'
                   : 'shadow-sm hover:shadow-xl bg-white/90 backdrop-blur-sm'
               }`}
-              style={{
-                perspective: '800px',
-              }}
             >
               {/* Decorative subtle gradient wash */}
               <div
-                className="absolute inset-0 opacity-15 group-hover:opacity-25 transition-opacity"
+                className="absolute inset-0 opacity-15 group-hover:opacity-25 transition-opacity pointer-events-none"
                 style={{
                   background: `radial-gradient(circle at top right, ${cat.accentColor}, transparent 70%)`,
                 }}
               />
 
               {/* Top row: Emoji & Item Count badge */}
-              <div className="flex items-center justify-between z-10 mb-2">
-                <span className="text-2xl filter drop-shadow-sm group-hover:scale-110 transition-transform">
+              <div className="flex items-center justify-between z-10 mb-1.5">
+                <span className="text-xl sm:text-2xl filter drop-shadow-sm group-hover:scale-110 transition-transform">
                   {cat.emoji}
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/80 text-gray-700 shadow-xs border border-black/5">
@@ -109,7 +106,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
               </div>
 
               {/* Category Image with hover scale */}
-              <div className="relative w-full h-24 sm:h-28 my-2 rounded-2xl overflow-hidden shadow-inner bg-gray-100">
+              <div className="relative w-full h-20 xs:h-24 sm:h-28 my-1.5 rounded-xl sm:rounded-2xl overflow-hidden shadow-inner bg-gray-100">
                 <img
                   src={cat.image}
                   alt={cat.name}
@@ -122,11 +119,11 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
               {/* Title & Arrow */}
               <div className="z-10 mt-1 flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs sm:text-sm font-extrabold text-gray-900 leading-snug group-hover:text-[#0A84FF] transition-colors">
+                  <h3 className="text-xs sm:text-sm font-extrabold text-gray-900 leading-snug group-hover:text-[#0A84FF] transition-colors line-clamp-1">
                     {cat.name}
                   </h3>
                 </div>
-                <div className="w-6 h-6 rounded-full bg-white/90 shadow-sm flex items-center justify-center text-gray-700 group-hover:bg-[#111111] group-hover:text-white transition-all transform group-hover:translate-x-1">
+                <div className="w-6 h-6 rounded-full bg-white/90 shadow-sm flex items-center justify-center text-gray-700 group-hover:bg-[#111111] group-hover:text-white transition-all transform group-hover:translate-x-0.5">
                   <ArrowRight className="w-3.5 h-3.5" />
                 </div>
               </div>

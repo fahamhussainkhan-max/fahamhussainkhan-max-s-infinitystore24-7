@@ -13,11 +13,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onExploreCategories,
 }) => {
   return (
-    <section className="relative w-full overflow-hidden pt-4 sm:pt-8 pb-8 sm:pb-12 bg-[#FAFAF7]">
+    <section className="relative w-full max-w-full overflow-hidden pt-3 sm:pt-8 pb-6 sm:pb-12 bg-[#FAFAF7]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-6 items-center">
           {/* Left Hero Content */}
-          <div className="lg:col-span-6 space-y-5 sm:space-y-6 text-left">
+          <div className="lg:col-span-6 space-y-4 sm:space-y-6 text-left">
             {/* Small Badge */}
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -34,7 +34,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#111111] font-display tracking-tight leading-[1.08]"
+              className="text-3xl xs:text-4xl sm:text-5xl lg:text-6xl font-black text-[#111111] font-display tracking-tight leading-[1.08]"
             >
               Everything you need.<br />
               <span className="text-[#0A84FF]">Right when you</span>{' '}
@@ -46,22 +46,22 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-base sm:text-lg text-gray-600 font-medium max-w-lg leading-relaxed"
+              className="text-sm sm:text-lg text-gray-600 font-medium max-w-lg leading-relaxed"
             >
               Snacks, drinks, stationery, essentials and more — delivered around your campus.
             </motion.p>
 
-            {/* Action Buttons */}
+            {/* Action Buttons - Stack vertically on mobile, row on tablet/desktop */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="flex flex-wrap items-center gap-3 pt-1"
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1 w-full sm:w-auto"
             >
               <button
                 type="button"
                 onClick={onShopNow}
-                className="cursor-pointer pointer-events-auto flex items-center gap-2.5 px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white font-extrabold text-sm sm:text-base shadow-xl hover:shadow-2xl transition-all duration-200 active:scale-95 group"
+                className="cursor-pointer pointer-events-auto flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white font-extrabold text-sm sm:text-base shadow-xl hover:shadow-2xl transition-all duration-200 active:scale-95 group w-full sm:w-auto min-h-[48px]"
               >
                 <span>Shop Now</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -70,7 +70,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <button
                 type="button"
                 onClick={onExploreCategories}
-                className="cursor-pointer pointer-events-auto px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-white hover:bg-gray-100/80 text-[#111111] font-extrabold text-sm sm:text-base border border-gray-200 shadow-sm transition-all duration-200 active:scale-95"
+                className="cursor-pointer pointer-events-auto flex items-center justify-center px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-white hover:bg-gray-100/80 text-[#111111] font-extrabold text-sm sm:text-base border border-gray-200 shadow-sm transition-all duration-200 active:scale-95 w-full sm:w-auto min-h-[48px]"
               >
                 Explore Categories
               </button>
@@ -95,7 +95,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
 
           {/* Right 3D Scene */}
-          <div className="lg:col-span-6 flex items-center justify-center">
+          <div className="lg:col-span-6 flex items-center justify-center w-full max-w-full overflow-hidden">
             <HeroScene3D />
           </div>
         </div>

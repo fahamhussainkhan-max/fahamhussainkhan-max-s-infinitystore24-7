@@ -36,7 +36,7 @@ export const HeroScene3D: React.FC = () => {
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="relative w-full h-[420px] sm:h-[480px] lg:h-[540px] flex items-center justify-center select-none perspective-[1200px]"
+      className="relative w-full max-w-full h-[360px] xs:h-[400px] sm:h-[480px] lg:h-[540px] flex items-center justify-center select-none perspective-[1200px] overflow-hidden"
     >
       {/* Ambient background glow orbs */}
       <div className="absolute w-72 h-72 rounded-full bg-[#0A84FF]/10 blur-3xl pointer-events-none -top-4 -left-4" />
@@ -50,7 +50,7 @@ export const HeroScene3D: React.FC = () => {
           rotateY,
           transformStyle: 'preserve-3d',
         }}
-        className="relative w-full max-w-[480px] h-full flex items-center justify-center"
+        className="relative w-full max-w-[480px] h-full flex items-center justify-center scale-[0.82] xs:scale-[0.9] sm:scale-100 origin-center"
       >
         {/* Soft Realistic Cast Ground Shadow */}
         <motion.div

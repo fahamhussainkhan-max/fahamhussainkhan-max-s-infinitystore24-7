@@ -97,21 +97,23 @@ export const CampusPrintWidget: React.FC = () => {
             </div>
 
             <div className="mt-4 pt-3 border-t border-slate-700/50 space-y-3">
-              <div className="flex items-center justify-between bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+              <div className="flex items-center justify-between bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
                 <span className="text-xs text-slate-300 font-medium">Pages:</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setBwPages(prev => Math.max(1, prev - 1))}
-                    className="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center font-bold text-xs active:scale-90 transition border border-slate-700 cursor-pointer"
+                    className="w-9 h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center font-bold text-sm active:scale-90 transition border border-slate-700 cursor-pointer min-h-[36px]"
+                    aria-label="Decrease black and white pages"
                   >
                     -
                   </button>
-                  <span className="text-xs font-bold text-white px-2">{bwPages}</span>
+                  <span className="text-sm font-bold text-white px-2.5 min-w-[28px] text-center">{bwPages}</span>
                   <button
                     type="button"
                     onClick={() => setBwPages(prev => prev + 1)}
-                    className="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center font-bold text-xs active:scale-90 transition border border-slate-700 cursor-pointer"
+                    className="w-9 h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center font-bold text-sm active:scale-90 transition border border-slate-700 cursor-pointer min-h-[36px]"
+                    aria-label="Increase black and white pages"
                   >
                     +
                   </button>
@@ -121,7 +123,7 @@ export const CampusPrintWidget: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleWhatsAppRedirect('Black & White', bwPages, 10)}
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/60 active:scale-[0.98] transition-all cursor-pointer"
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/60 active:scale-[0.98] transition-all cursor-pointer min-h-[44px]"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>Send File on WhatsApp (₹{bwPages * 10})</span>
@@ -155,21 +157,23 @@ export const CampusPrintWidget: React.FC = () => {
             </div>
 
             <div className="mt-4 pt-3 border-t border-slate-700/50 space-y-3">
-              <div className="flex items-center justify-between bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+              <div className="flex items-center justify-between bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
                 <span className="text-xs text-slate-300 font-medium">Pages:</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setColorPages(prev => Math.max(1, prev - 1))}
-                    className="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center font-bold text-xs active:scale-90 transition border border-slate-700 cursor-pointer"
+                    className="w-9 h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center font-bold text-sm active:scale-90 transition border border-slate-700 cursor-pointer min-h-[36px]"
+                    aria-label="Decrease color pages"
                   >
                     -
                   </button>
-                  <span className="text-xs font-bold text-white px-2">{colorPages}</span>
+                  <span className="text-sm font-bold text-white px-2.5 min-w-[28px] text-center">{colorPages}</span>
                   <button
                     type="button"
                     onClick={() => setColorPages(prev => prev + 1)}
-                    className="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center font-bold text-xs active:scale-90 transition border border-slate-700 cursor-pointer"
+                    className="w-9 h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-lg flex items-center justify-center font-bold text-sm active:scale-90 transition border border-slate-700 cursor-pointer min-h-[36px]"
+                    aria-label="Increase color pages"
                   >
                     +
                   </button>
@@ -179,7 +183,7 @@ export const CampusPrintWidget: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleWhatsAppRedirect('Color', colorPages, 20)}
-                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-950/60 active:scale-[0.98] transition-all cursor-pointer"
+                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3 px-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-950/60 active:scale-[0.98] transition-all cursor-pointer min-h-[44px]"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>Send File on WhatsApp (₹{colorPages * 20})</span>

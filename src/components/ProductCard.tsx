@@ -126,9 +126,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         whileHover={{ y: -6, scale: 1.02 }}
         transition={{ type: 'spring', stiffness: 380, damping: 24 }}
         id={`product-card-${product.id}`}
-        className={`relative group rounded-3xl p-3.5 sm:p-4 transition-all duration-300 flex flex-col justify-between overflow-hidden h-full touch-manipulation ${
+        className={`relative group rounded-2xl sm:rounded-3xl p-2.5 xs:p-3 sm:p-4 transition-all duration-300 flex flex-col justify-between overflow-hidden h-full touch-manipulation ${
           isHighlighted
-            ? 'ring-4 ring-[#0A84FF] shadow-[0_0_35px_rgba(10,132,255,0.45)] scale-[1.03] animate-pulse z-30'
+            ? 'ring-4 ring-[#0A84FF] shadow-[0_0_35px_rgba(10,132,255,0.45)] scale-[1.02] animate-pulse z-30'
             : ''
         } ${
           isDark
@@ -300,7 +300,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   whileTap={isStoreOpen ? { scale: 0.92 } : undefined}
                   transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                   style={{ pointerEvents: 'auto' }}
-                  className={`relative z-20 pointer-events-auto flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-extrabold shadow-sm ${
+                  className={`relative z-20 pointer-events-auto flex items-center justify-center gap-1 px-2.5 xs:px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] xs:text-xs sm:text-sm font-extrabold shadow-sm min-h-[38px] ${
                     !isStoreOpen
                       ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 shadow-none'
                       : isDark

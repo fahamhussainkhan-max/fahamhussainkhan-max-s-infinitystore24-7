@@ -102,7 +102,7 @@ export const TopGlobalSearchBar: React.FC<TopGlobalSearchBarProps> = ({
   return (
     <div
       ref={containerRef}
-      className="sticky top-0 z-40 w-full bg-[#FAFAF7]/95 backdrop-blur-md border-b border-gray-200/80 shadow-xs transition-all select-none"
+      className="sticky top-0 z-40 w-full max-w-full bg-[#FAFAF7]/95 backdrop-blur-md border-b border-gray-200/80 shadow-xs transition-all select-none overflow-x-hidden"
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
@@ -283,7 +283,7 @@ export const TopGlobalSearchBar: React.FC<TopGlobalSearchBarProps> = ({
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 6 }}
-                  className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 p-2 z-50 space-y-1"
+                  className="absolute right-0 top-full mt-2 w-[calc(100vw-32px)] max-w-xs sm:w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 p-2 z-50 space-y-1"
                 >
                   <div className="px-2.5 py-1.5 flex items-center justify-between border-b border-gray-100 text-[11px] text-gray-500 font-bold">
                     <span>1-TAP HOSTEL SELECTOR</span>
