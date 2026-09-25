@@ -133,3 +133,62 @@
   animation: pulse-glow 2s infinite ease-in-out;
 }
 
+/* ==========================================================================
+   MOBILE RESPONSIVENESS OVERRIDES: Scoped strictly for screen widths under 640px
+   (@media (max-width: 639px))
+   Preserves all desktop styles and layouts (>= 640px) 100% untouched.
+   ========================================================================== */
+@media (max-width: 639px) {
+  /* 1. Prevent any horizontal scrolling on root and body containers */
+  html,
+  body,
+  #root {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    position: relative;
+  }
+
+  /* 2. Header and top navigation bar containment */
+  #main-top-navbar {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  /* 3. Product grids: Clean 2-column or 1-column layout on screens under 640px */
+  .grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* 4. Smooth touch scrolling for horizontal carousels and lists */
+  .no-scrollbar,
+  [class*="overflow-x-auto"] {
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
+    touch-action: pan-x pan-y !important;
+  }
+
+  /* 5. Accessible touch targets and buttons */
+  button,
+  a[role="button"],
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  /* 6. Form inputs fluid behavior and safe sizing */
+  input,
+  select,
+  textarea {
+    max-width: 100% !important;
+  }
+
+  /* 7. Image containers fluid containment */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+}
+

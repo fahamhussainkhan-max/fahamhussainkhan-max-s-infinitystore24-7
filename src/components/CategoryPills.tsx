@@ -18,7 +18,7 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-3">
       <div
         ref={containerRef}
-        className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 px-1 select-none"
+        className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 px-1 select-none overscroll-x-contain touch-pan-x"
       >
         {/* 'All Aisles' Pill */}
         <motion.button
