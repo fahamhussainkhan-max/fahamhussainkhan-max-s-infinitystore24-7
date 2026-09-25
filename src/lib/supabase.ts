@@ -1056,6 +1056,9 @@ export async function recordCampusOrder(orderData: {
   customerName?: string;
   paymentMethod?: string;
   deliveryAddress?: DeliveryAddress;
+  handlingFee?: number;
+  deliveryFee?: number;
+  promoCode?: string;
 }) {
   const orderId = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const timestamp = new Date().toISOString();
@@ -1084,17 +1087,22 @@ export async function recordCampusOrder(orderData: {
 
   // 1. Try Supabase insert
   try {
+    const itemsSubtotal = orderData.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+    const handlingFee = orderData.handlingFee !== undefined ? orderData.handlingFee : 9;
+    const deliveryFee = orderData.deliveryFee !== undefined ? orderData.deliveryFee : 15;
+
     const { data, error } = await supabase
       .from('orders')
       .insert([
         {
           payment_method: fullOrder.payment_method || 'COD',
           payment_status: 'unpaid',
-          subtotal: Number(fullOrder.total_amount || 0),
+          subtotal: itemsSubtotal || Number(fullOrder.total_amount || 0),
           total: Number(fullOrder.total_amount || 0),
-          delivery_fee: 0,
-          discount: 0,
-          status: 'preparing',
+          delivery_fee: deliveryFee,
+          handling_fee: handlingFee,
+          discount: handlingFee === 0 ? 9 : 0,
+          status: 'pending',
           delivery_address: {
             fullName: fullOrder.customer_name,
             phone: fullOrder.customer_phone,

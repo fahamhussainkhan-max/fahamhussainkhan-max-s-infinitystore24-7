@@ -18,6 +18,12 @@ interface CheckoutFormProps {
   onOrderSuccess?: (orderId: string, deliveryAddress?: any) => void;
   onCancel?: () => void;
   grandTotal?: number;
+  subtotal?: number;
+  deliveryFee?: number;
+  handlingFee?: number;
+  appliedPromo?: string | null;
+  onApplyPromo?: (code: string) => { success: boolean; message: string };
+  onRemovePromo?: () => void;
   isOutsideBoundary?: boolean;
   onSelectCampusZone?: () => void;
   initialArea?: string;
@@ -29,6 +35,12 @@ export default function CheckoutForm({
   onOrderSuccess,
   onCancel,
   grandTotal,
+  subtotal,
+  deliveryFee = 15,
+  handlingFee = 9,
+  appliedPromo = null,
+  onApplyPromo,
+  onRemovePromo,
   isOutsideBoundary = false,
   onSelectCampusZone,
   initialArea,
@@ -89,6 +101,90 @@ export default function CheckoutForm({
       supabase.removeChannel(channel);
     };
   }, []);
+
+  const [localPromoInput, setLocalPromoInput] = useState('');
+  const [localAppliedPromo, setLocalAppliedPromo] = useState<string | null>(appliedPromo || null);
+  const [localPromoStatus, setLocalPromoStatus] = useState<{
+    type: 'success' | 'error' | null;
+    message: string;
+  }>({
+    type: appliedPromo === 'SHADOW' ? 'success' : null,
+    message: appliedPromo === 'SHADOW' ? 'Special promo applied: Handling fee waived!' : '',
+  });
+
+  useEffect(() => {
+    if (appliedPromo === 'SHADOW') {
+      setLocalAppliedPromo('SHADOW');
+      setLocalPromoStatus({
+        type: 'success',
+        message: 'Special promo applied: Handling fee waived!',
+      });
+    } else if (!appliedPromo && localAppliedPromo !== 'SHADOW') {
+      setLocalAppliedPromo(null);
+      setLocalPromoStatus({ type: null, message: '' });
+    }
+  }, [appliedPromo]);
+
+  const isSecretPromoApplied = Boolean(
+    (appliedPromo && appliedPromo.toUpperCase() === 'SHADOW') ||
+    (localAppliedPromo && localAppliedPromo.toUpperCase() === 'SHADOW')
+  );
+
+  const effectiveHandlingFee = isSecretPromoApplied ? 0 : handlingFee;
+  const effectiveDeliveryFee = deliveryFee;
+
+  const itemsSubtotal =
+    subtotal !== undefined
+      ? subtotal
+      : cartItems.reduce(
+          (acc: number, item: any) =>
+            acc +
+            (item.price !== undefined ? Number(item.price) : Number(item.product?.price || 0)) *
+              Number(item.quantity || 1),
+          0
+        );
+
+  const calculatedTotal = itemsSubtotal + effectiveDeliveryFee + effectiveHandlingFee;
+
+  const handleApplyPromoCode = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanCode = localPromoInput.trim().toUpperCase();
+
+    if (onApplyPromo) {
+      const res = onApplyPromo(cleanCode);
+      if (res.success) {
+        setLocalAppliedPromo('SHADOW');
+        setLocalPromoStatus({ type: 'success', message: res.message });
+      } else {
+        setLocalAppliedPromo(null);
+        setLocalPromoStatus({ type: 'error', message: res.message });
+      }
+      return;
+    }
+
+    if (cleanCode === 'SHADOW') {
+      setLocalAppliedPromo('SHADOW');
+      setLocalPromoStatus({
+        type: 'success',
+        message: 'Special promo applied: Handling fee waived!',
+      });
+    } else {
+      setLocalAppliedPromo(null);
+      setLocalPromoStatus({
+        type: 'error',
+        message: 'Invalid promo code',
+      });
+    }
+  };
+
+  const handleRemovePromoCode = () => {
+    if (onRemovePromo) {
+      onRemovePromo();
+    }
+    setLocalAppliedPromo(null);
+    setLocalPromoInput('');
+    setLocalPromoStatus({ type: null, message: '' });
+  };
 
   const [formData, setFormData] = useState(() => {
     try {
@@ -266,17 +362,9 @@ export default function CheckoutForm({
 
     try {
       // 1. Calculate totals
-      const deliveryFee = 15;
-      const handlingFee = 9;
-      const itemsSubtotal = cartItems.reduce(
-        (acc: number, item: any) =>
-          acc +
-          (item.price !== undefined ? Number(item.price) : Number(item.product?.price || 0)) *
-            Number(item.quantity || 1),
-        0
-      );
-      const calculatedGrandTotal = itemsSubtotal + deliveryFee + handlingFee;
-      const finalGrandTotal = grandTotal !== undefined ? grandTotal : calculatedGrandTotal;
+      const currentDeliveryFee = effectiveDeliveryFee;
+      const currentHandlingFee = effectiveHandlingFee;
+      const finalGrandTotal = calculatedTotal;
 
       const checkoutDetails = {
         name: formData.fullName.trim() || 'Campus Student',
@@ -297,8 +385,8 @@ export default function CheckoutForm({
         delivery_location: checkoutDetails.location,
         delivery_address: checkoutDetails.location,
         delivery_note: checkoutDetails.notes,
-        delivery_fee: deliveryFee,
-        handling_fee: handlingFee,
+        delivery_fee: currentDeliveryFee,
+        handling_fee: currentHandlingFee,
         subtotal: itemsSubtotal,
         total: finalGrandTotal,
         payment_method: checkoutDetails.paymentMethod || 'COD',
@@ -402,12 +490,10 @@ export default function CheckoutForm({
           </div>
         </div>
 
-        {grandTotal !== undefined && (
-          <div className="text-right">
-            <span className="text-xs text-neutral-400 block">Total Due (COD)</span>
-            <span className="text-lg font-black text-neutral-900">₹{grandTotal}</span>
-          </div>
-        )}
+        <div className="text-right">
+          <span className="text-xs text-neutral-400 block">Total Due (COD)</span>
+          <span className="text-lg font-black text-neutral-900">₹{calculatedTotal}</span>
+        </div>
       </div>
 
       {!storeOpen && (
@@ -633,6 +719,105 @@ export default function CheckoutForm({
             placeholder="e.g. Call upon reaching the gate / Leave at reception"
             className="w-full px-4 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
+        </div>
+
+        {/* Order Summary & Pricing Breakdown */}
+        <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/80 text-xs space-y-2">
+          <div className="flex items-center justify-between text-[11px] font-bold text-neutral-500 uppercase tracking-wider pb-1 border-b border-neutral-200/60">
+            <span>Order Summary ({cartItems.reduce((acc, it) => acc + (it.quantity || 1), 0)} items)</span>
+            <span>Amount</span>
+          </div>
+          <div className="space-y-1.5 text-xs text-neutral-600">
+            <div className="flex justify-between">
+              <span>Item Subtotal</span>
+              <span className="font-semibold text-neutral-900">₹{itemsSubtotal}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Runner Delivery Fee</span>
+              <span className="font-semibold text-neutral-900">₹{effectiveDeliveryFee}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Handling Fee</span>
+              {isSecretPromoApplied ? (
+                <span className="font-bold text-emerald-600 flex items-center gap-1.5">
+                  <span className="line-through text-neutral-400 font-normal">₹9</span>
+                  <span>₹0</span>
+                </span>
+              ) : (
+                <span className="font-semibold text-neutral-900">₹{effectiveHandlingFee}</span>
+              )}
+            </div>
+            {isSecretPromoApplied && (
+              <div className="flex justify-between text-emerald-600 font-semibold text-[11px]">
+                <span>Handling Fee Waived</span>
+                <span>-₹9</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center text-sm font-black text-neutral-900 pt-2 border-t border-neutral-200">
+              <span>Total to Pay (COD)</span>
+              <span>₹{calculatedTotal}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Secret Promo Code Section */}
+        <div>
+          {isSecretPromoApplied ? (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900">
+              <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Special promo applied: Handling fee waived!</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemovePromoCode}
+                className="text-[11px] text-neutral-500 hover:text-neutral-900 underline font-bold cursor-pointer"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <label className="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                Promo Code
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={localPromoInput}
+                  onChange={(e) => {
+                    setLocalPromoInput(e.target.value);
+                    if (localPromoStatus.type === 'error') {
+                      setLocalPromoStatus({ type: null, message: '' });
+                    }
+                  }}
+                  placeholder="Enter promo code"
+                  className="flex-1 px-3.5 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 text-xs sm:text-sm bg-white uppercase font-bold text-neutral-900"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyPromoCode}
+                  className="px-3.5 py-2 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-xl transition cursor-pointer flex-shrink-0"
+                >
+                  Apply
+                </button>
+              </div>
+              {localPromoStatus.message && (
+                <p
+                  className={`text-[11px] font-semibold flex items-center gap-1.5 ${
+                    localPromoStatus.type === 'success' ? 'text-emerald-600' : 'text-rose-600'
+                  }`}
+                >
+                  {localPromoStatus.type === 'success' ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  )}
+                  <span>{localPromoStatus.message}</span>
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Place Order Submit Button */}

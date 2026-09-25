@@ -30,34 +30,48 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   isStoreOpen = true,
 }) => {
   const [roomDetails, setRoomDetails] = useState('Room 204, 2nd Floor');
-  const [promoCode, setPromoCode] = useState('');
-  const [discountApplied, setDiscountApplied] = useState(0);
-  const [promoMessage, setPromoMessage] = useState('');
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [promoStatus, setPromoStatus] = useState<{
+    type: 'success' | 'error' | null;
+    message: string;
+  }>({ type: null, message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [placedOrder, setPlacedOrder] = useState<any | null>(null);
   const [isCheckoutFormOpen, setIsCheckoutFormOpen] = useState(false);
 
   const deliveryFee = 15;
-  const handlingFee = 9;
+  const baseHandlingFee = 9;
+  const isPromoApplied = appliedPromo === 'SHADOW';
+  const handlingFee = isPromoApplied ? 0 : baseHandlingFee;
   const subtotal = cartItems.reduce(
     (acc, item) => acc + item.product.price * item.quantity,
     0
   );
-  const grandTotal = Math.max(0, subtotal + deliveryFee + handlingFee - discountApplied);
+  const grandTotal = Math.max(0, subtotal + deliveryFee + handlingFee);
 
-  const handleApplyPromo = (e: React.FormEvent) => {
-    e.preventDefault();
-    const code = promoCode.trim().toUpperCase();
-    if (code === 'CAMPUS10' || code === 'EXAMCHILL') {
-      const disc = Math.round(subtotal * 0.1);
-      setDiscountApplied(disc);
-      setPromoMessage(`10% Student Discount Applied (-₹${disc}) ✓`);
-    } else if (code === 'FREEDELIVERY') {
-      setDiscountApplied(deliveryFee);
-      setPromoMessage('Free delivery unlocked! ✓');
+  const handleApplyPromo = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanCode = promoInput.trim().toUpperCase();
+    if (cleanCode === 'SHADOW') {
+      setAppliedPromo('SHADOW');
+      setPromoStatus({
+        type: 'success',
+        message: 'Special promo applied: Handling fee waived!',
+      });
     } else {
-      setPromoMessage('Invalid promo code. Try "CAMPUS10" or "EXAMCHILL"');
+      setAppliedPromo(null);
+      setPromoStatus({
+        type: 'error',
+        message: 'Invalid promo code',
+      });
     }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoInput('');
+    setPromoStatus({ type: null, message: '' });
   };
 
   const handleCheckout = async () => {
@@ -81,6 +95,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         total: grandTotal,
         deliveryZone: selectedZone.name,
         roomDetails,
+        handlingFee: handlingFee,
+        deliveryFee: deliveryFee,
       });
 
       confetti({
@@ -237,6 +253,30 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     isStoreOpen={isStoreOpen}
                     cartItems={cartItems}
                     grandTotal={grandTotal}
+                    subtotal={subtotal}
+                    deliveryFee={deliveryFee}
+                    handlingFee={handlingFee}
+                    appliedPromo={appliedPromo}
+                    onApplyPromo={(codeToApply: string) => {
+                      const clean = codeToApply.trim().toUpperCase();
+                      if (clean === 'SHADOW') {
+                        setAppliedPromo('SHADOW');
+                        setPromoInput('SHADOW');
+                        setPromoStatus({
+                          type: 'success',
+                          message: 'Special promo applied: Handling fee waived!',
+                        });
+                        return { success: true, message: 'Special promo applied: Handling fee waived!' };
+                      } else {
+                        setAppliedPromo(null);
+                        setPromoStatus({
+                          type: 'error',
+                          message: 'Invalid promo code',
+                        });
+                        return { success: false, message: 'Invalid promo code' };
+                      }
+                    }}
+                    onRemovePromo={handleRemovePromo}
                     isOutsideBoundary={isOutsideBoundary}
                     initialArea={selectedZone.name}
                     onSelectCampusZone={() => {
@@ -281,7 +321,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Express 10-15 Min Campus Delivery
                     </span>
                     <span className="text-[10px] font-bold uppercase bg-white/80 px-2 py-0.5 rounded-full text-neutral-700">
-                      ₹15 Delivery • ₹9 Handling
+                      {isPromoApplied ? '₹15 Delivery • ₹0 Handling (Waived)' : '₹15 Delivery • ₹9 Handling'}
                     </span>
                   </div>
 
@@ -370,31 +410,63 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
 
                   {/* Promo code input */}
-                  <form onSubmit={handleApplyPromo} className="pt-2">
-                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
-                      Student Promo Code
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={promoCode}
-                        onChange={(e) => setPromoCode(e.target.value)}
-                        placeholder="Try 'CAMPUS10' or 'EXAMCHILL'"
-                        className="flex-1 text-xs uppercase font-bold text-gray-900 p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-black bg-white"
-                      />
-                      <button
-                        type="submit"
-                        className="px-3.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl transition-colors"
-                      >
-                        Apply
-                      </button>
-                    </div>
-                    {promoMessage && (
-                      <p className="text-[11px] font-semibold text-[#0A84FF] mt-1">
-                        {promoMessage}
-                      </p>
+                  <div className="pt-2">
+                    {isPromoApplied ? (
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900">
+                        <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>Special promo applied: Handling fee waived!</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemovePromo}
+                          className="text-[11px] text-neutral-500 hover:text-neutral-900 underline font-bold cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleApplyPromo}>
+                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                          Promo Code
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={promoInput}
+                            onChange={(e) => {
+                              setPromoInput(e.target.value);
+                              if (promoStatus.type === 'error') {
+                                setPromoStatus({ type: null, message: '' });
+                              }
+                            }}
+                            placeholder="Enter promo code"
+                            className="flex-1 text-xs uppercase font-bold text-gray-900 p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-black bg-white"
+                          />
+                          <button
+                            type="submit"
+                            className="px-3.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                        {promoStatus.message && (
+                          <p
+                            className={`text-[11px] font-semibold mt-1.5 flex items-center gap-1.5 ${
+                              promoStatus.type === 'success' ? 'text-emerald-600' : 'text-red-600'
+                            }`}
+                          >
+                            {promoStatus.type === 'success' ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            ) : (
+                              <X className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                            )}
+                            <span>{promoStatus.message}</span>
+                          </p>
+                        )}
+                      </form>
                     )}
-                  </form>
+                  </div>
                 </div>
               )}
 
@@ -415,13 +487,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div className="flex justify-between">
                       <span className="truncate pr-2">Handling Fee</span>
                       <span className="font-semibold flex-shrink-0 text-gray-900">
-                        ₹{handlingFee}
+                        {isPromoApplied ? (
+                          <span className="flex items-center gap-1.5 text-emerald-600">
+                            <span className="line-through text-gray-400 font-normal">₹9</span>
+                            <span className="font-bold">₹0</span>
+                          </span>
+                        ) : (
+                          '₹9'
+                        )}
                       </span>
                     </div>
-                    {discountApplied > 0 && (
-                      <div className="flex justify-between text-emerald-600 font-semibold">
-                        <span>Discount Applied</span>
-                        <span>-₹{discountApplied}</span>
+                    {isPromoApplied && (
+                      <div className="flex justify-between text-emerald-600 font-semibold text-[11px]">
+                        <span>Handling Fee Waived</span>
+                        <span>-₹9</span>
                       </div>
                     )}
                     <div className="flex justify-between text-sm sm:text-base font-black text-gray-900 pt-2 border-t border-gray-200">
