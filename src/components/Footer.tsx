@@ -128,6 +128,51 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
             <span>by Faham Hussain Khan</span>
           </div>
         </div>
+
+        {/* Social Media Links */}
+        <div className="pt-6 mt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <span className="text-[11px] font-semibold text-gray-400 tracking-wider uppercase">
+            Follow Infinity Store
+          </span>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://www.instagram.com/infinitystorehq"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+              className="w-10 h-10 rounded-xl bg-white/[0.05] hover:bg-gradient-to-tr hover:from-amber-500/20 hover:via-rose-500/20 hover:to-purple-500/20 border border-white/10 hover:border-pink-500/40 text-gray-400 hover:text-pink-400 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 group shadow-2xs"
+            >
+              <svg
+                className="w-5 h-5 transition-transform duration-200 group-hover:scale-110"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+              </svg>
+            </a>
+
+            <a
+              href="https://www.youtube.com/@InfinityStore-m6t"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="YouTube"
+              className="w-10 h-10 rounded-xl bg-white/[0.05] hover:bg-red-500/10 border border-white/10 hover:border-red-500/40 text-gray-400 hover:text-red-500 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 group shadow-2xs"
+            >
+              <svg
+                className="w-5 h-5 transition-transform duration-200 group-hover:scale-110 fill-current"
+                viewBox="0 0 24 24"
+              >
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
       </div>
     </footer>
   );
