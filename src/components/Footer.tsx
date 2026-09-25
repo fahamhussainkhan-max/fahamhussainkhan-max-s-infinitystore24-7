@@ -103,9 +103,9 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1 text-[11px] text-gray-400">
-                <MapPin className="w-3.5 h-3.5 text-[#FF3B30] shrink-0" />
-                <span>Campus Edge Hub • Gate 2 Barrier Plaza Complex</span>
+              <div className="flex items-start gap-2 pt-1 text-[11px] text-gray-400">
+                <MapPin className="w-3.5 h-3.5 text-[#FF3B30] shrink-0 mt-0.5" />
+                <span>Mokaju Boys Hostel, CCCT, Chisopani, P.O. Nandugaon, South Sikkim – 737126, Sikkim, India</span>
               </div>
             </div>
           </div>
