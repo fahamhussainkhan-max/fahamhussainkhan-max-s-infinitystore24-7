@@ -62,6 +62,8 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
               <li><a href="#categories-section" className="hover:text-white transition-colors">📚 Stationery & Study Supplies</a></li>
               <li><a href="#categories-section" className="hover:text-white transition-colors">🥤 Drinks & Beverages</a></li>
               <li><a href="#categories-section" className="hover:text-white transition-colors">🍫 Snacks & Munchies</a></li>
+              <li><a href="#categories-section" className="hover:text-white transition-colors">🔌 Electronics & Gadgets</a></li>
+              <li><a href="#categories-section" className="hover:text-white transition-colors">🌸 Women's Care & Hygiene</a></li>
               <li><a href="#campus-favourites" className="hover:text-white transition-colors">🔥 Top Campus Favourites</a></li>
               {onOpenCustomerOrders && (
                 <li>

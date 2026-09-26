@@ -318,6 +318,8 @@ export const ProductManagement: React.FC = () => {
             <option value="drinks">Drinks & Beverages</option>
             <option value="snacks">Snacks & Munchies</option>
             <option value="stationery">Stationery & Study</option>
+            <option value="electronics">Electronics & Gadgets</option>
+            <option value="womens-care">Women's Care</option>
             <option value="personal-care">Personal Care</option>
             <option value="hostel-essentials">Hostel Essentials</option>
           </select>
@@ -523,6 +525,8 @@ export const ProductManagement: React.FC = () => {
                     <option value="drinks">Drinks & Beverages</option>
                     <option value="snacks">Snacks & Munchies</option>
                     <option value="stationery">Stationery & Study</option>
+                    <option value="electronics">Electronics & Gadgets</option>
+                    <option value="womens-care">Women's Care</option>
                     <option value="personal-care">Personal Care</option>
                     <option value="hostel-essentials">Hostel Essentials</option>
                   </select>

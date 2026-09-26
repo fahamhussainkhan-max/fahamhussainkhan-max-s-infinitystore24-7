@@ -134,11 +134,21 @@ function CustomerStorefront() {
   // Transform raw Supabase rows so all UI properties (image, category, price, discount, stock, etc.) are populated
   function mapStorefrontProduct(item: any): Product {
     const rawCat = (item.category || '').toLowerCase().trim();
-    let category = rawCat;
-    if (rawCat === 'beverages' || rawCat === 'drink') category = 'drinks';
-    if (rawCat === 'food' || rawCat === 'munchies') category = 'snacks';
-    if (rawCat === 'study' || rawCat === 'pens') category = 'stationery';
-    if (rawCat === 'tech' || rawCat === 'gadgets') category = 'electronics';
+    let category = item.category || rawCat;
+    if (rawCat === 'beverages' || rawCat === 'drink' || rawCat === 'drinks') category = 'drinks';
+    else if (rawCat === 'food' || rawCat === 'munchies' || rawCat === 'snacks') category = 'snacks';
+    else if (rawCat === 'study' || rawCat === 'pens' || rawCat === 'stationery') category = 'stationery';
+    else if (rawCat === 'tech' || rawCat === 'gadgets' || rawCat === 'electronics') category = 'electronics';
+    else if (
+      rawCat === 'womens-care' ||
+      rawCat === "women's care" ||
+      rawCat === 'womenscare' ||
+      rawCat === 'women' ||
+      rawCat.includes('women') ||
+      rawCat === 'sanitary'
+    ) {
+      category = 'womens-care';
+    }
     if (!category) category = 'snacks';
 
     const stock = Number(item.stock ?? item.stock_quantity ?? item.stock_count ?? 10);
@@ -563,11 +573,30 @@ function CustomerStorefront() {
   // Filtered products when category is selected
   const categoryProducts = useMemo(() => {
     if (!selectedCategory) return [];
-    return displayedProducts.filter((p) => p.category === selectedCategory);
+    const selNorm = selectedCategory.toLowerCase().replace(/['\s_-]/g, '');
+    return displayedProducts.filter((p) => {
+      if (p.category === selectedCategory) return true;
+      const catNorm = (p.category || '').toLowerCase().replace(/['\s_-]/g, '');
+      if (catNorm === selNorm) return true;
+      if (
+        (selNorm === 'womenscare' || selNorm === 'women') &&
+        (catNorm === 'womenscare' || catNorm.includes('women') || catNorm === 'personalcare' || catNorm === 'sanitary')
+      ) {
+        return true;
+      }
+      return false;
+    });
   }, [displayedProducts, selectedCategory]);
 
   const activeCategoryObj = useMemo(
-    () => CATEGORIES.find((c) => c.id === selectedCategory),
+    () =>
+      CATEGORIES.find((c) => {
+        if (!selectedCategory) return false;
+        if (c.id === selectedCategory || c.name === selectedCategory || c.slug === selectedCategory) return true;
+        const cNorm = c.id.toLowerCase().replace(/['\s_-]/g, '');
+        const selNorm = selectedCategory.toLowerCase().replace(/['\s_-]/g, '');
+        return cNorm === selNorm;
+      }),
     [selectedCategory]
   );
 

@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { motion } from 'motion/react';
 import { CATEGORIES } from '../data/mockData';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Heart } from 'lucide-react';
 
 interface CategoryPillsProps {
   selectedCategory: string | null;
@@ -46,7 +46,10 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
 
         {/* Categories Pills */}
         {CATEGORIES.map((cat) => {
-          const isSelected = selectedCategory === cat.id;
+          const isSelected =
+            selectedCategory === cat.id ||
+            selectedCategory === cat.slug ||
+            selectedCategory === cat.name;
 
           return (
             <motion.button
@@ -69,7 +72,15 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
                   transition={{ type: 'spring', stiffness: 380, damping: 28 }}
                 />
               )}
-              <span className="text-sm">{cat.emoji}</span>
+              {cat.id === 'womens-care' ? (
+                <Heart
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    isSelected ? 'text-white fill-white' : 'text-pink-500 fill-pink-500/20'
+                  }`}
+                />
+              ) : (
+                <span className="text-sm">{cat.emoji}</span>
+              )}
               <span>{cat.name}</span>
             </motion.button>
           );

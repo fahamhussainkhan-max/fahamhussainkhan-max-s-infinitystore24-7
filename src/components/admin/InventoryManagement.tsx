@@ -745,6 +745,7 @@ export const InventoryManagement: React.FC = () => {
                     <option value="snacks">Snacks & Munchies</option>
                     <option value="dairy">Dairy & Bakery</option>
                     <option value="stationery">Campus Stationery</option>
+                    <option value="womens-care">Women's Care</option>
                     <option value="personal-care">Personal Care</option>
                   </select>
                 </div>

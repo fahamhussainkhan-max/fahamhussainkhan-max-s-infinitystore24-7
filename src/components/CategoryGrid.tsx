@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { CATEGORIES } from '../data/mockData';
 import { Category } from '../types';
 
@@ -67,10 +67,13 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
       {/* Grid on desktop & smooth horizontal touch scrolling on mobile */}
       <div
         ref={scrollRef}
-        className="flex lg:grid lg:grid-cols-3 gap-3 sm:gap-5 overflow-x-auto no-scrollbar pb-3 pt-1 snap-x snap-mandatory select-none overscroll-x-contain touch-pan-x"
+        className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-3 pt-1 snap-x snap-mandatory select-none overscroll-x-contain touch-pan-x"
       >
         {CATEGORIES.map((cat) => {
-          const isSelected = selectedCategory === cat.id;
+          const isSelected =
+            selectedCategory === cat.id ||
+            selectedCategory === cat.slug ||
+            selectedCategory === cat.name;
 
           return (
             <motion.div
@@ -79,7 +82,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
               whileHover={{ y: -6, scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               transition={{ duration: 0.22, ease: 'easeOut' }}
-              className={`group flex-shrink-0 w-36 xs:w-44 sm:w-48 lg:w-auto snap-start cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-4 border transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
+              className={`group flex-shrink-0 w-36 xs:w-44 sm:w-auto snap-start cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-4 border transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
                 cat.bgGradient
               } ${
                 isSelected
@@ -97,9 +100,14 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
 
               {/* Top row: Emoji & Item Count badge */}
               <div className="flex items-center justify-between z-10 mb-1.5">
-                <span className="text-xl sm:text-2xl filter drop-shadow-sm group-hover:scale-110 transition-transform">
-                  {cat.emoji}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xl sm:text-2xl filter drop-shadow-sm group-hover:scale-110 transition-transform">
+                    {cat.emoji}
+                  </span>
+                  {cat.id === 'womens-care' && (
+                    <Heart className="w-4 h-4 text-pink-500 fill-pink-500/30 shrink-0" />
+                  )}
+                </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/80 text-gray-700 shadow-xs border border-black/5">
                   {cat.itemCount}+ items
                 </span>
@@ -130,6 +138,37 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
             </motion.div>
           );
         })}
+      </div>
+
+      {/* Women's Care Discreet & Express Campus Delivery Banner */}
+      <div className="mt-4 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-rose-500/10 border border-pink-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white flex items-center justify-center shadow-md shrink-0">
+            <Heart className="w-5 h-5 fill-white/30" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm font-black text-gray-900">
+                Women's Care & Intimate Hygiene Aisle
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-100 text-pink-800 border border-pink-200">
+                100% Discreet Packaging
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs text-gray-600 mt-0.5">
+              Sanitary pads, intimate cleansing wash & emergency wellness supplies delivered directly to Girls Hostel & Campus Drop Spots in 10-15 mins.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onSelectCategory('womens-care')}
+          className="self-stretch sm:self-auto px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+        >
+          <span>Explore Women's Care</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </div>
     </section>
   );
