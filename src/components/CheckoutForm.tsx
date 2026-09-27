@@ -18,8 +18,11 @@ interface CheckoutFormProps {
   onOrderSuccess?: (orderId: string, deliveryAddress?: any) => void;
   onCancel?: () => void;
   grandTotal?: number;
+  totalAmount?: number;
   subtotal?: number;
+  productPrice?: number;
   deliveryFee?: number;
+  deliveryCharge?: number;
   handlingFee?: number;
   appliedPromo?: string | null;
   onApplyPromo?: (code: string) => { success: boolean; message: string };
@@ -35,9 +38,12 @@ export default function CheckoutForm({
   onOrderSuccess,
   onCancel,
   grandTotal,
+  totalAmount: initialTotalAmount,
   subtotal,
+  productPrice: initialProductPrice,
   deliveryFee = 15,
-  handlingFee = 9,
+  deliveryCharge: initialDeliveryCharge,
+  handlingFee: initialHandlingFee = 9,
   appliedPromo = null,
   onApplyPromo,
   onRemovePromo,
@@ -130,11 +136,10 @@ export default function CheckoutForm({
     (localAppliedPromo && localAppliedPromo.toUpperCase() === 'SHADOW')
   );
 
-  const effectiveHandlingFee = isSecretPromoApplied ? 0 : handlingFee;
-  const effectiveDeliveryFee = deliveryFee;
-
-  const itemsSubtotal =
-    subtotal !== undefined
+  const productPrice =
+    initialProductPrice !== undefined
+      ? initialProductPrice
+      : subtotal !== undefined
       ? subtotal
       : cartItems.reduce(
           (acc: number, item: any) =>
@@ -144,7 +149,15 @@ export default function CheckoutForm({
           0
         );
 
-  const calculatedTotal = itemsSubtotal + effectiveDeliveryFee + effectiveHandlingFee;
+  const deliveryCharge = initialDeliveryCharge !== undefined ? initialDeliveryCharge : deliveryFee;
+  const handlingFee = isSecretPromoApplied ? 0 : initialHandlingFee;
+
+  const totalAmount = Number(productPrice) + Number(deliveryCharge) + Number(handlingFee);
+
+  const calculatedTotal = totalAmount;
+  const itemsSubtotal = productPrice;
+  const effectiveDeliveryFee = deliveryCharge;
+  const effectiveHandlingFee = handlingFee;
 
   const handleApplyPromoCode = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -362,9 +375,9 @@ export default function CheckoutForm({
 
     try {
       // 1. Calculate totals
-      const currentDeliveryFee = effectiveDeliveryFee;
-      const currentHandlingFee = effectiveHandlingFee;
-      const finalGrandTotal = calculatedTotal;
+      const currentDeliveryFee = Number(deliveryCharge);
+      const currentHandlingFee = Number(handlingFee);
+      const finalGrandTotal = totalAmount;
 
       const checkoutDetails = {
         name: formData.fullName.trim() || 'Campus Student',
@@ -387,8 +400,8 @@ export default function CheckoutForm({
         delivery_note: checkoutDetails.notes,
         delivery_fee: currentDeliveryFee,
         handling_fee: currentHandlingFee,
-        subtotal: itemsSubtotal,
-        total: finalGrandTotal,
+        subtotal: Number(productPrice),
+        total: totalAmount,
         payment_method: checkoutDetails.paymentMethod || 'COD',
         payment_status: 'unpaid',
         status: 'pending',
@@ -492,7 +505,7 @@ export default function CheckoutForm({
 
         <div className="text-right">
           <span className="text-xs text-neutral-400 block">Total Due (COD)</span>
-          <span className="text-lg font-black text-neutral-900">₹{calculatedTotal}</span>
+          <span className="text-lg font-black text-neutral-900">₹{totalAmount}</span>
         </div>
       </div>
 
@@ -730,11 +743,11 @@ export default function CheckoutForm({
           <div className="space-y-1.5 text-xs text-neutral-600">
             <div className="flex justify-between">
               <span>Item Subtotal</span>
-              <span className="font-semibold text-neutral-900">₹{itemsSubtotal}</span>
+              <span className="font-semibold text-neutral-900">₹{productPrice}</span>
             </div>
             <div className="flex justify-between">
               <span>Runner Delivery Fee</span>
-              <span className="font-semibold text-neutral-900">₹{effectiveDeliveryFee}</span>
+              <span className="font-semibold text-neutral-900">₹{deliveryCharge}</span>
             </div>
             <div className="flex justify-between items-center">
               <span>Handling Fee</span>
@@ -744,7 +757,7 @@ export default function CheckoutForm({
                   <span>₹0</span>
                 </span>
               ) : (
-                <span className="font-semibold text-neutral-900">₹{effectiveHandlingFee}</span>
+                <span className="font-semibold text-neutral-900">₹{handlingFee}</span>
               )}
             </div>
             {isSecretPromoApplied && (
@@ -755,7 +768,7 @@ export default function CheckoutForm({
             )}
             <div className="flex justify-between items-center text-sm font-black text-neutral-900 pt-2 border-t border-neutral-200">
               <span>Total to Pay (COD)</span>
-              <span>₹{calculatedTotal}</span>
+              <span>₹{totalAmount}</span>
             </div>
           </div>
         </div>
@@ -841,7 +854,7 @@ export default function CheckoutForm({
                 ? 'Verify Custom PG Location to Enable Checkout'
                 : loading
                 ? 'Placing Order...'
-                : 'Place Order (Cash on Delivery)'}
+                : `Place Order (Cash on Delivery) • ₹${totalAmount}`}
             </span>
           </button>
         </div>

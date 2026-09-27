@@ -44,11 +44,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const baseHandlingFee = 9;
   const isPromoApplied = appliedPromo === 'SHADOW';
   const handlingFee = isPromoApplied ? 0 : baseHandlingFee;
-  const subtotal = cartItems.reduce(
+  const productPrice = cartItems.reduce(
     (acc, item) => acc + item.product.price * item.quantity,
     0
   );
-  const grandTotal = Math.max(0, subtotal + deliveryFee + handlingFee);
+  const deliveryCharge = deliveryFee;
+  const totalAmount = Number(productPrice) + Number(deliveryCharge) + Number(handlingFee);
+  const subtotal = productPrice;
+  const grandTotal = totalAmount;
 
   const handleApplyPromo = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -253,8 +256,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     isStoreOpen={isStoreOpen}
                     cartItems={cartItems}
                     grandTotal={grandTotal}
+                    totalAmount={totalAmount}
                     subtotal={subtotal}
+                    productPrice={productPrice}
                     deliveryFee={deliveryFee}
+                    deliveryCharge={deliveryCharge}
                     handlingFee={handlingFee}
                     appliedPromo={appliedPromo}
                     onApplyPromo={(codeToApply: string) => {

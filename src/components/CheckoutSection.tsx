@@ -23,11 +23,15 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
   const [errorMsg, setErrorMsg] = useState('');
 
   // Fixed Fees
-  const DELIVERY_FEE = 15;
-  const HANDLING_FEE = 9;
+  const productPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const deliveryCharge = 15;
+  const handlingFee = 9;
 
-  const itemsTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const grandTotal = itemsTotal + DELIVERY_FEE + HANDLING_FEE;
+  const totalAmount = Number(productPrice) + Number(deliveryCharge) + Number(handlingFee);
+  const itemsTotal = productPrice;
+  const grandTotal = totalAmount;
+  const DELIVERY_FEE = deliveryCharge;
+  const HANDLING_FEE = handlingFee;
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,19 +189,19 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
       <div className="bg-slate-800/50 p-3 rounded-xl space-y-1.5 text-xs text-slate-300 mb-4 border border-slate-700/50">
         <div className="flex justify-between">
           <span>Items Total:</span>
-          <span className="font-semibold text-white">₹{itemsTotal}</span>
+          <span className="font-semibold text-white">₹{productPrice}</span>
         </div>
         <div className="flex justify-between">
           <span>Delivery Charge:</span>
-          <span className="font-semibold text-white">₹{DELIVERY_FEE}</span>
+          <span className="font-semibold text-white">₹{deliveryCharge}</span>
         </div>
         <div className="flex justify-between">
           <span>Handling Fee:</span>
-          <span className="font-semibold text-white">₹{HANDLING_FEE}</span>
+          <span className="font-semibold text-white">₹{handlingFee}</span>
         </div>
         <div className="flex justify-between font-bold text-sm text-emerald-400 border-t border-slate-700 pt-2 mt-1">
           <span>Total COD to Collect:</span>
-          <span>₹{grandTotal}</span>
+          <span>₹{totalAmount}</span>
         </div>
       </div>
 
@@ -206,7 +210,7 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         disabled={loading || !isStoreOpen}
         className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold py-2.5 rounded-xl text-sm transition cursor-pointer disabled:cursor-not-allowed shadow-lg active:scale-[0.99]"
       >
-        {loading ? 'Placing Order...' : !isStoreOpen ? 'Store is Closed' : `Place COD Order • ₹${grandTotal}`}
+        {loading ? 'Placing Order...' : !isStoreOpen ? 'Store is Closed' : `Place COD Order • ₹${totalAmount}`}
       </button>
     </form>
   );
