@@ -38,7 +38,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             >
               Everything you need.<br />
               <span className="text-[#0A84FF]">Right when you</span>{' '}
-              <span className="text-[#FF3B30]">need it.</span>
+              <span className="text-orange-500">need it.</span>
             </motion.h1>
 
             {/* Supporting Text */}
