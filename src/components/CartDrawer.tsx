@@ -5,6 +5,7 @@ import confetti from 'canvas-confetti';
 import { CartItem, CampusZone } from '../types';
 import { recordCampusOrder } from '../lib/supabase';
 import CheckoutForm from './CheckoutForm';
+import { calculateDeliveryFee, getBaseDeliveryFee, PACKAGING_HANDLING_FEE } from '../utils/delivery';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -46,14 +47,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   );
   const subtotal = productPrice;
 
-  // Requirement 2:
-  // - Base delivery charge: Rs. 25 strikethrough -> Rs. 15 (discounted)
-  // - Handling Fee: Rs. 9, and FREE for orders over Rs. 200 (subtotal >= 200)
-  const isFreeHandlingQualified = subtotal >= 200;
-  const isFreeDeliveryQualified = false;
-  const baseDeliveryFee = 25;
-  const deliveryFee = 15;
-  const handlingFee = isFreeHandlingQualified ? 0 : 9;
+  // Destination-based Delivery & Packaging Fee Rules:
+  // - Free delivery above Rs. 200 (subtotal >= 200)
+  // - Otherwise: Rs. 15 for hostel/CCCT, Rs. 20 for outer/further spots
+  // - Packaging & Handling Fee: Rs. 9 (waived with promo code 'SHADOW')
+  const isFreeDeliveryQualified = subtotal >= 200;
+  const baseDeliveryFee = getBaseDeliveryFee(selectedZone);
+  const deliveryFee = calculateDeliveryFee(selectedZone, subtotal);
+  const isFreeHandlingQualified = appliedPromo === 'SHADOW';
+  const handlingFee = isFreeHandlingQualified ? 0 : PACKAGING_HANDLING_FEE;
   const deliveryCharge = deliveryFee;
   const totalAmount = subtotal > 0 ? subtotal + deliveryFee + handlingFee : 0;
   const grandTotal = totalAmount;
@@ -484,27 +486,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {/* Drawer Footer & Checkout Action */}
               {!placedOrder && !isCheckoutFormOpen && cartItems.length > 0 && (
                 <div className="p-5 sm:p-6 border-t border-gray-100 bg-[#FAFAF7] space-y-3">
-                  {/* Delivery Promo Badge */}
+                  {/* Delivery Promo Badge / 10% Off Announcement */}
                   <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300 text-amber-950 text-xs font-bold flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span>10% Off on delivery charges for this month</span>
                     </span>
-                    <span className="text-[10px] text-amber-800 bg-white/80 px-2 py-0.5 rounded-md font-extrabold shrink-0">
-                      ₹15 ONLY
+                    <span className="text-[10px] text-amber-900 bg-white/90 px-2 py-0.5 rounded-md font-extrabold border border-amber-300 shrink-0">
+                      ₹15 FLAT
                     </span>
                   </div>
-
-                  {/* Free handling qualification nudge */}
-                  {isFreeHandlingQualified ? (
-                    <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold text-center">
-                      🎉 Free Handling Unlocked (Order over ₹200)!
-                    </div>
-                  ) : (
-                    <div className="p-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold text-center">
-                      💡 Add <strong className="text-blue-700">₹{200 - subtotal}</strong> more for <strong>FREE Handling Fee (₹0)</strong>!
-                    </div>
-                  )}
 
                   <div className="space-y-1.5 text-xs text-gray-600 pt-1">
                     <div className="flex justify-between">
@@ -515,8 +506,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div className="flex justify-between items-center">
                       <span className="truncate pr-2 flex items-center gap-1.5">
                         <span>Runner Delivery Fee</span>
-                        <span className="text-[10px] text-amber-800 bg-amber-100/70 px-1.5 py-0.5 rounded font-bold">
-                          Promo
+                        <span className="text-[10px] text-amber-900 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded font-extrabold">
+                          10% Off
                         </span>
                       </span>
                       <span className="font-semibold flex-shrink-0 text-gray-900 flex items-center gap-1.5">
@@ -526,7 +517,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Handling Fee</span>
+                      <span className="text-gray-600">Packaging & Handling Fee</span>
                       <span className="font-bold flex items-center gap-1.5">
                         {isFreeHandlingQualified ? (
                           <>

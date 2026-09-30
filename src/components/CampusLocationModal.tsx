@@ -38,23 +38,20 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
   allZones,
   isOutsideBoundary = false,
 }) => {
-  // Active choice tab: "CCCT Campus", "SIST Campus", "Hostels / PGs"
-  const [activeGroup, setActiveGroup] = useState<'CCCT Campus' | 'SIST Campus' | 'Hostels / PGs'>(() => {
-    if (selectedZone.campusGroup) return selectedZone.campusGroup;
-    if (selectedZone.id.includes('sist')) return 'SIST Campus';
-    if (selectedZone.id.includes('pg') || selectedZone.isCustom) return 'Hostels / PGs';
-    return 'CCCT Campus';
+  // Active choice tab: "CCCT", "SIST", "Hostels / Custom PGs"
+  const [activeGroup, setActiveGroup] = useState<'CCCT' | 'SIST' | 'Hostels / Custom PGs'>(() => {
+    if (selectedZone.campusGroup === 'CCCT' || selectedZone.id.startsWith('ccct')) return 'CCCT';
+    if (selectedZone.campusGroup === 'SIST' || selectedZone.id.startsWith('sist') || selectedZone.id.startsWith('ccst')) return 'SIST';
+    return 'Hostels / Custom PGs';
   });
 
   React.useEffect(() => {
-    if (selectedZone.campusGroup) {
-      setActiveGroup(selectedZone.campusGroup);
-    } else if (selectedZone.id.includes('sist')) {
-      setActiveGroup('SIST Campus');
-    } else if (selectedZone.id.includes('pg') || selectedZone.isCustom) {
-      setActiveGroup('Hostels / PGs');
+    if (selectedZone.campusGroup === 'CCCT' || selectedZone.id.startsWith('ccct')) {
+      setActiveGroup('CCCT');
+    } else if (selectedZone.campusGroup === 'SIST' || selectedZone.id.startsWith('sist') || selectedZone.id.startsWith('ccst')) {
+      setActiveGroup('SIST');
     } else {
-      setActiveGroup('CCCT Campus');
+      setActiveGroup('Hostels / Custom PGs');
     }
   }, [selectedZone, isOpen]);
 
@@ -127,7 +124,8 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
           block: 'Verified Campus Delivery Zone',
           estMinutes: '45 mins - 1 hr',
           isOnline: true,
-          deliveryFee: 15,
+          deliveryFee: 20,
+          isOuterSpot: true,
           coordinates: { lat: result.latitude, lng: result.longitude },
           isCustom: true,
           customLocation: customInputText.trim(),
@@ -216,15 +214,15 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
             </div>
           )}
 
-          {/* 3 Clear Delivery Zones Choices */}
+          {/* 3 Clear Delivery Zones Choices: CCCT, SIST, and Hostels / Custom PGs */}
           <div className="flex p-1 bg-gray-100 rounded-2xl mb-3 flex-shrink-0 gap-1">
-            {(['CCCT Campus', 'SIST Campus', 'Hostels / PGs'] as const).map((group) => (
+            {(['CCCT', 'SIST', 'Hostels / Custom PGs'] as const).map((group) => (
               <button
                 key={group}
                 type="button"
                 onClick={() => {
                   setActiveGroup(group);
-                  if (group === 'Hostels / PGs') {
+                  if (group === 'Hostels / Custom PGs') {
                     setIsCustomExpanded(true);
                   }
                 }}
@@ -245,8 +243,8 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
               <span className="text-[11px] font-black uppercase tracking-wider text-gray-400">
                 {activeGroup} Delivery Spots
               </span>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                10% Off Delivery Month
+              <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300">
+                10% Off • ₹15 Flat (was ₹25)
               </span>
             </div>
 
@@ -254,10 +252,14 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
             {allZones
               .filter((z) => {
                 if (z.isCustom) return false;
-                if (z.campusGroup) return z.campusGroup === activeGroup;
-                if (activeGroup === 'CCCT Campus') return z.id.startsWith('ccct');
-                if (activeGroup === 'SIST Campus') return z.id.startsWith('sist');
-                return z.id.includes('pg');
+                if (activeGroup === 'CCCT') return z.campusGroup === 'CCCT' || z.campusGroup === 'CCCT Campus' || z.id.startsWith('ccct');
+                if (activeGroup === 'SIST') return z.campusGroup === 'SIST' || z.campusGroup === 'SIST Campus' || z.id.startsWith('sist') || z.id.startsWith('ccst');
+                return (
+                  z.campusGroup?.includes('Hostel') ||
+                  z.campusGroup?.includes('PG') ||
+                  z.campusGroup?.includes('PDS') ||
+                  z.id.startsWith('pg')
+                );
               })
               .map((zone) => {
                 const isSelected =
@@ -284,7 +286,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                           {isSelected && <Check className="w-3.5 h-3.5 text-[#0A84FF] flex-shrink-0" />}
                         </div>
                         <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                          {zone.block} • ₹15 delivery fee <span className="line-through text-gray-400">₹25</span>
+                          {zone.block} • <span className="line-through text-gray-400">₹25</span> <span className="text-gray-900 font-bold">₹15</span> (10% Off)
                         </div>
                       </div>
                     </div>
@@ -298,8 +300,8 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                 );
               })}
 
-            {/* CUSTOM PG / OTHER SPECIFIC LOCATION CARD (Shown under Hostels / PGs) */}
-            {activeGroup === 'Hostels / PGs' && (
+            {/* CUSTOM PG / OTHER SPECIFIC LOCATION CARD (Shown under Hostels / Custom PGs) */}
+            {activeGroup === 'Hostels / Custom PGs' && (
               <div
                 className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
                   selectedZone.isCustom

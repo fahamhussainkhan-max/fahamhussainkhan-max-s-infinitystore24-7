@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { calculateDeliveryFee, getBaseDeliveryFee, PACKAGING_HANDLING_FEE } from '../utils/delivery';
 
 export interface CartItem {
   id: string;
@@ -22,10 +23,15 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Fixed Fees
+  // Destination-based Delivery & Packaging Fee Rules:
+  // - Free delivery above Rs. 200
+  // - Rs. 15 for hostel/CCCT, Rs. 20 for outer/further spots
+  // - Packaging & Handling: Rs. 9
   const productPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const deliveryCharge = 15;
-  const handlingFee = 9;
+  const isFreeDeliveryQualified = productPrice >= 200;
+  const baseDeliveryFee = getBaseDeliveryFee(location);
+  const deliveryCharge = calculateDeliveryFee(location, productPrice);
+  const handlingFee = PACKAGING_HANDLING_FEE;
 
   const totalAmount = Number(productPrice) + Number(deliveryCharge) + Number(handlingFee);
   const itemsTotal = productPrice;
@@ -70,6 +76,7 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         .insert([{
           customer_name: name.trim(),
           phone: cleanPhone,
+          customer_phone: cleanPhone,
           delivery_location: location.trim(),
           delivery_address: location.trim(),
           delivery_fee: DELIVERY_FEE,
@@ -77,6 +84,7 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
           rider_payout: DELIVERY_FEE,
           subtotal: itemsTotal,
           total: grandTotal,
+          total_amount: grandTotal,
           payment_method: 'COD',
           payment_status: 'unpaid',
           status: 'pending'
@@ -178,7 +186,7 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         />
         <input
           type="text"
-          placeholder="Room / Hostel / Delivery Spot"
+          placeholder="Room / Hostel / Campus Spot"
           value={location}
           onChange={e => setLocation(e.target.value)}
           required
@@ -193,10 +201,16 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         </div>
         <div className="flex justify-between">
           <span>Delivery Charge:</span>
-          <span className="font-semibold text-white">₹{deliveryCharge}</span>
+          <span className="font-semibold text-white">
+            {isFreeDeliveryQualified ? (
+              <span className="text-emerald-400 font-bold">FREE (₹0)</span>
+            ) : (
+              `₹${deliveryCharge}`
+            )}
+          </span>
         </div>
         <div className="flex justify-between">
-          <span>Handling Fee:</span>
+          <span>Packaging & Handling:</span>
           <span className="font-semibold text-white">₹{handlingFee}</span>
         </div>
         <div className="flex justify-between font-bold text-sm text-emerald-400 border-t border-slate-700 pt-2 mt-1">
