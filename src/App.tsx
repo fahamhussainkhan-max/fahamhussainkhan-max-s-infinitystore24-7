@@ -15,7 +15,6 @@ import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { DeliveryStatusCard } from './components/DeliveryStatusCard';
 import { CategoryGrid } from './components/CategoryGrid';
-import { FlashDeals } from './components/FlashDeals';
 import { CampusFavourites } from './components/CampusFavourites';
 import { SearchSection } from './components/SearchSection';
 import { ProductRequestBox } from './components/ProductRequestBox';
@@ -28,10 +27,9 @@ import { Footer } from './components/Footer';
 import { TopGlobalSearchBar } from './components/TopGlobalSearchBar';
 import { WishlistView } from './components/WishlistView';
 import { OrdersProfileView } from './components/OrdersProfileView';
-import { CampusPlayHubBanner } from './components/CampusPlayHubBanner';
+import { StudentEntrepreneurshipBanner } from './components/StudentEntrepreneurshipBanner';
 import { CampusLocationModal } from './components/CampusLocationModal';
 import { CampusPrintModal } from './components/CampusPrintModal';
-import { CampusPrintBanner } from './components/CampusPrintBanner';
 import { CampusPrintWidget } from './components/CampusPrintWidget';
 import { CAMPUS_ZONES, CATEGORIES, PRODUCTS } from './data/mockData';
 import { Product, CartItem, CampusZone } from './types';
@@ -235,7 +233,7 @@ function CustomerStorefront() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products' },
-        (payload) => {
+        () => {
           fetchStorefrontProducts();
         }
       )
@@ -250,9 +248,9 @@ function CustomerStorefront() {
   const [isStoreOpen, setIsStoreOpen] = useState(true);
 
   useEffect(() => {
-    async function fetchStoreStatus() {
+    const fetchStatus = async () => {
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('store_settings')
           .select('*')
           .eq('id', 'primary')
@@ -261,22 +259,20 @@ function CustomerStorefront() {
           setIsStoreOpen(data.is_open);
         }
       } catch (err: any) {
-        console.warn('Notice fetching store status:', err?.message || err);
+        console.warn('Notice fetching store settings:', err?.message || err);
       }
-    }
+    };
 
-    fetchStoreStatus();
+    fetchStatus();
 
     const channel = supabase
-      .channel('public:store_settings:live-storefront')
+      .channel('public:store_settings:storefront')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'store_settings' },
         (payload: any) => {
           if (payload.new && typeof payload.new.is_open === 'boolean') {
             setIsStoreOpen(payload.new.is_open);
-          } else {
-            fetchStoreStatus();
           }
         }
       )
@@ -287,18 +283,25 @@ function CustomerStorefront() {
     };
   }, []);
 
-  // Campus Zone & Delivery Boundary Geofence state
+  // Campus delivery zone state
   const [selectedZone, setSelectedZone] = useState<CampusZone>(() => {
     try {
       const saved = localStorage.getItem('infinity_campus_zone');
-      return saved ? JSON.parse(saved) : CAMPUS_ZONES[0];
-    } catch {
-      return CAMPUS_ZONES[0];
-    }
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return CAMPUS_ZONES[0];
   });
-
+  const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
   const [isOutsideBoundary, setIsOutsideBoundary] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isCustomerOrdersOpen, setIsCustomerOrdersOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterFeedActive, setIsFilterFeedActive] = useState(false);
+  const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
 
   const handleSelectZone = (zone: CampusZone) => {
     setSelectedZone(zone);
@@ -453,44 +456,11 @@ function CustomerStorefront() {
       try {
         localStorage.setItem('infinity_wishlist', JSON.stringify(updated));
       } catch {}
-      triggerToast(exists ? 'Removed from saved wishlist' : 'Saved to campus wishlist ❤️');
+      triggerToast(exists ? 'Removed from wishlist' : 'Added to wishlist ❤️');
       return updated;
     });
   };
 
-  // Modals & Drawers
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
-  const [isCustomerOrdersOpen, setIsCustomerOrdersOpen] = useState(false);
-  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
-
-  // Active Category Filter
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-
-  // Active Navigation Tab
-  const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
-
-  // Search Query & Feed Filter
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isFilterFeedActive, setIsFilterFeedActive] = useState(false);
-  const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
-
-  // Jump to product and highlight with pulse
-  const handleSelectAndHighlightProduct = (productId: string) => {
-    setCurrentTab('home');
-    setHighlightedProductId(productId);
-    setTimeout(() => {
-      const el = document.getElementById(`product-card-${productId}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 150);
-    setTimeout(() => {
-      setHighlightedProductId((prev) => (prev === productId ? null : prev));
-    }, 3500);
-  };
-
-  // Wishlist actions
   const handleMoveAllWishlistToCart = () => {
     if (!isStoreOpen) {
       triggerToast('⚠️ Store is currently closed for orders.');
@@ -517,7 +487,7 @@ function CustomerStorefront() {
   const handleClearWishlist = () => {
     setWishlist([]);
     try {
-      localStorage.removeItem('infinity_wishlist');
+      localStorage.setItem('infinity_wishlist', JSON.stringify([]));
     } catch {}
     triggerToast('Wishlist cleared');
   };
@@ -555,11 +525,17 @@ function CustomerStorefront() {
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Filtered products when search filter or category is active
-  const displayedProducts = useMemo(() => {
-    if (!isFilterFeedActive || !searchQuery.trim()) {
-      return productsList;
-    }
+  const handleSelectAndHighlightProduct = (productId: string) => {
+    setHighlightedProductId(productId);
+    setTimeout(() => {
+      setHighlightedProductId(null);
+    }, 3000);
+  };
+
+  // Real-time dynamic search filtering
+  const isSearchActive = Boolean(searchQuery.trim());
+  const searchResults = useMemo(() => {
+    if (!isSearchActive) return [];
     const q = searchQuery.toLowerCase().trim();
     return productsList.filter(
       (p) =>
@@ -568,7 +544,14 @@ function CustomerStorefront() {
         p.description.toLowerCase().includes(q) ||
         (p.tags && p.tags.some((t) => t.toLowerCase().includes(q)))
     );
-  }, [productsList, isFilterFeedActive, searchQuery]);
+  }, [productsList, isSearchActive, searchQuery]);
+
+  const displayedProducts = useMemo(() => {
+    if (isSearchActive) {
+      return searchResults;
+    }
+    return productsList;
+  }, [isSearchActive, searchResults, productsList]);
 
   // Filtered products when category is selected
   const categoryProducts = useMemo(() => {
@@ -666,7 +649,7 @@ function CustomerStorefront() {
                     </span>
                   </div>
                   <p className="text-white/95 text-xs mt-0.5 max-w-2xl leading-relaxed">
-                    We currently deliver exclusively within campus hostels and labs (10-15 min express). Coming Soon to your location!
+                    We currently deliver exclusively within CCCT & SIST campus hostels and labs (Delivery within 45 mins - 1 hr). Coming Soon to your location!
                   </p>
                 </div>
               </div>
@@ -742,128 +725,168 @@ function CustomerStorefront() {
             onToastMessage={triggerToast}
           />
 
+          {/* 3.5. Compact 1-Line Teasers: Student Entrepreneurship & Campus Print Desk */}
+          <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 my-2 sm:my-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+              <StudentEntrepreneurshipBanner onToastMessage={triggerToast} />
+              <CampusPrintWidget onOpenPrintModal={() => setIsPrintModalOpen(true)} />
+            </div>
+          </div>
+
           {/* 4. Smooth Animated Category Pill Filters */}
           <CategoryPills
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
           />
 
-          {/* 5. Interactive Categories Aisle Selector */}
-          <CategoryGrid
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-          />
-
-          {/* If a category is selected, display its product catalog */}
-          {selectedCategory && activeCategoryObj && (
-            <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 animate-fade-in">
-              <div className="flex items-center justify-between pb-4 border-b border-gray-200 mb-6">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-2xl">{activeCategoryObj.emoji}</span>
-                  <div>
-                    <h3 className="text-xl sm:text-2xl font-black text-gray-900 font-display">
-                      {activeCategoryObj.name}
-                    </h3>
-                    <p className="text-xs text-gray-500">{activeCategoryObj.description}</p>
-                  </div>
+          {/* 5. Live Search Results / Category Products / Default Aisles */}
+          {isSearchActive ? (
+            <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-black text-gray-900">
+                    Search Results for "{searchQuery}"
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {searchResults.length} {searchResults.length === 1 ? 'item' : 'items'} found in stock
+                  </p>
                 </div>
-
                 <button
                   type="button"
-                  onClick={() => setSelectedCategory(null)}
-                  className="text-xs font-bold text-[#0A84FF] hover:underline cursor-pointer flex items-center gap-1"
+                  onClick={() => setSearchQuery('')}
+                  className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3.5 py-1.5 rounded-full font-bold transition cursor-pointer"
                 >
-                  <span>View All Campus Aisles</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  Clear Search
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-                {categoryProducts.map((prod) => (
-                  <ProductCard
-                    key={prod.id}
-                    product={prod}
-                    quantityInCart={cartQuantities[prod.id] || 0}
-                    onAddToCart={handleAddToCart}
-                    onUpdateQuantity={handleUpdateQuantity}
-                    onToastMessage={triggerToast}
-                    isWishlisted={wishlist.includes(prod.id)}
-                    onToggleWishlist={handleToggleWishlist}
-                    isHighlighted={highlightedProductId === prod.id}
-                    isStoreOpen={isStoreOpen}
-                  />
-                ))}
-              </div>
+              {searchResults.length === 0 ? (
+                <div className="bg-white rounded-2xl p-10 text-center border border-gray-100 shadow-sm">
+                  <p className="text-sm font-bold text-gray-700">No matching campus items found.</p>
+                  <p className="text-xs text-gray-400 mt-1">Try searching for "Maggi", "Notebook", "Red Bull", or "Pen".</p>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="mt-3 text-xs bg-[#111111] text-white px-4 py-2 rounded-full font-bold cursor-pointer"
+                  >
+                    View All Products
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 sm:gap-5">
+                  {searchResults.map((p) => (
+                    <ProductCard
+                      key={p.id}
+                      product={p}
+                      quantityInCart={cartQuantities[p.id] || 0}
+                      onAddToCart={handleAddToCart}
+                      onUpdateQuantity={handleUpdateQuantity}
+                      onToastMessage={triggerToast}
+                      isWishlisted={wishlist.includes(p.id)}
+                      onToggleWishlist={handleToggleWishlist}
+                      isHighlighted={highlightedProductId === p.id}
+                      isStoreOpen={isStoreOpen}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
+          ) : selectedCategory ? (
+            <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+              <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{activeCategoryObj?.emoji || '🛍️'}</span>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-gray-900">
+                      {activeCategoryObj?.name || selectedCategory}
+                    </h2>
+                    <p className="text-xs text-gray-500">
+                      Showing {categoryProducts.length} in-stock campus items
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory(null)}
+                  className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-full transition cursor-pointer"
+                >
+                  Show All Aisles
+                </button>
+              </div>
+
+              {categoryProducts.length === 0 ? (
+                <div className="bg-white rounded-2xl p-10 text-center border border-gray-100 shadow-sm">
+                  <p className="text-sm font-bold text-gray-700">No products found in this aisle.</p>
+                  <button
+                    onClick={() => setSelectedCategory(null)}
+                    className="mt-3 text-xs bg-[#111111] text-white px-4 py-2 rounded-full font-bold"
+                  >
+                    View All Categories
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 sm:gap-5">
+                  {categoryProducts.map((p) => (
+                    <ProductCard
+                      key={p.id}
+                      product={p}
+                      quantityInCart={cartQuantities[p.id] || 0}
+                      onAddToCart={handleAddToCart}
+                      onUpdateQuantity={handleUpdateQuantity}
+                      onToastMessage={triggerToast}
+                      isWishlisted={wishlist.includes(p.id)}
+                      onToggleWishlist={handleToggleWishlist}
+                      isHighlighted={highlightedProductId === p.id}
+                      isStoreOpen={isStoreOpen}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : (
+            <>
+              <CategoryGrid
+                selectedCategory={selectedCategory}
+                onSelectCategory={setSelectedCategory}
+              />
+
+              {/* 6. Campus Favourites Section */}
+              <CampusFavourites
+                products={displayedProducts}
+                cartQuantities={cartQuantities}
+                onAddToCart={handleAddToCart}
+                onUpdateQuantity={handleUpdateQuantity}
+                onToastMessage={triggerToast}
+                wishlist={wishlist}
+                onToggleWishlist={handleToggleWishlist}
+                highlightedProductId={highlightedProductId}
+                isStoreOpen={isStoreOpen}
+              />
+
+              {/* 7. Search & Discovery Section */}
+              <SearchSection
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onSelectProduct={(p) => handleAddToCart(p)}
+                products={productsList}
+              />
+
+              {/* 8. Product Request Box */}
+              <ProductRequestBox onToastMessage={triggerToast} />
+            </>
           )}
 
-          {/* 6. Flash Deals Countdown Carousel */}
-          <FlashDeals
-            isStoreOpen={isStoreOpen}
-            products={displayedProducts}
-            onAddToCart={handleAddToCart}
-            cartQuantities={cartQuantities}
-            onToastMessage={triggerToast}
-            onUpdateQuantity={handleUpdateQuantity}
-          />
-
-          {/* 7. Campus Favourites (High demand student essentials) */}
-          <CampusFavourites
-            isStoreOpen={isStoreOpen}
-            products={displayedProducts}
-            cartQuantities={cartQuantities}
-            onAddToCart={handleAddToCart}
-            onUpdateQuantity={handleUpdateQuantity}
-            onToastMessage={triggerToast}
-            wishlist={wishlist}
-            onToggleWishlist={handleToggleWishlist}
-            highlightedProductId={highlightedProductId}
-          />
-
-          {/* 8. Live Search Section */}
-          <SearchSection
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            products={productsList}
-            onSelectProduct={(p) => {
-              if (!isStoreOpen) {
-                triggerToast('⚠️ Store is currently closed for orders.');
-                return;
-              }
-              handleAddToCart(p);
-              triggerToast(`Added ${p.name} to cart!`);
+          {/* Footer */}
+          <Footer
+            onOpenCustomerOrders={() => {
+              setCurrentTab('profile');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           />
-
-          {/* 9. Interactive "Request a Product" Campus Box */}
-          <ProductRequestBox onToastMessage={triggerToast} />
-
-          {/* 9.5 Campus Printout Widget (B&W ₹10 & Color ₹20 Direct WhatsApp) */}
-          <CampusPrintWidget />
-
-          {/* Modular Expansion: Campus Play Hub & Games Banner */}
-          <CampusPlayHubBanner onToastMessage={triggerToast} />
         </>
       )}
 
-      {/* 10. Customer Footer */}
-      <Footer
-        onOpenCustomerOrders={() => {
-          setCurrentTab('profile');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-      />
-
-      {/* 12. Floating Action Cart Pill */}
-      <FloatingCart
-        cartItems={cartItems}
-        onOpenCart={() => setIsCartOpen(true)}
-        lastUpdated={lastCartUpdate}
-      />
-
-      {/* 13. Slide-over Cart Drawer */}
+      {/* Cart Drawer */}
       <CartDrawer
-        isStoreOpen={isStoreOpen}
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={cartItems}
@@ -871,21 +894,21 @@ function CustomerStorefront() {
         onClearCart={handleClearCart}
         selectedZone={selectedZone}
         isOutsideBoundary={isOutsideBoundary}
-        onOpenZoneSelector={() => setIsZoneModalOpen(true)}
-      />
-
-      {/* 14. Customer Live Orders Tracking Modal */}
-      <CustomerOrdersModal
-        isOpen={isCustomerOrdersOpen}
-        onClose={() => setIsCustomerOrdersOpen(false)}
-        onOpenStoreCatalog={() => {
-          setIsCustomerOrdersOpen(false);
-          setCurrentTab('home');
-          scrollToCategories();
+        onOpenZoneSelector={() => {
+          setIsCartOpen(false);
+          setIsZoneModalOpen(true);
         }}
+        isStoreOpen={isStoreOpen}
       />
 
-      {/* 15. Campus Delivery Zone Selector Modal (1-Tap Campus Location Picker) */}
+      {/* Floating Cart Pill */}
+      <FloatingCart
+        cartItems={cartItems}
+        onOpenCart={() => setIsCartOpen(true)}
+        lastUpdated={lastCartUpdate}
+      />
+
+      {/* Campus Location Modal */}
       <CampusLocationModal
         isOpen={isZoneModalOpen}
         onClose={() => setIsZoneModalOpen(false)}
@@ -895,23 +918,33 @@ function CustomerStorefront() {
         isOutsideBoundary={isOutsideBoundary}
       />
 
-      {/* 16. Campus Print & Xerox Station Modal */}
+      {/* Campus Print Modal */}
       <CampusPrintModal
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
         onToastMessage={triggerToast}
       />
 
-      {/* 16. Lightweight Global Toast Message */}
+      {/* Customer Orders Modal */}
+      <CustomerOrdersModal
+        isOpen={isCustomerOrdersOpen}
+        onClose={() => setIsCustomerOrdersOpen(false)}
+        onOpenStoreCatalog={() => {
+          setIsCustomerOrdersOpen(false);
+          setCurrentTab('home');
+        }}
+      />
+
+      {/* Floating Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 15, scale: 0.95 }}
-            className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 bg-[#111111] text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl border border-white/20 flex items-center gap-2 pointer-events-none"
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            transition={{ duration: 0.2 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#111111] text-white px-5 py-3 rounded-full shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-2 border border-white/10 select-none whitespace-nowrap"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#FFD60A]" />
             <span>{toastMessage}</span>
           </motion.div>
         )}

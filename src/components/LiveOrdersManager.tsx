@@ -268,7 +268,7 @@ export const LiveOrdersManager: React.FC = () => {
       .eq('id', orderId);
 
     if (error) {
-      alert(error.message);
+      setActionNotice('Failed to update status: ' + (error.message || 'Error occurred'));
       console.error('Failed to update order status:', error);
       // Revert optimistic update
       setOrders(prevOrders);

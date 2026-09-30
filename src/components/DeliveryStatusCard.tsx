@@ -18,6 +18,7 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
+  const [activeGroup, setActiveGroup] = useState<'CCCT Campus' | 'SIST Campus' | 'Hostels / PGs'>('CCCT Campus');
 
   const handleAutoDetect = async () => {
     setIsDetecting(true);
@@ -48,26 +49,34 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
           <div className="space-y-1.5 max-w-xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/70 text-emerald-800 text-xs font-black tracking-wide uppercase">
               <Zap className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
-              <span>⚡ FAST CAMPUS DELIVERY</span>
+              <span>⚡ DELIVERY WITHIN 45 MINS - 1 HR</span>
             </div>
 
             <h3 className="text-xl sm:text-2xl font-black text-[#111111] font-display tracking-tight">
-              Your essentials are closer than you think.
+              CCCT & SIST Campus Quick Delivery
             </h3>
 
             <p className="text-sm text-gray-600 font-medium">
-              Available around your college & nearby area. Delivered straight to your hostel gate, floor, or study quad.
+              Serving CCCT Chisopani, SIST & affiliated student hostels. Delivered directly to your hostel gate, room, or campus checkpoint.
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-2 text-xs font-semibold text-gray-500">
+            {/* Promo banner badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300 text-amber-900 text-xs font-bold">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Delivery: ₹15 (10% Off from ₹25) • Handling: ₹9 (FREE over ₹200)</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 pt-1 text-xs font-semibold text-gray-500">
               <div className="flex items-center gap-1.5 text-gray-700">
                 <Clock className="w-4 h-4 text-[#0A84FF]" />
-                <span>Avg. Arrival: <strong className="text-black">{selectedZone.estMinutes}</strong></span>
+                <span>Delivery: <strong className="text-black">45 mins - 1 hr</strong></span>
               </div>
               <div className="flex items-center gap-1.5 text-gray-700">
                 <ShieldCheck className="w-4 h-4 text-[#30D158]" />
                 <span>
-                  Delivery: <strong className="text-black">₹{selectedZone.deliveryFee ?? 10}</strong> (Free &gt; ₹150)
+                  Delivery: <span className="line-through text-gray-400 font-normal mr-1">₹25</span>
+                  <strong className="text-emerald-700">₹15</strong>
+                  <span className="text-[11px] text-gray-500 ml-1.5">• Handling: ₹9 (FREE &gt; ₹200)</span>
                 </span>
               </div>
             </div>
@@ -130,7 +139,7 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                   className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-50 overflow-hidden"
                 >
                   <div className="px-3 py-2 flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                    <span>Campus Wing / Block</span>
+                    <span>SELECT DELIVERY ZONE</span>
                     <button
                       type="button"
                       onClick={handleAutoDetect}
@@ -139,8 +148,34 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                       <Navigation className="w-3 h-3" /> Auto-GPS
                     </button>
                   </div>
-                  <div className="space-y-1 mt-1">
-                    {CAMPUS_ZONES.map((zone) => (
+
+                  {/* 3 Choices Tabs */}
+                  <div className="flex p-0.5 bg-gray-100 rounded-xl my-1 text-[10px] font-bold gap-0.5">
+                    {(['CCCT Campus', 'SIST Campus', 'Hostels / PGs'] as const).map((group) => (
+                      <button
+                        key={group}
+                        type="button"
+                        onClick={() => setActiveGroup(group)}
+                        className={`flex-1 py-1 px-0.5 rounded-lg transition text-center truncate cursor-pointer ${
+                          activeGroup === group
+                            ? 'bg-white text-gray-900 shadow-xs'
+                            : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                      >
+                        {group.replace(' Campus', '')}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-1 mt-1 max-h-56 overflow-y-auto">
+                    {CAMPUS_ZONES
+                      .filter((zone) => {
+                        if (zone.campusGroup) return zone.campusGroup === activeGroup;
+                        if (activeGroup === 'CCCT Campus') return zone.id.startsWith('ccct');
+                        if (activeGroup === 'SIST Campus') return zone.id.startsWith('sist');
+                        return zone.id.includes('pg') || zone.isCustom;
+                      })
+                      .map((zone) => (
                       <button
                         key={zone.id}
                         type="button"
@@ -154,17 +189,17 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                             : 'hover:bg-gray-50 text-gray-700'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-[#0A84FF]" />
-                          <div>
-                            <div>{zone.name}</div>
-                            <div className="text-[10px] text-gray-400 font-normal">
-                              {zone.block} • {zone.estMinutes} • ₹{zone.deliveryFee ?? 10} fee
+                        <div className="flex items-center gap-2 min-w-0">
+                          <MapPin className="w-3.5 h-3.5 text-[#0A84FF] flex-shrink-0" />
+                          <div className="min-w-0 truncate">
+                            <div className="truncate">{zone.name}</div>
+                            <div className="text-[10px] text-gray-400 font-normal truncate">
+                              {zone.block} • ₹{zone.deliveryFee ?? 15} fee
                             </div>
                           </div>
                         </div>
                         {selectedZone.id === zone.id && (
-                          <Check className="w-4 h-4 text-[#30D158]" />
+                          <Check className="w-4 h-4 text-[#30D158] flex-shrink-0" />
                         )}
                       </button>
                     ))}
@@ -172,7 +207,7 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
 
                   <div className="mt-2 p-2 bg-emerald-50 rounded-xl text-center text-[10px] font-bold text-emerald-800">
                     <Sparkles className="w-3 h-3 inline mr-1 text-emerald-600" />
-                    Free delivery automatically unlocked on orders &gt; ₹150
+                    Free delivery automatically unlocked on orders over ₹200
                   </div>
                 </motion.div>
               )}

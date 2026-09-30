@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Zap, CheckCircle2, Bike, MapPin } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Zap, CheckCircle2, Bike, MapPin, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CartItem, CampusZone } from '../types';
 import { recordCampusOrder } from '../lib/supabase';
@@ -40,17 +40,22 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [placedOrder, setPlacedOrder] = useState<any | null>(null);
   const [isCheckoutFormOpen, setIsCheckoutFormOpen] = useState(false);
 
-  const deliveryFee = 15;
-  const baseHandlingFee = 9;
-  const isPromoApplied = appliedPromo === 'SHADOW';
-  const handlingFee = isPromoApplied ? 0 : baseHandlingFee;
   const productPrice = cartItems.reduce(
     (acc, item) => acc + item.product.price * item.quantity,
     0
   );
-  const deliveryCharge = deliveryFee;
-  const totalAmount = Number(productPrice) + Number(deliveryCharge) + Number(handlingFee);
   const subtotal = productPrice;
+
+  // Requirement 2:
+  // - Base delivery charge: Rs. 25 strikethrough -> Rs. 15 (discounted)
+  // - Handling Fee: Rs. 9, and FREE for orders over Rs. 200 (subtotal >= 200)
+  const isFreeHandlingQualified = subtotal >= 200;
+  const isFreeDeliveryQualified = false;
+  const baseDeliveryFee = 25;
+  const deliveryFee = 15;
+  const handlingFee = isFreeHandlingQualified ? 0 : 9;
+  const deliveryCharge = deliveryFee;
+  const totalAmount = subtotal > 0 ? subtotal + deliveryFee + handlingFee : 0;
   const grandTotal = totalAmount;
 
   const handleApplyPromo = (e?: React.FormEvent) => {
@@ -79,7 +84,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const handleCheckout = async () => {
     if (!isStoreOpen) {
-      alert('Store is currently closed for orders.');
+      setPromoStatus({ type: 'error', message: 'Store is currently closed for orders.' });
       return;
     }
     if (cartItems.length === 0) return;
@@ -240,7 +245,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     Your campus bag is empty
                   </h3>
                   <p className="text-xs text-gray-500 max-w-xs">
-                    Craving snacks, study supplies or chilled drinks? Add anything to get 10-minute delivery.
+                    Craving snacks, study supplies or chilled drinks? Add anything to get delivery within 45 mins - 1 hr.
                   </p>
                   <button
                     onClick={onClose}
@@ -324,10 +329,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {/* Express delivery tracker banner */}
                   <div className="rounded-2xl bg-amber-500/10 border border-amber-300/60 p-3 text-xs font-medium text-amber-900 flex items-center justify-between">
                     <span className="flex items-center gap-1.5 font-semibold text-neutral-800">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Express 10-15 Min Campus Delivery
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Delivery within 45 mins - 1 hr
                     </span>
                     <span className="text-[10px] font-bold uppercase bg-white/80 px-2 py-0.5 rounded-full text-neutral-700">
-                      {isPromoApplied ? '₹15 Delivery • ₹0 Handling (Waived)' : '₹15 Delivery • ₹9 Handling'}
+                      CCCT & SIST
                     </span>
                   </div>
 
@@ -417,7 +422,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                   {/* Promo code input */}
                   <div className="pt-2">
-                    {isPromoApplied ? (
+                    {Boolean(appliedPromo) ? (
                       <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900">
                         <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -479,36 +484,61 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {/* Drawer Footer & Checkout Action */}
               {!placedOrder && !isCheckoutFormOpen && cartItems.length > 0 && (
                 <div className="p-5 sm:p-6 border-t border-gray-100 bg-[#FAFAF7] space-y-3">
-                  <div className="space-y-1.5 text-xs text-gray-600">
+                  {/* Delivery Promo Badge */}
+                  <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300 text-amber-950 text-xs font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>10% Off on delivery charges for this month</span>
+                    </span>
+                    <span className="text-[10px] text-amber-800 bg-white/80 px-2 py-0.5 rounded-md font-extrabold shrink-0">
+                      ₹15 ONLY
+                    </span>
+                  </div>
+
+                  {/* Free handling qualification nudge */}
+                  {isFreeHandlingQualified ? (
+                    <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold text-center">
+                      🎉 Free Handling Unlocked (Order over ₹200)!
+                    </div>
+                  ) : (
+                    <div className="p-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold text-center">
+                      💡 Add <strong className="text-blue-700">₹{200 - subtotal}</strong> more for <strong>FREE Handling Fee (₹0)</strong>!
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5 text-xs text-gray-600 pt-1">
                     <div className="flex justify-between">
                       <span>Item Subtotal</span>
                       <span className="font-semibold text-gray-900">₹{subtotal}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="truncate pr-2">Runner Delivery Fee</span>
-                      <span className="font-semibold flex-shrink-0 text-gray-900">
-                        ₹{deliveryFee}
+
+                    <div className="flex justify-between items-center">
+                      <span className="truncate pr-2 flex items-center gap-1.5">
+                        <span>Runner Delivery Fee</span>
+                        <span className="text-[10px] text-amber-800 bg-amber-100/70 px-1.5 py-0.5 rounded font-bold">
+                          Promo
+                        </span>
+                      </span>
+                      <span className="font-semibold flex-shrink-0 text-gray-900 flex items-center gap-1.5">
+                        <span className="line-through text-gray-400 font-normal">₹25</span>
+                        <span className="text-gray-900 font-bold">₹15</span>
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="truncate pr-2">Handling Fee</span>
-                      <span className="font-semibold flex-shrink-0 text-gray-900">
-                        {isPromoApplied ? (
-                          <span className="flex items-center gap-1.5 text-emerald-600">
-                            <span className="line-through text-gray-400 font-normal">₹9</span>
-                            <span className="font-bold">₹0</span>
-                          </span>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Handling Fee</span>
+                      <span className="font-bold flex items-center gap-1.5">
+                        {isFreeHandlingQualified ? (
+                          <>
+                            <span className="line-through text-gray-400 font-normal text-xs">₹9</span>
+                            <span className="text-emerald-600 font-black">FREE (₹0)</span>
+                          </>
                         ) : (
-                          '₹9'
+                          <span className="text-gray-900 font-semibold">₹9</span>
                         )}
                       </span>
                     </div>
-                    {isPromoApplied && (
-                      <div className="flex justify-between text-emerald-600 font-semibold text-[11px]">
-                        <span>Handling Fee Waived</span>
-                        <span>-₹9</span>
-                      </div>
-                    )}
+
                     <div className="flex justify-between text-sm sm:text-base font-black text-gray-900 pt-2 border-t border-gray-200">
                       <span>To Pay</span>
                       <span>₹{grandTotal}</span>
@@ -530,7 +560,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         <span>📍 Delivery Locked - Outside Campus Boundary</span>
                       </div>
                       <p className="text-[11px] text-amber-700 leading-tight">
-                        We currently deliver exclusively within campus hostels and labs (10-15 min express). Coming Soon to your location!
+                        We currently deliver exclusively within CCCT & SIST hostels and labs (45 mins - 1 hr). Coming Soon to your location!
                       </p>
                       {onOpenZoneSelector && (
                         <button
@@ -541,7 +571,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           }}
                           className="mt-1 w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
                         >
-                          Select Campus Drop Spot to Order
+                          Select CCCT / SIST Drop Spot to Order
                         </button>
                       )}
                     </div>
@@ -552,12 +582,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       className="w-full py-4 bg-[#FF3B30] hover:bg-red-600 text-white font-extrabold rounded-2xl shadow-xl flex items-center justify-between px-6 transition-all duration-200 active:scale-95 cursor-pointer"
                     >
                       <div className="text-left">
-                        <div className="text-[10px] text-red-100 font-medium">10-MIN CAMPUS RUSH</div>
+                        <div className="text-[10px] text-red-100 font-medium uppercase tracking-wider">Delivery within 45 mins - 1 hr</div>
                         <div className="text-base font-black">₹{grandTotal}</div>
                       </div>
 
                       <div className="flex items-center gap-1.5 text-sm font-bold text-white">
-                        <span>Enter Delivery Details</span>
+                        <span>Enter Details & Verify OTP</span>
                         <ArrowRight className="w-4 h-4" />
                       </div>
                     </button>

@@ -38,6 +38,26 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
   allZones,
   isOutsideBoundary = false,
 }) => {
+  // Active choice tab: "CCCT Campus", "SIST Campus", "Hostels / PGs"
+  const [activeGroup, setActiveGroup] = useState<'CCCT Campus' | 'SIST Campus' | 'Hostels / PGs'>(() => {
+    if (selectedZone.campusGroup) return selectedZone.campusGroup;
+    if (selectedZone.id.includes('sist')) return 'SIST Campus';
+    if (selectedZone.id.includes('pg') || selectedZone.isCustom) return 'Hostels / PGs';
+    return 'CCCT Campus';
+  });
+
+  React.useEffect(() => {
+    if (selectedZone.campusGroup) {
+      setActiveGroup(selectedZone.campusGroup);
+    } else if (selectedZone.id.includes('sist')) {
+      setActiveGroup('SIST Campus');
+    } else if (selectedZone.id.includes('pg') || selectedZone.isCustom) {
+      setActiveGroup('Hostels / PGs');
+    } else {
+      setActiveGroup('CCCT Campus');
+    }
+  }, [selectedZone, isOpen]);
+
   // Local state for custom PG input & verification
   const [isCustomExpanded, setIsCustomExpanded] = useState(
     selectedZone.isCustom || selectedZone.id === 'custom-pg-location'
@@ -56,24 +76,15 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
   if (!isOpen) return null;
 
   const getZoneIcon = (id: string) => {
-    switch (id) {
-      case 'academic-complex':
-        return <GraduationCap className="w-4 h-4 text-[#0A84FF]" />;
-      case 'boys-hostel':
-        return <Building className="w-4 h-4 text-emerald-600" />;
-      case 'girls-hostel':
-        return <Home className="w-4 h-4 text-purple-600" />;
-      case 'campus-main-gate':
-        return <DoorOpen className="w-4 h-4 text-amber-600" />;
-      case 'library-labs':
-        return <BookOpen className="w-4 h-4 text-indigo-600" />;
-      case 'upper-pg-enclave':
-        return <Compass className="w-4 h-4 text-rose-600" />;
-      case 'custom-pg-location':
-        return <MapPin className="w-4 h-4 text-orange-600" />;
-      default:
-        return <MapPin className="w-4 h-4 text-gray-500" />;
-    }
+    const lower = id.toLowerCase();
+    if (lower.includes('academic')) return <GraduationCap className="w-4 h-4 text-[#0A84FF]" />;
+    if (lower.includes('mech')) return <Compass className="w-4 h-4 text-indigo-600" />;
+    if (lower.includes('boys')) return <Building className="w-4 h-4 text-emerald-600" />;
+    if (lower.includes('girls')) return <Home className="w-4 h-4 text-purple-600" />;
+    if (lower.includes('gate')) return <DoorOpen className="w-4 h-4 text-amber-600" />;
+    if (lower.includes('makaju') || lower.includes('happy')) return <Home className="w-4 h-4 text-rose-600" />;
+    if (lower.includes('custom')) return <MapPin className="w-4 h-4 text-orange-600" />;
+    return <MapPin className="w-4 h-4 text-gray-500" />;
   };
 
   // Handle clicking a standard preset zone
@@ -114,9 +125,9 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
           id: 'custom-pg-location',
           name: customInputText.trim(),
           block: 'Verified Campus Delivery Zone',
-          estMinutes: '10-15 mins',
+          estMinutes: '45 mins - 1 hr',
           isOnline: true,
-          deliveryFee: 10,
+          deliveryFee: 15,
           coordinates: { lat: result.latitude, lng: result.longitude },
           isCustom: true,
           customLocation: customInputText.trim(),
@@ -176,7 +187,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                   Select Campus Location
                 </h3>
                 <p className="text-[11px] text-gray-500 font-medium">
-                  Express 10–15 min student delivery directly to your building
+                  Delivery within 45 mins - 1 hr directly to your building
                 </p>
               </div>
             </div>
@@ -196,29 +207,58 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
             <div className="mb-4 p-3.5 bg-amber-500/10 border border-amber-300 rounded-2xl text-xs text-amber-900 flex-shrink-0">
               <div className="flex items-center gap-2 font-bold text-amber-900 mb-1">
                 <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                <span>📍 Location Outside Delivery Area</span>
+                <span>📍 Location Outside CCCT & SIST Delivery Area</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-relaxed">
-                We currently deliver only within campus and nearby affiliated PGs (10-15 min express).
-                Coming Soon to your area! Tap any verified campus spot below to order now.
+                We currently deliver exclusively within CCCT & SIST campuses and nearby affiliated PGs (Delivery within 45 mins - 1 hr).
+                Tap any verified campus spot below to order now.
               </p>
             </div>
           )}
+
+          {/* 3 Clear Delivery Zones Choices */}
+          <div className="flex p-1 bg-gray-100 rounded-2xl mb-3 flex-shrink-0 gap-1">
+            {(['CCCT Campus', 'SIST Campus', 'Hostels / PGs'] as const).map((group) => (
+              <button
+                key={group}
+                type="button"
+                onClick={() => {
+                  setActiveGroup(group);
+                  if (group === 'Hostels / PGs') {
+                    setIsCustomExpanded(true);
+                  }
+                }}
+                className={`flex-1 py-2 px-1 text-xs font-bold rounded-xl transition text-center truncate cursor-pointer ${
+                  activeGroup === group
+                    ? 'bg-white text-gray-900 shadow-xs'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                {group}
+              </button>
+            ))}
+          </div>
 
           {/* Scrollable list */}
           <div className="overflow-y-auto space-y-2 pr-1 flex-1">
             <div className="flex items-center justify-between px-1 mb-1">
               <span className="text-[11px] font-black uppercase tracking-wider text-gray-400">
-                Preset Campus Delivery Spots (10–15 Mins)
+                {activeGroup} Delivery Spots
               </span>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                Express Zone
+                10% Off Delivery Month
               </span>
             </div>
 
-            {/* Standard Preset Zones */}
+            {/* Standard Preset Zones Filtered by Active Choice */}
             {allZones
-              .filter((z) => !z.isCustom)
+              .filter((z) => {
+                if (z.isCustom) return false;
+                if (z.campusGroup) return z.campusGroup === activeGroup;
+                if (activeGroup === 'CCCT Campus') return z.id.startsWith('ccct');
+                if (activeGroup === 'SIST Campus') return z.id.startsWith('sist');
+                return z.id.includes('pg');
+              })
               .map((zone) => {
                 const isSelected =
                   selectedZone.id === zone.id && !selectedZone.isCustom && !isOutsideBoundary;
@@ -244,22 +284,22 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                           {isSelected && <Check className="w-3.5 h-3.5 text-[#0A84FF] flex-shrink-0" />}
                         </div>
                         <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                          {zone.block} • ₹{zone.deliveryFee ?? 10} express fee
+                          {zone.block} • ₹15 delivery fee <span className="line-through text-gray-400">₹25</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right flex-shrink-0 pl-2">
                       <span className="text-[10px] font-black text-emerald-700 bg-emerald-100/70 px-2.5 py-1 rounded-lg inline-flex items-center gap-1">
-                        ⚡ 10-15 mins
+                        ⚡ 45m - 1 hr
                       </span>
                     </div>
                   </button>
                 );
               })}
 
-            {/* CUSTOM PG / OTHER SPECIFIC LOCATION CARD */}
-            <div className="pt-2">
+            {/* CUSTOM PG / OTHER SPECIFIC LOCATION CARD (Shown under Hostels / PGs) */}
+            {activeGroup === 'Hostels / PGs' && (
               <div
                 className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
                   selectedZone.isCustom
@@ -347,7 +387,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                       <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1.5 animate-fadeIn">
                         <div className="flex items-center gap-2 font-bold text-emerald-800">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                          <span>✓ Verified: Within 10-15 Min Express Campus Delivery Zone</span>
+                          <span>✓ Verified: Within Express Campus Delivery Zone (45 mins - 1 hr)</span>
                         </div>
                         <p className="text-[11px] text-emerald-700 leading-snug">
                           Location confirmed inside campus boundary. You can proceed with instant checkout!
@@ -371,7 +411,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                           <span>📍 Location Outside Delivery Area</span>
                         </div>
                         <p className="text-[11px] text-rose-700 leading-snug">
-                          We currently deliver only within campus and nearby affiliated PGs (10-15 min express). Coming Soon to your area!
+                          We currently deliver only within CCCT & SIST campuses and nearby affiliated PGs (Delivery within 45 mins - 1 hr). Coming Soon to your area!
                         </p>
                       </div>
                     )}
@@ -384,13 +424,13 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                   </div>
                 )}
               </div>
-            </div>
+            )}
           </div>
 
           {/* Footer note */}
           <div className="mt-4 pt-3 border-t border-gray-100 text-center text-[11px] text-gray-500 font-medium flex items-center justify-center gap-1.5 flex-shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Express 10-15 min delivery to all verified campus and affiliated PG blocks</span>
+            <span>Delivery within 45 mins - 1 hr to verified CCCT & SIST campus spots</span>
           </div>
         </motion.div>
       </div>

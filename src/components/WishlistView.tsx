@@ -52,7 +52,7 @@ export const WishlistView: React.FC<WishlistViewProps> = ({
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Persisted campus favourites. Keep tabs on exam supplies, midnight cravings & flash deals.
+            Persisted campus favourites. Keep tabs on exam supplies, drinks & snacks.
           </p>
         </div>
 

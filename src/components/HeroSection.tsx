@@ -85,11 +85,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             >
               <div className="flex items-center gap-1.5 text-emerald-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#30D158] animate-ping" />
-                <span className="font-bold">● Delivering near you</span>
+                <span className="font-bold">● CCCT & SIST Active</span>
               </div>
               <span className="hidden sm:inline text-gray-300">•</span>
-              <div className="text-gray-500 font-medium">
-                Fast delivery around campus (Avg. 10-15 mins)
+              <div className="text-gray-700 font-semibold">
+                Delivery within 45 mins - 1 hr
               </div>
             </motion.div>
           </div>

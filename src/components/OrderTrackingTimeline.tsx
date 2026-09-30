@@ -51,6 +51,7 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
   const [currentOrder, setCurrentOrder] = useState<AdminOrder>(initialOrder);
   const [copied, setCopied] = useState(false);
   const [callingRunner, setCallingRunner] = useState(false);
+  const [callNotice, setCallNotice] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Normalize order status to numerical step
@@ -155,10 +156,16 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
 
   const handleCallRunner = () => {
     setCallingRunner(true);
+    setCallNotice('Connecting to campus runner Vikram (+91 98765 00192)...');
     setTimeout(() => {
       setCallingRunner(false);
-      alert('Connecting to campus runner Vikram (+91 98765 00192)...');
-    }, 800);
+      try {
+        window.location.href = 'tel:+919876500192';
+      } catch {}
+    }, 600);
+    setTimeout(() => {
+      setCallNotice(null);
+    }, 4500);
   };
 
   const orderTime = new Date(currentOrder.created_at).toLocaleTimeString([], {
@@ -401,35 +408,42 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
 
         {/* Campus Runner Contact Card (if Preparing or Out for Delivery) */}
         {(activeStep === 2 || activeStep === 3) && (
-          <div className="rounded-2xl p-4 bg-purple-50/70 border border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                <Bike className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h5 className="font-extrabold text-xs sm:text-sm text-purple-950">
-                    Runner: Vikram S.
-                  </h5>
-                  <span className="text-[10px] font-bold bg-white text-purple-700 px-1.5 py-0.5 rounded-md border border-purple-200">
-                    4.9 ★ (Campus Runner)
-                  </span>
+          <div className="rounded-2xl p-4 bg-purple-50/70 border border-purple-100 flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Bike className="w-5 h-5" />
                 </div>
-                <p className="text-[11px] text-purple-700 mt-0.5">
-                  Rushing directly to {currentOrder.delivery_zone}
-                </p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h5 className="font-extrabold text-xs sm:text-sm text-purple-950">
+                      Runner: Vikram S.
+                    </h5>
+                    <span className="text-[10px] font-bold bg-white text-purple-700 px-1.5 py-0.5 rounded-md border border-purple-200">
+                      4.9 ★ (Campus Runner)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-purple-700 mt-0.5">
+                    Rushing directly to {currentOrder.delivery_zone}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={handleCallRunner}
-              disabled={callingRunner}
-              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>{callingRunner ? 'Dialing...' : 'Call Runner'}</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleCallRunner}
+                disabled={callingRunner}
+                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>{callingRunner ? 'Dialing...' : 'Call Runner'}</span>
+              </button>
+            </div>
+            {callNotice && (
+              <div className="p-2 rounded-xl bg-purple-100/90 text-purple-900 text-xs font-semibold text-center border border-purple-200">
+                {callNotice}
+              </div>
+            )}
           </div>
         )}
 

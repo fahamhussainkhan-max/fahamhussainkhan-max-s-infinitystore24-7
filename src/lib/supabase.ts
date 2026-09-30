@@ -10,26 +10,95 @@ import {
 } from '../types';
 import { PRODUCTS } from '../data/mockData';
 
-// Centralized Supabase credentials and initialized client
-export const SUPABASE_URL = 'https://egdbegaujzrzsbbstzsr.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
+const DEFAULT_SUPABASE_URL = 'https://egdbegaujzrzsbbstzsr.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
 
-export const supabase: SupabaseClient<any, 'public', any> = createClient<any, 'public', any>(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: false,
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 20, // Low-latency throughput
-      },
-    },
+function resolveSupabaseUrl(): string {
+  try {
+    const envUrl = (import.meta.env?.VITE_SUPABASE_URL as string)?.trim();
+    if (envUrl && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
+      const parsed = new URL(envUrl);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return envUrl;
+      }
+    }
+  } catch {}
+  return DEFAULT_SUPABASE_URL;
+}
+
+function resolveSupabaseKey(): string {
+  const envKey = (
+    (import.meta.env?.VITE_SUPABASE_ANON_KEY as string) ||
+    (import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY as string)
+  )?.trim();
+  if (envKey) return envKey;
+  // If VITE_SUPABASE_URL was set with an API key (e.g., starting with sb_ or eyJ)
+  const envUrl = (import.meta.env?.VITE_SUPABASE_URL as string)?.trim();
+  if (envUrl && (envUrl.startsWith('sb_') || envUrl.startsWith('eyJ'))) {
+    return envUrl;
   }
-);
+  return DEFAULT_SUPABASE_KEY;
+}
+
+// Centralized Supabase credentials and initialized client
+export const SUPABASE_URL = resolveSupabaseUrl();
+export const SUPABASE_ANON_KEY = resolveSupabaseKey();
+
+function createResilientSupabaseClient(): SupabaseClient<any, 'public', any> {
+  try {
+    return createClient<any, 'public', any>(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false,
+        },
+        realtime: {
+          params: {
+            eventsPerSecond: 20, // Low-latency throughput
+          },
+        },
+      }
+    );
+  } catch (err) {
+    console.warn('[Supabase] Failed to initialize live client, using safe offline client fallback:', err);
+    const noOpBuilder: any = {
+      select: () => noOpBuilder,
+      insert: () => noOpBuilder,
+      update: () => noOpBuilder,
+      delete: () => noOpBuilder,
+      upsert: () => noOpBuilder,
+      eq: () => noOpBuilder,
+      order: () => noOpBuilder,
+      limit: () => noOpBuilder,
+      single: async () => ({ data: null, error: new Error('Offline fallback') }),
+      maybeSingle: async () => ({ data: null, error: null }),
+      then: (resolve: any) => resolve({ data: [], error: null }),
+    };
+    return {
+      from: () => noOpBuilder,
+      channel: () => ({
+        on: () => ({ subscribe: () => ({}) }),
+        subscribe: () => ({}),
+      }),
+      removeChannel: () => {},
+      storage: {
+        from: () => ({
+          upload: async () => ({ error: new Error('Offline') }),
+          getPublicUrl: () => ({ data: { publicUrl: '' } }),
+        }),
+      },
+      auth: {
+        getSession: async () => ({ data: { session: null }, error: null }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      },
+    } as any;
+  }
+}
+
+export const supabase: SupabaseClient<any, 'public', any> = createResilientSupabaseClient();
 
 export const isSupabaseConfigured = Boolean(
   SUPABASE_URL &&
@@ -691,8 +760,7 @@ export async function updateOrderStatus(
     .eq('id', orderId);
 
   if (error) {
-    alert(error.message);
-    console.error('Supabase status update error:', error);
+    console.error('Supabase status update error:', error.message);
     return null;
   }
 

@@ -52,6 +52,8 @@ export interface CampusZone {
   isCustom?: boolean;
   customLocation?: string;
   isVerifiedInside?: boolean;
+  campusGroup?: 'CCCT Campus' | 'SIST Campus' | 'Hostels / PGs';
+  spotType?: 'Main Gate' | 'Boys Hostel' | 'Girls Hostel' | 'Academic Complex' | 'Mech Dept' | 'Makaju PG' | 'Happy PG' | 'Custom PG';
 }
 
 export interface CampusLocation {

@@ -1,17 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
 
-// Project reference: egdbegaujzrzsbbstzsr
-export const SUPABASE_URL = 'https://egdbegaujzrzsbbstzsr.supabase.co';
-export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
+export const SUPABASE_PUBLISHABLE_KEY = SUPABASE_ANON_KEY;
+export { supabase, SUPABASE_URL };
+export default supabase as SupabaseClient;
 
-export const supabase = createClient(
-  SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY,
-  {
-    auth: {
-      persistSession: false,
-    },
-  }
-);
-
-export default supabase;

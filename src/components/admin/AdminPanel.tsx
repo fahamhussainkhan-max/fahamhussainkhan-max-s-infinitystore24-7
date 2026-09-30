@@ -235,7 +235,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
       setRealtimeToast(`Store is now ${newStatus ? 'OPEN (Accepting orders)' : 'CLOSED (Orders paused)'}`);
     } catch (err: any) {
       console.error('Failed to toggle store status:', err);
-      alert('Error updating store status: ' + err.message);
+      setRealtimeToast('Error updating store status: ' + (err?.message || 'Action failed'));
     } finally {
       setTogglingStore(false);
     }

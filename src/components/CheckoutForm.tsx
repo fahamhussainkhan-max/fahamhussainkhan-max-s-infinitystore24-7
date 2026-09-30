@@ -52,14 +52,16 @@ export default function CheckoutForm({
   initialArea,
   isStoreOpen = true,
 }: CheckoutFormProps) {
-  // Preset list as required
+  // Preset list for CCCT and SIST campuses
   const PRESET_OPTIONS = [
-    'Academic Complex & Main Campus',
-    'Boys Hostel (Block A/B/C)',
-    'Girls Hostel',
-    'Campus Main Gate',
-    'Library & Student Labs',
-    'Upper PG & Outside PG Enclave',
+    'CCCT — Academic Complex & Admin',
+    'CCCT — Boys Hostel (Block A/B/C)',
+    'CCCT — Girls Hostel',
+    'SIST — Academic Complex & Depts',
+    'SIST — Boys Hostel',
+    'SIST — Girls Hostel',
+    'CCCT & SIST — Campus Main Gate',
+    'Chisopani Student PGs & Residencies',
     'Custom PG / Other Specific Location',
   ];
 
@@ -118,6 +120,14 @@ export default function CheckoutForm({
     message: appliedPromo === 'SHADOW' ? 'Special promo applied: Handling fee waived!' : '',
   });
 
+  // Client-side OTP Verification states
+  const [otpSent, setOtpSent] = useState(false);
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [enteredOtp, setEnteredOtp] = useState('');
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const [otpDemoToast, setOtpDemoToast] = useState<string | null>(null);
+
   useEffect(() => {
     if (appliedPromo === 'SHADOW') {
       setLocalAppliedPromo('SHADOW');
@@ -149,8 +159,14 @@ export default function CheckoutForm({
           0
         );
 
-  const deliveryCharge = initialDeliveryCharge !== undefined ? initialDeliveryCharge : deliveryFee;
-  const handlingFee = isSecretPromoApplied ? 0 : initialHandlingFee;
+  // Delivery & Handling Pricing Rules:
+  // Base delivery charge: Rs. 25 strikethrough -> Rs. 15 (discounted)
+  // Handling Fee: Rs. 9, and FREE for orders over Rs. 200 (subtotal >= 200)
+  const isFreeHandlingQualified = Number(productPrice) >= 200;
+  const isFreeDeliveryQualified = false;
+  const baseDeliveryFee = 25;
+  const deliveryCharge = 15;
+  const handlingFee = isFreeHandlingQualified ? 0 : 9;
 
   const totalAmount = Number(productPrice) + Number(deliveryCharge) + Number(handlingFee);
 
@@ -204,7 +220,7 @@ export default function CheckoutForm({
       const saved = localStorage.getItem('infinity_student_profile');
       if (saved) {
         const p = JSON.parse(saved);
-        const areaToUse = initialArea || p.hostel || 'Academic Complex & Main Campus';
+        const areaToUse = initialArea || p.hostel || 'CCCT — Academic Complex & Admin';
         return {
           fullName: p.fullName || '',
           phone: p.phone || '',
@@ -217,7 +233,7 @@ export default function CheckoutForm({
     return {
       fullName: '',
       phone: '',
-      area: initialArea || 'Academic Complex & Main Campus',
+      area: initialArea || 'CCCT — Academic Complex & Admin',
       roomNo: '',
       notes: '',
     };
@@ -258,7 +274,7 @@ export default function CheckoutForm({
         setCustomPgName(initialArea);
         setCustomVerification({
           status: 'inside',
-          message: '✓ Verified: Within 10-15 Min Express Campus Delivery Zone',
+          message: '✓ Verified: Within Express Campus Delivery Zone (45 mins - 1 hr)',
         });
       }
     }
@@ -274,7 +290,33 @@ export default function CheckoutForm({
     isCustomOption && customVerification.status !== 'inside';
 
   const isCheckoutDisabled =
-    !storeOpen || loading || isOutsideDelivery || isCustomPendingVerification;
+    !storeOpen || loading || isOutsideDelivery || isCustomPendingVerification || !isPhoneVerified;
+
+  // Client-side OTP Verification handlers
+  const handleSendOtp = () => {
+    const cleanPhone = formData.phone.replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      setErrorMsg('Please enter a valid 10-digit mobile number before requesting OTP.');
+      return;
+    }
+    setErrorMsg('');
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedOtp(code);
+    setEnteredOtp('');
+    setOtpSent(true);
+    setOtpError('');
+    setOtpDemoToast(`💬 Demo SMS to +91 ${cleanPhone}: Your 4-digit verification code is [ ${code} ]`);
+  };
+
+  const handleVerifyOtp = () => {
+    if (enteredOtp.trim() === generatedOtp) {
+      setIsPhoneVerified(true);
+      setOtpError('');
+      setOtpDemoToast(`✓ Phone number (+91 ${formData.phone}) verified successfully!`);
+    } else {
+      setOtpError(`Invalid code. Enter demo OTP ${generatedOtp} or tap Send OTP again.`);
+    }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -312,13 +354,13 @@ export default function CheckoutForm({
       if (result.isInside) {
         setCustomVerification({
           status: 'inside',
-          message: '✓ Verified: Within 10-15 Min Express Campus Delivery Zone',
+          message: '✓ Verified: Within Express Campus Delivery Zone (45 mins - 1 hr)',
         });
       } else {
         setCustomVerification({
           status: 'outside',
           message:
-            '📍 Location Outside Delivery Area — We currently deliver only within campus and nearby affiliated PGs (10-15 min express). Coming Soon to your area!',
+            '📍 Location Outside Delivery Area — We currently deliver only within CCCT & SIST campuses and nearby affiliated PGs (Delivery within 45 mins - 1 hr). Coming Soon to your area!',
         });
       }
     } catch (err: any) {
@@ -335,7 +377,6 @@ export default function CheckoutForm({
 
     if (!storeOpen) {
       setErrorMsg('Store is currently closed for orders.');
-      alert('Store is currently closed for orders.');
       return;
     }
 
@@ -360,6 +401,11 @@ export default function CheckoutForm({
 
     if (formData.phone.trim().length < 10) {
       setErrorMsg('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    if (!isPhoneVerified) {
+      setErrorMsg('Please verify your mobile number with the 4-digit OTP before placing your order via WhatsApp.');
       return;
     }
 
@@ -464,7 +510,46 @@ export default function CheckoutForm({
 
       const finalOrderId = orderData?.id || `INF-${Date.now()}`;
 
-      // 5. Complete checkout: immediate success transition & cart clear
+      // 5. Open WhatsApp order dispatch message
+      try {
+        const adminWhatsApp = (import.meta.env?.VITE_ADMIN_WHATSAPP_NUMBER as string)?.replace(/\D/g, '') || "919332727610";
+        const itemsListText = cartItems.map((item: any) => {
+          const itPrice = Number(item.price !== undefined ? item.price : item.product?.price || 0);
+          const itQty = Number(item.quantity || 1);
+          const itName = item.name || item.title || item.product?.name || 'Campus Item';
+          return `• ${itQty}x ${itName} (₹${itPrice * itQty})`;
+        }).join('\n');
+
+        const waOrderMessage = 
+`*NEW CAMPUS ORDER — INFINITY STORE* 🛍️
+================================
+Order ID: #${finalOrderId}
+Campus: ${selectedLocation}
+Room / Floor: ${roomDetails || 'Campus Spot'}
+Customer: ${checkoutDetails.name}
+Phone: +91 ${checkoutDetails.phone} (✓ OTP Verified)
+${checkoutDetails.notes ? `Delivery Note: ${checkoutDetails.notes}\n` : ''}================================
+*ITEMS:*
+${itemsListText}
+================================
+Subtotal: ₹${productPrice}
+Delivery: ₹15 (10% Off Month - Discounted from ₹25)
+Handling Fee: ${isFreeHandlingQualified ? 'FREE (₹0 - Over ₹200)' : '₹9'}
+*Total Due (Cash on Delivery): ₹${totalAmount}*
+================================
+🚀 Delivery Promise: Within 45 mins - 1 hr
+Please confirm and prepare my order!`;
+
+        const waUrl = `https://wa.me/${adminWhatsApp}?text=${encodeURIComponent(waOrderMessage)}`;
+        const opened = window.open(waUrl, '_blank', 'noopener,noreferrer');
+        if (opened) {
+          opened.focus();
+        }
+      } catch (waErr) {
+        console.warn('WhatsApp launch notice:', waErr);
+      }
+
+      // 6. Complete checkout: immediate success transition & cart clear
       if (onOrderSuccess) {
         onOrderSuccess(finalOrderId, {
           fullName: checkoutDetails.name,
@@ -499,7 +584,7 @@ export default function CheckoutForm({
           )}
           <div>
             <h2 className="text-xl font-bold text-neutral-900">Delivery Details</h2>
-            <p className="text-xs text-neutral-500">10-15 Min Campus Express Delivery (COD)</p>
+            <p className="text-xs text-neutral-500">Delivery within 45 mins - 1 hr (CCCT & SIST)</p>
           </div>
         </div>
 
@@ -539,20 +624,20 @@ export default function CheckoutForm({
             <span>📍 Location Outside Delivery Area</span>
           </div>
           <p className="text-xs text-rose-800 leading-relaxed">
-            We currently deliver only within campus and nearby affiliated PGs (10-15 min express).
+            We currently deliver only within CCCT & SIST campuses and nearby affiliated PGs (Delivery within 45 mins - 1 hr).
             Coming Soon to your area!
           </p>
           <div className="pt-1">
             <button
               type="button"
               onClick={() => {
-                setFormData((prev) => ({ ...prev, area: 'Academic Complex & Main Campus' }));
+                setFormData((prev) => ({ ...prev, area: 'CCCT — Academic Complex & Admin' }));
                 setCustomVerification({ status: 'idle', message: '' });
                 if (onSelectCampusZone) onSelectCampusZone();
               }}
               className="px-3 py-1.5 bg-neutral-900 hover:bg-black text-white rounded-xl font-bold text-xs transition cursor-pointer"
             >
-              Switch to Campus Location (10-15 Mins)
+              Switch to Campus Location (45 mins - 1 hr)
             </button>
           </div>
         </div>
@@ -575,20 +660,125 @@ export default function CheckoutForm({
           />
         </div>
 
-        {/* Phone Number */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">
-            Phone Number
+        {/* Phone Number & Client-side OTP Verification */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-neutral-700">
+            Mobile Number & WhatsApp Verification <span className="text-red-500">*</span>
           </label>
-          <input
-            type="tel"
-            name="phone"
-            required
-            value={formData.phone}
-            onChange={handleChange}
-            placeholder="10-digit mobile number"
-            className="w-full px-4 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
+                +91
+              </span>
+              <input
+                type="tel"
+                name="phone"
+                required
+                maxLength={10}
+                disabled={isPhoneVerified}
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="10-digit mobile number"
+                className={`w-full pl-11 pr-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                  isPhoneVerified
+                    ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 font-bold'
+                    : 'border-neutral-200'
+                }`}
+              />
+            </div>
+
+            {!isPhoneVerified ? (
+              <button
+                type="button"
+                id="send-otp-btn"
+                onClick={handleSendOtp}
+                className="px-4 py-2 bg-[#111111] hover:bg-black text-white text-xs font-bold rounded-xl transition cursor-pointer shrink-0 active:scale-95"
+              >
+                {otpSent ? 'Resend OTP' : 'Send OTP'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPhoneVerified(false);
+                  setOtpSent(false);
+                  setEnteredOtp('');
+                  setOtpDemoToast(null);
+                }}
+                className="px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 text-xs font-semibold rounded-xl transition cursor-pointer shrink-0"
+              >
+                Change
+              </button>
+            )}
+          </div>
+
+          {/* Demo OTP Notification Toast */}
+          {otpDemoToast && (
+            <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs flex items-center justify-between gap-2">
+              <span className="font-semibold">{otpDemoToast}</span>
+              <button
+                type="button"
+                onClick={() => setOtpDemoToast(null)}
+                className="text-blue-500 hover:text-blue-800 text-[10px] font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* OTP Verification Input Box */}
+          {otpSent && !isPhoneVerified && (
+            <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-300 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-900">
+                  Enter 4-Digit Verification Code
+                </span>
+                <span className="text-[10px] text-amber-800 bg-amber-200/70 px-2 py-0.5 rounded-md font-mono font-black">
+                  Demo Code: {generatedOtp}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={enteredOtp}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setEnteredOtp(val);
+                    if (val === generatedOtp) {
+                      setIsPhoneVerified(true);
+                      setOtpError('');
+                      setOtpDemoToast(`✓ Phone verified: +91 ${formData.phone}`);
+                    }
+                  }}
+                  placeholder="Enter 4-digit OTP"
+                  className="flex-1 px-3.5 py-2 border border-amber-300 rounded-xl bg-white text-center font-mono font-black text-base tracking-widest focus:outline-none focus:ring-2 focus:ring-amber-500 text-neutral-900"
+                />
+                <button
+                  type="button"
+                  id="verify-otp-btn"
+                  onClick={handleVerifyOtp}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+                >
+                  Verify OTP
+                </button>
+              </div>
+
+              {otpError && (
+                <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                  <span>⚠️</span> {otpError}
+                </p>
+              )}
+            </div>
+          )}
+
+          {isPhoneVerified && (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>✓ Phone Number Verified for WhatsApp Order Dispatch</span>
+            </div>
+          )}
         </div>
 
         {/* Campus Delivery Location Dropdown */}
@@ -606,27 +796,11 @@ export default function CheckoutForm({
             onChange={handleChange}
             className="w-full px-4 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium cursor-pointer"
           >
-            <option value="Academic Complex & Main Campus">
-              Academic Complex & Main Campus
-            </option>
-            <option value="Boys Hostel (Block A/B/C)">
-              Boys Hostel (Block A/B/C)
-            </option>
-            <option value="Girls Hostel">
-              Girls Hostel
-            </option>
-            <option value="Campus Main Gate">
-              Campus Main Gate
-            </option>
-            <option value="Library & Student Labs">
-              Library & Student Labs
-            </option>
-            <option value="Upper PG & Outside PG Enclave">
-              Upper PG & Outside PG Enclave
-            </option>
-            <option value="Custom PG / Other Specific Location">
-              Custom PG / Other Specific Location (GPS Verified)
-            </option>
+            {PRESET_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -694,7 +868,7 @@ export default function CheckoutForm({
 
             {customVerification.status === 'idle' && (
               <p className="text-[11px] text-neutral-500">
-                💡 Click <strong>Verify Location</strong> to confirm your PG coordinates fall within our 10-15 min express delivery boundary.
+                💡 Click <strong>Verify Location</strong> to confirm your PG coordinates fall within our campus delivery boundary (45 mins - 1 hr).
               </p>
             )}
           </div>
@@ -736,7 +910,23 @@ export default function CheckoutForm({
 
         {/* Order Summary & Pricing Breakdown */}
         <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/80 text-xs space-y-2">
-          <div className="flex items-center justify-between text-[11px] font-bold text-neutral-500 uppercase tracking-wider pb-1 border-b border-neutral-200/60">
+          {/* Promotional Banner Badge */}
+          <div className="p-2 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300 text-amber-950 font-bold flex items-center justify-between text-[11px]">
+            <span>10% Off on delivery charges for this month</span>
+            <span className="text-amber-800 font-black">₹15 Flat</span>
+          </div>
+
+          {isFreeHandlingQualified ? (
+            <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold text-center">
+              🎉 Free Handling Unlocked (Order over ₹200)!
+            </div>
+          ) : (
+            <div className="p-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-[11px] font-semibold text-center">
+              💡 Add <strong className="text-blue-700">₹{200 - productPrice}</strong> more for <strong>FREE Handling Fee (₹0)</strong>!
+            </div>
+          )}
+
+          <div className="flex items-center justify-between text-[11px] font-bold text-neutral-500 uppercase tracking-wider pb-1 border-b border-neutral-200/60 pt-1">
             <span>Order Summary ({cartItems.reduce((acc, it) => acc + (it.quantity || 1), 0)} items)</span>
             <span>Amount</span>
           </div>
@@ -745,27 +935,29 @@ export default function CheckoutForm({
               <span>Item Subtotal</span>
               <span className="font-semibold text-neutral-900">₹{productPrice}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Runner Delivery Fee</span>
-              <span className="font-semibold text-neutral-900">₹{deliveryCharge}</span>
-            </div>
             <div className="flex justify-between items-center">
-              <span>Handling Fee</span>
-              {isSecretPromoApplied ? (
-                <span className="font-bold text-emerald-600 flex items-center gap-1.5">
-                  <span className="line-through text-neutral-400 font-normal">₹9</span>
-                  <span>₹0</span>
-                </span>
-              ) : (
-                <span className="font-semibold text-neutral-900">₹{handlingFee}</span>
-              )}
+              <span className="flex items-center gap-1.5">
+                <span>Runner Delivery Fee</span>
+                <span className="text-[10px] text-amber-800 bg-amber-100 px-1 py-0.5 rounded font-bold">10% Off</span>
+              </span>
+              <span className="font-semibold text-neutral-900 flex items-center gap-1.5">
+                <span className="line-through text-neutral-400 font-normal">₹25</span>
+                <span className="text-neutral-900 font-bold">₹15</span>
+              </span>
             </div>
-            {isSecretPromoApplied && (
-              <div className="flex justify-between text-emerald-600 font-semibold text-[11px]">
-                <span>Handling Fee Waived</span>
-                <span>-₹9</span>
-              </div>
-            )}
+            <div className="flex justify-between items-center text-neutral-600">
+              <span>Handling Fee</span>
+              <span className="font-bold flex items-center gap-1.5">
+                {isFreeHandlingQualified ? (
+                  <>
+                    <span className="line-through text-neutral-400 font-normal text-xs">₹9</span>
+                    <span className="text-emerald-600 font-bold">FREE (₹0)</span>
+                  </>
+                ) : (
+                  <span className="text-neutral-900 font-semibold">₹9</span>
+                )}
+              </span>
+            </div>
             <div className="flex justify-between items-center text-sm font-black text-neutral-900 pt-2 border-t border-neutral-200">
               <span>Total to Pay (COD)</span>
               <span>₹{totalAmount}</span>
@@ -838,23 +1030,28 @@ export default function CheckoutForm({
           <button
             type="submit"
             disabled={isCheckoutDisabled}
-            className={`w-full py-3.5 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md transition ${
+            className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2 shadow-lg transition duration-200 ${
               isCheckoutDisabled
-                ? 'bg-gray-400 cursor-not-allowed opacity-80'
-                : 'bg-[#FF3B30] hover:bg-red-600 cursor-pointer active:scale-98'
+                ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
+                : 'bg-[#25D366] hover:bg-[#20ba5a] text-white cursor-pointer active:scale-98 shadow-emerald-500/20'
             }`}
           >
-            <Truck className="w-4 h-4" />
+            {/* WhatsApp Icon */}
+            <svg className="w-5 h-5 fill-current shrink-0" viewBox="0 0 24 24">
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+            </svg>
             <span>
               {!storeOpen
                 ? 'Store Closed for Deliveries'
                 : isOutsideDelivery
-                ? 'Checkout Disabled — Outside Campus Boundary'
+                ? 'Outside CCCT / SIST Campus Boundary'
                 : isCustomPendingVerification
                 ? 'Verify Custom PG Location to Enable Checkout'
+                : !isPhoneVerified
+                ? 'Verify Phone via OTP to Order via WhatsApp'
                 : loading
                 ? 'Placing Order...'
-                : `Place Order (Cash on Delivery) • ₹${totalAmount}`}
+                : `Order via WhatsApp (COD) • ₹${totalAmount}`}
             </span>
           </button>
         </div>

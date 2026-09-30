@@ -40,6 +40,7 @@ export const TopGlobalSearchBar: React.FC<TopGlobalSearchBarProps> = ({
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [isZoneDropdownOpen, setIsZoneDropdownOpen] = useState(false);
+  const [activeDropdownGroup, setActiveDropdownGroup] = useState<'CCCT Campus' | 'SIST Campus' | 'Hostels / PGs'>('CCCT Campus');
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -286,7 +287,7 @@ export const TopGlobalSearchBar: React.FC<TopGlobalSearchBarProps> = ({
                   className="absolute right-0 top-full mt-2 w-[calc(100vw-32px)] max-w-xs sm:w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 p-2 z-50 space-y-1"
                 >
                   <div className="px-2.5 py-1.5 flex items-center justify-between border-b border-gray-100 text-[11px] text-gray-500 font-bold">
-                    <span>1-TAP HOSTEL SELECTOR</span>
+                    <span>DELIVERY ZONE</span>
                     <button
                       type="button"
                       onClick={() => {
@@ -296,45 +297,72 @@ export const TopGlobalSearchBar: React.FC<TopGlobalSearchBarProps> = ({
                       className="text-[#0A84FF] hover:underline flex items-center gap-0.5 cursor-pointer"
                     >
                       <Navigation className="w-3 h-3" />
-                      Auto-Detect GPS
+                      More Spots
                     </button>
                   </div>
 
-                  {allZones.map((zone) => {
-                    const isSelected = zone.id === selectedZone.id;
-                    return (
+                  {/* 3 Choices Tabs */}
+                  <div className="flex p-0.5 bg-gray-100 rounded-xl mb-1 text-[10px] font-bold gap-0.5">
+                    {(['CCCT Campus', 'SIST Campus', 'Hostels / PGs'] as const).map((group) => (
                       <button
-                        key={zone.id}
+                        key={group}
                         type="button"
-                        onClick={() => {
-                          onSelectZone(zone);
-                          setIsZoneDropdownOpen(false);
-                        }}
-                        className={`w-full text-left p-2.5 rounded-xl transition-all flex items-center justify-between cursor-pointer ${
-                          isSelected
-                            ? 'bg-blue-50/80 text-[#0A84FF] font-bold'
-                            : 'hover:bg-gray-50 text-gray-800'
+                        onClick={() => setActiveDropdownGroup(group)}
+                        className={`flex-1 py-1 px-0.5 rounded-lg transition text-center truncate cursor-pointer ${
+                          activeDropdownGroup === group
+                            ? 'bg-white text-gray-900 shadow-xs'
+                            : 'text-gray-500 hover:text-gray-900'
                         }`}
                       >
-                        <div className="min-w-0 pr-2">
-                          <p className="text-xs font-bold truncate">{zone.name}</p>
-                          <p className="text-[10px] text-gray-400 truncate">{zone.block}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-right flex-shrink-0">
-                          <div>
-                            <span className="text-xs font-black text-gray-900 block">
-                              ₹{zone.deliveryFee}
-                            </span>
-                            <span className="text-[9px] text-gray-400">{zone.estMinutes}</span>
-                          </div>
-                          {isSelected && <Check className="w-4 h-4 text-[#0A84FF]" />}
-                        </div>
+                        {group.replace(' Campus', '')}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto space-y-1 pr-0.5">
+                    {allZones
+                      .filter((zone) => {
+                        if (zone.campusGroup) return zone.campusGroup === activeDropdownGroup;
+                        if (activeDropdownGroup === 'CCCT Campus') return zone.id.startsWith('ccct');
+                        if (activeDropdownGroup === 'SIST Campus') return zone.id.startsWith('sist');
+                        return zone.id.includes('pg') || zone.isCustom;
+                      })
+                      .map((zone) => {
+                        const isSelected = zone.id === selectedZone.id;
+                        return (
+                          <button
+                            key={zone.id}
+                            type="button"
+                            onClick={() => {
+                              onSelectZone(zone);
+                              setIsZoneDropdownOpen(false);
+                            }}
+                            className={`w-full text-left p-2 rounded-xl transition-all flex items-center justify-between cursor-pointer ${
+                              isSelected
+                                ? 'bg-blue-50/80 text-[#0A84FF] font-bold'
+                                : 'hover:bg-gray-50 text-gray-800'
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <p className="text-xs font-bold truncate">{zone.name}</p>
+                              <p className="text-[10px] text-gray-400 truncate">{zone.block}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-right flex-shrink-0">
+                              <div>
+                                <span className="text-xs font-black text-gray-900 block">
+                                  ₹{zone.deliveryFee}
+                                </span>
+                                <span className="text-[9px] text-gray-400">{zone.estMinutes}</span>
+                              </div>
+                              {isSelected && <Check className="w-4 h-4 text-[#0A84FF]" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
 
                   <div className="p-2 bg-emerald-50/80 rounded-xl text-[10px] font-bold text-emerald-800 text-center">
-                    ✨ Free delivery on all orders above ₹150
+                    ✨ Free delivery on all orders above ₹200
                   </div>
                 </motion.div>
               )}

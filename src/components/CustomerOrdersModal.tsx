@@ -550,7 +550,7 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
                 <div className="p-4 border-t border-gray-100 bg-[#FAFAF7] flex items-center justify-between text-xs text-gray-500">
                   <span className="flex items-center gap-1.5 font-medium">
                     <Bike className="w-4 h-4 text-[#30D158]" />
-                    Average hostel delivery: <strong>10–15 mins</strong>
+                    Delivery within <strong>45 mins - 1 hr</strong> (CCCT & SIST)
                   </span>
 
                   <button

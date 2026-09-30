@@ -156,7 +156,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
               </span>
             </div>
             <p className="text-[11px] sm:text-xs text-gray-600 mt-0.5">
-              Sanitary pads, intimate cleansing wash & emergency wellness supplies delivered directly to Girls Hostel & Campus Drop Spots in 10-15 mins.
+              Sanitary pads, intimate cleansing wash & emergency wellness supplies delivered directly to Girls Hostel & Campus Drop Spots within 45 mins - 1 hr.
             </p>
           </div>
         </div>

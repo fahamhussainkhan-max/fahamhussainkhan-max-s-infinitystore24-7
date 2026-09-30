@@ -48,7 +48,7 @@ export const HostelEssentials: React.FC<HostelEssentialsProps> = ({
         </div>
 
         <div className="text-xs font-bold text-gray-400">
-          Delivered in 10-15 mins with 0 delivery delays
+          Delivery within 45 mins - 1 hr with 0 delivery delays
         </div>
       </div>
 

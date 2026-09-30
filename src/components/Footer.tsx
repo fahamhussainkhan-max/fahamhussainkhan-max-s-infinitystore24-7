@@ -38,7 +38,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
             </div>
 
             <p className="text-xs sm:text-sm text-gray-400 max-w-sm leading-relaxed">
-              Hyperlocal quick-commerce engineered exclusively for college students, faculty, and surrounding hostels. Packed at the campus edge, delivered in 10-15 minutes.
+              Hyperlocal quick-commerce engineered exclusively for CCCT & SIST students, faculty, and surrounding hostels. Delivered within 45 mins - 1 hr.
             </p>
 
             <div className="flex flex-col gap-1.5 text-xs font-semibold text-emerald-400">

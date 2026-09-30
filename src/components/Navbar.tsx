@@ -99,8 +99,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#30D158]" />
           </span>
           <span className="text-[#FFD60A] font-black tracking-wide flex-shrink-0">⚡ Express:</span>
-          <span className="text-gray-100 font-semibold truncate">10-15m campus delivery</span>
-          <span className="hidden sm:inline text-[11px] text-gray-400 border-l border-white/20 pl-2 flex-shrink-0">Hostels & Main Gate</span>
+          <span className="text-gray-100 font-semibold truncate">Delivery within 45 mins - 1 hr</span>
+          <span className="hidden sm:inline text-[11px] text-gray-400 border-l border-white/20 pl-2 flex-shrink-0">CCCT & SIST Campuses</span>
         </div>
       </div>
 
@@ -174,7 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <MapPin className="w-3.5 h-3.5 text-[#30D158] flex-shrink-0" />
             <div className="min-w-0">
               <div className="text-[9px] sm:text-[10px] text-gray-400 font-medium leading-none hidden md:block">
-                {selectedZone.isOutsideDelivery ? 'Outside Campus' : `Express ${selectedZone.estMinutes || '10-15m'}`}
+                {selectedZone.isOutsideDelivery ? 'Outside Campus' : (selectedZone.estMinutes || '45 mins - 1 hr')}
               </div>
               <div className="text-[10px] sm:text-xs font-bold text-gray-900 leading-tight flex items-center gap-0.5">
                 <span className="truncate max-w-[65px] xs:max-w-[100px] sm:max-w-[130px]">{selectedZone.name}</span>
@@ -454,7 +454,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#30D158] inline-block" />
-                10-15 Min Campus Express Delivery
+                Delivery within 45 mins - 1 hr (CCCT & SIST)
               </span>
               <span className="font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                 Hub Online
