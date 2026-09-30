@@ -15,6 +15,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { CampusZone } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   selectedZone: CampusZone;
@@ -51,6 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenPrint,
   activeTab = 'home',
 }) => {
+  const { user: authUser, isAuthenticated, openLoginModal } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -99,8 +101,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#30D158]" />
           </span>
           <span className="text-[#FFD60A] font-black tracking-wide flex-shrink-0">⚡ Express:</span>
-          <span className="text-gray-100 font-semibold truncate">Delivery within 45 mins - 1 hr</span>
-          <span className="hidden sm:inline text-[11px] text-gray-400 border-l border-white/20 pl-2 flex-shrink-0">CCCT & SIST Campuses</span>
+          <span className="text-gray-100 font-semibold truncate">Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)</span>
         </div>
       </div>
 
@@ -277,8 +278,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
             title="View My Orders & Profile"
           >
-            <User className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0A84FF] ${activeTab === 'profile' ? 'stroke-[2.5]' : ''}`} />
-            <span className="hidden lg:inline">Orders & Profile</span>
+            {authUser?.avatar ? (
+              <img src={authUser.avatar} alt={authUser.name} className="w-4 h-4 rounded-full border border-blue-400 shrink-0" />
+            ) : (
+              <User className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0A84FF] ${activeTab === 'profile' ? 'stroke-[2.5]' : ''}`} />
+            )}
+            <span className="hidden lg:inline">{authUser?.name ? authUser.name.split(' ')[0] : 'Orders & Profile'}</span>
           </button>
 
           {/* Cart / Bag Trigger (Always accessible, touch-friendly min-h-[40px]) */}
@@ -454,7 +459,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#30D158] inline-block" />
-                Delivery within 45 mins - 1 hr (CCCT & SIST)
+                Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
               </span>
               <span className="font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                 Hub Online

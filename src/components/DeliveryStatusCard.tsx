@@ -18,7 +18,11 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
-  const [activeGroup, setActiveGroup] = useState<'CCCT Campus' | 'SIST Campus' | 'Hostels / PGs'>('CCCT Campus');
+  const [activeGroup, setActiveGroup] = useState<'CCCT' | 'SIST' | 'Hostels / Custom PGs'>(() => {
+    if (selectedZone.campusGroup === 'SIST' || selectedZone.id.startsWith('sist') || selectedZone.id.startsWith('ccst')) return 'SIST';
+    if (selectedZone.campusGroup?.includes('Hostel') || selectedZone.campusGroup?.includes('PG') || selectedZone.id.startsWith('pg')) return 'Hostels / Custom PGs';
+    return 'CCCT';
+  });
 
   const handleAutoDetect = async () => {
     setIsDetecting(true);
@@ -151,18 +155,18 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
 
                   {/* 3 Choices Tabs */}
                   <div className="flex p-0.5 bg-gray-100 rounded-xl my-1 text-[10px] font-bold gap-0.5">
-                    {(['CCCT Campus', 'SIST Campus', 'Hostels / PGs'] as const).map((group) => (
+                    {(['CCCT', 'SIST', 'Hostels / Custom PGs'] as const).map((group) => (
                       <button
                         key={group}
                         type="button"
                         onClick={() => setActiveGroup(group)}
-                        className={`flex-1 py-1 px-0.5 rounded-lg transition text-center truncate cursor-pointer ${
+                        className={`flex-1 py-1.5 px-0.5 rounded-lg transition text-center truncate cursor-pointer ${
                           activeGroup === group
                             ? 'bg-white text-gray-900 shadow-xs'
                             : 'text-gray-500 hover:text-gray-900'
                         }`}
                       >
-                        {group.replace(' Campus', '')}
+                        {group}
                       </button>
                     ))}
                   </div>
@@ -170,10 +174,19 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                   <div className="space-y-1 mt-1 max-h-56 overflow-y-auto">
                     {CAMPUS_ZONES
                       .filter((zone) => {
-                        if (zone.campusGroup) return zone.campusGroup === activeGroup;
-                        if (activeGroup === 'CCCT Campus') return zone.id.startsWith('ccct');
-                        if (activeGroup === 'SIST Campus') return zone.id.startsWith('sist');
-                        return zone.id.includes('pg') || zone.isCustom;
+                        if (activeGroup === 'CCCT') {
+                          return zone.campusGroup === 'CCCT' || zone.campusGroup === 'CCCT Campus' || zone.id.startsWith('ccct');
+                        }
+                        if (activeGroup === 'SIST') {
+                          return zone.campusGroup === 'SIST' || zone.campusGroup === 'SIST Campus' || zone.id.startsWith('sist') || zone.id.startsWith('ccst');
+                        }
+                        return (
+                          zone.campusGroup?.includes('Hostel') ||
+                          zone.campusGroup?.includes('PG') ||
+                          zone.campusGroup?.includes('PDS') ||
+                          zone.id.startsWith('pg') ||
+                          zone.isCustom
+                        );
                       })
                       .map((zone) => (
                       <button
@@ -193,8 +206,12 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                           <MapPin className="w-3.5 h-3.5 text-[#0A84FF] flex-shrink-0" />
                           <div className="min-w-0 truncate">
                             <div className="truncate">{zone.name}</div>
-                            <div className="text-[10px] text-gray-400 font-normal truncate">
-                              {zone.block} • ₹{zone.deliveryFee ?? 15} fee
+                            <div className="text-[10px] text-gray-400 font-normal truncate flex items-center gap-1">
+                              <span>{zone.block}</span>
+                              <span>•</span>
+                              <span className="line-through text-gray-400">Rs. 25</span>
+                              <span className="text-gray-800 font-bold">Rs. 15</span>
+                              <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 rounded">10% OFF</span>
                             </div>
                           </div>
                         </div>

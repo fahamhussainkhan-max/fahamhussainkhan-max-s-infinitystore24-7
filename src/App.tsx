@@ -35,6 +35,8 @@ import { CAMPUS_ZONES, CATEGORIES, PRODUCTS } from './data/mockData';
 import { Product, CartItem, CampusZone } from './types';
 import { fetchProducts, supabase } from './lib/supabase';
 import { detectNearestCampusZone, isInsideDeliveryZone } from './utils/geolocation';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { GoogleSignInModal } from './components/GoogleSignInModal';
 
 export type NavigationTab = 'home' | 'wishlist' | 'profile';
 
@@ -110,10 +112,16 @@ export default function App() {
     };
   }, []);
 
-  return <CustomerStorefront />;
+  return (
+    <AuthProvider>
+      <CustomerStorefront />
+    </AuthProvider>
+  );
 }
 
 function CustomerStorefront() {
+  const { isLoginModalOpen, closeLoginModal } = useAuth();
+
   // 1. LIVE CATALOG: State for live Supabase products with graceful instant fallback
   const [products, setProductsState] = useState<Product[]>(() => {
     try {
@@ -933,6 +941,12 @@ function CustomerStorefront() {
           setIsCustomerOrdersOpen(false);
           setCurrentTab('home');
         }}
+      />
+
+      {/* Google Sign-In Modal */}
+      <GoogleSignInModal
+        isOpen={isLoginModalOpen}
+        onClose={closeLoginModal}
       />
 
       {/* Floating Toast Notification */}

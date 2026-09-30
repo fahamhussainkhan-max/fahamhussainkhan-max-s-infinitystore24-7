@@ -331,10 +331,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {/* Express delivery tracker banner */}
                   <div className="rounded-2xl bg-amber-500/10 border border-amber-300/60 p-3 text-xs font-medium text-amber-900 flex items-center justify-between">
                     <span className="flex items-center gap-1.5 font-semibold text-neutral-800">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Delivery within 45 mins - 1 hr
-                    </span>
-                    <span className="text-[10px] font-bold uppercase bg-white/80 px-2 py-0.5 rounded-full text-neutral-700">
-                      CCCT & SIST
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)</span>
                     </span>
                   </div>
 
@@ -486,14 +484,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {/* Drawer Footer & Checkout Action */}
               {!placedOrder && !isCheckoutFormOpen && cartItems.length > 0 && (
                 <div className="p-5 sm:p-6 border-t border-gray-100 bg-[#FAFAF7] space-y-3">
-                  {/* Delivery Promo Badge / 10% Off Announcement */}
+                  {/* Delivery Promo Badge / 10% OFF Announcement */}
                   <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300 text-amber-950 text-xs font-bold flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>10% Off on delivery charges for this month</span>
+                      <span>10% OFF on delivery charges for this month</span>
                     </span>
-                    <span className="text-[10px] text-amber-900 bg-white/90 px-2 py-0.5 rounded-md font-extrabold border border-amber-300 shrink-0">
-                      ₹15 FLAT
+                    <span className="text-[10px] text-amber-900 bg-white/90 px-2 py-0.5 rounded-md font-extrabold border border-amber-300 shrink-0 uppercase">
+                      10% OFF
                     </span>
                   </div>
 
@@ -506,13 +504,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div className="flex justify-between items-center">
                       <span className="truncate pr-2 flex items-center gap-1.5">
                         <span>Runner Delivery Fee</span>
-                        <span className="text-[10px] text-amber-900 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded font-extrabold">
-                          10% Off
+                        <span className="text-[10px] text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded font-extrabold uppercase">
+                          10% OFF
                         </span>
                       </span>
                       <span className="font-semibold flex-shrink-0 text-gray-900 flex items-center gap-1.5">
-                        <span className="line-through text-gray-400 font-normal">₹25</span>
-                        <span className="text-gray-900 font-bold">₹15</span>
+                        <span className="line-through text-gray-400 font-normal">Rs. 25</span>
+                        <span className="text-gray-900 font-bold">Rs. 15</span>
                       </span>
                     </div>
 
@@ -521,11 +519,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <span className="font-bold flex items-center gap-1.5">
                         {isFreeHandlingQualified ? (
                           <>
-                            <span className="line-through text-gray-400 font-normal text-xs">₹9</span>
+                            <span className="line-through text-gray-400 font-normal text-xs">Rs. 9</span>
                             <span className="text-emerald-600 font-black">FREE (₹0)</span>
                           </>
                         ) : (
-                          <span className="text-gray-900 font-semibold">₹9</span>
+                          <span className="text-gray-900 font-semibold">Rs. 9</span>
                         )}
                       </span>
                     </div>
@@ -551,7 +549,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         <span>📍 Delivery Locked - Outside Campus Boundary</span>
                       </div>
                       <p className="text-[11px] text-amber-700 leading-tight">
-                        We currently deliver exclusively within CCCT & SIST hostels and labs (45 mins - 1 hr). Coming Soon to your location!
+                        Delivery timeframe: Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs). Coming Soon to your location!
                       </p>
                       {onOpenZoneSelector && (
                         <button
@@ -573,12 +571,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       className="w-full py-4 bg-[#FF3B30] hover:bg-red-600 text-white font-extrabold rounded-2xl shadow-xl flex items-center justify-between px-6 transition-all duration-200 active:scale-95 cursor-pointer"
                     >
                       <div className="text-left">
-                        <div className="text-[10px] text-red-100 font-medium uppercase tracking-wider">Delivery within 45 mins - 1 hr</div>
+                        <div className="text-[10px] text-red-100 font-medium uppercase tracking-wider">
+                          Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
+                        </div>
                         <div className="text-base font-black">₹{grandTotal}</div>
                       </div>
 
                       <div className="flex items-center gap-1.5 text-sm font-bold text-white">
-                        <span>Enter Details & Verify OTP</span>
+                        <span>Proceed to Checkout</span>
                         <ArrowRight className="w-4 h-4" />
                       </div>
                     </button>

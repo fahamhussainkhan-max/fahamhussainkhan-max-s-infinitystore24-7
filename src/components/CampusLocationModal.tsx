@@ -124,8 +124,8 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
           block: 'Verified Campus Delivery Zone',
           estMinutes: '45 mins - 1 hr',
           isOnline: true,
-          deliveryFee: 20,
-          isOuterSpot: true,
+          deliveryFee: 15,
+          campusGroup: 'Hostels / Custom PGs',
           coordinates: { lat: result.latitude, lng: result.longitude },
           isCustom: true,
           customLocation: customInputText.trim(),
@@ -185,7 +185,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                   Select Campus Location
                 </h3>
                 <p className="text-[11px] text-gray-500 font-medium">
-                  Delivery within 45 mins - 1 hr directly to your building
+                  Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
                 </p>
               </div>
             </div>

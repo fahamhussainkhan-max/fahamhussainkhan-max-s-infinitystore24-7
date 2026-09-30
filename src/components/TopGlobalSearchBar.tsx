@@ -40,7 +40,11 @@ export const TopGlobalSearchBar: React.FC<TopGlobalSearchBarProps> = ({
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [isZoneDropdownOpen, setIsZoneDropdownOpen] = useState(false);
-  const [activeDropdownGroup, setActiveDropdownGroup] = useState<'CCCT Campus' | 'SIST Campus' | 'Hostels / PGs'>('CCCT Campus');
+  const [activeDropdownGroup, setActiveDropdownGroup] = useState<'CCCT' | 'SIST' | 'Hostels / Custom PGs'>(() => {
+    if (selectedZone.campusGroup === 'SIST' || selectedZone.id.startsWith('sist') || selectedZone.id.startsWith('ccst')) return 'SIST';
+    if (selectedZone.campusGroup?.includes('Hostel') || selectedZone.campusGroup?.includes('PG') || selectedZone.id.startsWith('pg')) return 'Hostels / Custom PGs';
+    return 'CCCT';
+  });
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -303,18 +307,18 @@ export const TopGlobalSearchBar: React.FC<TopGlobalSearchBarProps> = ({
 
                   {/* 3 Choices Tabs */}
                   <div className="flex p-0.5 bg-gray-100 rounded-xl mb-1 text-[10px] font-bold gap-0.5">
-                    {(['CCCT Campus', 'SIST Campus', 'Hostels / PGs'] as const).map((group) => (
+                    {(['CCCT', 'SIST', 'Hostels / Custom PGs'] as const).map((group) => (
                       <button
                         key={group}
                         type="button"
                         onClick={() => setActiveDropdownGroup(group)}
-                        className={`flex-1 py-1 px-0.5 rounded-lg transition text-center truncate cursor-pointer ${
+                        className={`flex-1 py-1.5 px-0.5 rounded-lg transition text-center truncate cursor-pointer ${
                           activeDropdownGroup === group
                             ? 'bg-white text-gray-900 shadow-xs'
                             : 'text-gray-500 hover:text-gray-900'
                         }`}
                       >
-                        {group.replace(' Campus', '')}
+                        {group}
                       </button>
                     ))}
                   </div>
@@ -322,10 +326,19 @@ export const TopGlobalSearchBar: React.FC<TopGlobalSearchBarProps> = ({
                   <div className="max-h-56 overflow-y-auto space-y-1 pr-0.5">
                     {allZones
                       .filter((zone) => {
-                        if (zone.campusGroup) return zone.campusGroup === activeDropdownGroup;
-                        if (activeDropdownGroup === 'CCCT Campus') return zone.id.startsWith('ccct');
-                        if (activeDropdownGroup === 'SIST Campus') return zone.id.startsWith('sist');
-                        return zone.id.includes('pg') || zone.isCustom;
+                        if (activeDropdownGroup === 'CCCT') {
+                          return zone.campusGroup === 'CCCT' || zone.campusGroup === 'CCCT Campus' || zone.id.startsWith('ccct');
+                        }
+                        if (activeDropdownGroup === 'SIST') {
+                          return zone.campusGroup === 'SIST' || zone.campusGroup === 'SIST Campus' || zone.id.startsWith('sist') || zone.id.startsWith('ccst');
+                        }
+                        return (
+                          zone.campusGroup?.includes('Hostel') ||
+                          zone.campusGroup?.includes('PG') ||
+                          zone.campusGroup?.includes('PDS') ||
+                          zone.id.startsWith('pg') ||
+                          zone.isCustom
+                        );
                       })
                       .map((zone) => {
                         const isSelected = zone.id === selectedZone.id;
@@ -345,12 +358,18 @@ export const TopGlobalSearchBar: React.FC<TopGlobalSearchBarProps> = ({
                           >
                             <div className="min-w-0 pr-2">
                               <p className="text-xs font-bold truncate">{zone.name}</p>
-                              <p className="text-[10px] text-gray-400 truncate">{zone.block}</p>
+                              <p className="text-[10px] text-gray-400 truncate flex items-center gap-1">
+                                <span>{zone.block}</span>
+                                <span>•</span>
+                                <span className="line-through text-gray-400">Rs. 25</span>
+                                <span className="text-gray-800 font-bold">Rs. 15</span>
+                                <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 rounded">10% OFF</span>
+                              </p>
                             </div>
                             <div className="flex items-center gap-1.5 text-right flex-shrink-0">
                               <div>
                                 <span className="text-xs font-black text-gray-900 block">
-                                  ₹{zone.deliveryFee}
+                                  ₹15
                                 </span>
                                 <span className="text-[9px] text-gray-400">{zone.estMinutes}</span>
                               </div>
