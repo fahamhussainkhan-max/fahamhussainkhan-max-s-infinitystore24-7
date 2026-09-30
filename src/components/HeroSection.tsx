@@ -13,32 +13,32 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onExploreCategories,
 }) => {
   return (
-    <section className="relative w-full max-w-full overflow-hidden pt-3 sm:pt-8 pb-6 sm:pb-12 bg-[#FAFAF7]">
+    <section className="relative w-full max-w-full overflow-hidden pt-3 sm:pt-8 pb-5 sm:pb-12 bg-[#FAFAF7]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-6 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 lg:gap-6 items-center">
           {/* Left Hero Content */}
-          <div className="lg:col-span-6 space-y-4 sm:space-y-6 text-left">
-            <div className="flex flex-col items-start gap-2">
+          <div className="lg:col-span-6 space-y-3.5 sm:space-y-6 text-left">
+            <div className="flex flex-col items-start gap-1.5 sm:gap-2">
               {/* EDC Authorization Sub-Badge */}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50/90 border border-amber-300/80 shadow-2xs text-amber-900 text-xs font-semibold max-w-full"
+                className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-amber-50/90 border border-amber-300/80 shadow-2xs text-amber-900 text-xs font-semibold max-w-full"
               >
                 {/* <!-- EDC_LOGO_PLACEHOLDER: Replace src with EDC logo asset --> */}
                 <div
                   id="hero-edc-logo-container"
-                  className="relative w-6 h-6 rounded-md border border-dashed border-amber-500/70 bg-white flex items-center justify-center p-0.5 shadow-2xs flex-shrink-0"
+                  className="relative w-5 h-5 sm:w-6 sm:h-6 rounded-md border border-dashed border-amber-500/70 bg-white flex items-center justify-center p-0.5 shadow-2xs flex-shrink-0"
                   title="EDC Logo Slot"
                 >
                   <div className="w-full h-full rounded bg-amber-100/80 border border-amber-200 flex flex-col items-center justify-center text-center">
-                    <span className="text-[7.5px] font-black tracking-tighter text-amber-800 leading-none">
+                    <span className="text-[7px] sm:text-[7.5px] font-black tracking-tighter text-amber-800 leading-none">
                       EDC
                     </span>
                   </div>
                 </div>
-                <span className="text-[11px] sm:text-xs font-bold text-amber-950 truncate">
+                <span className="text-[10.5px] xs:text-[11px] sm:text-xs font-bold text-amber-950 truncate max-w-[260px] xs:max-w-none">
                   Authorized by Entrepreneurship Development Cell (EDC), CCCT Chisopani
                 </span>
               </motion.div>
@@ -48,7 +48,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.05 }}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white shadow-sm border border-gray-200/90 text-xs font-black tracking-wider text-[#111111]"
+                className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-white shadow-sm border border-gray-200/90 text-[11px] sm:text-xs font-black tracking-wider text-[#111111]"
               >
                 <Zap className="w-3.5 h-3.5 fill-[#FF3B30] text-[#FF3B30]" />
                 <span>⚡ CCCT & SIST CAMPUS EXPRESS</span>
@@ -60,7 +60,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-3xl xs:text-4xl sm:text-5xl lg:text-6xl font-black text-[#111111] font-display tracking-tight leading-[1.08]"
+              className="text-2xl xs:text-3xl sm:text-5xl lg:text-6xl font-black text-[#111111] font-display tracking-tight leading-[1.12] sm:leading-[1.08]"
             >
               Everything you need.<br />
               <span className="text-[#0A84FF]">Right when you need it</span>{' '}
@@ -72,7 +72,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-sm sm:text-lg text-gray-600 font-medium max-w-lg leading-relaxed"
+              className="text-xs xs:text-sm sm:text-base lg:text-lg text-gray-600 font-medium max-w-lg leading-relaxed"
             >
               Snacks, chilled drinks, stationery, and hostel essentials — delivered directly to your room or campus spot in minutes.
             </motion.p>
@@ -82,12 +82,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1 w-full sm:w-auto"
+              className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2.5 sm:gap-3 pt-0.5 sm:pt-1 w-full xs:w-auto"
             >
               <button
                 type="button"
                 onClick={onShopNow}
-                className="cursor-pointer pointer-events-auto flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white font-extrabold text-sm sm:text-base shadow-xl hover:shadow-2xl transition-all duration-200 active:scale-95 group w-full sm:w-auto min-h-[48px]"
+                className="cursor-pointer pointer-events-auto flex items-center justify-center gap-2 px-5 sm:px-7 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white font-extrabold text-xs xs:text-sm sm:text-base shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 group w-full xs:w-auto min-h-[44px] sm:min-h-[48px]"
               >
                 <span>Shop Now</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -96,7 +96,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <button
                 type="button"
                 onClick={onExploreCategories}
-                className="cursor-pointer pointer-events-auto flex items-center justify-center px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-white hover:bg-gray-100/80 text-[#111111] font-extrabold text-sm sm:text-base border border-gray-200 shadow-sm transition-all duration-200 active:scale-95 w-full sm:w-auto min-h-[48px]"
+                className="cursor-pointer pointer-events-auto flex items-center justify-center px-5 sm:px-7 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-white hover:bg-gray-100/80 text-[#111111] font-extrabold text-xs xs:text-sm sm:text-base border border-gray-200 shadow-sm transition-all duration-200 active:scale-95 w-full xs:w-auto min-h-[44px] sm:min-h-[48px]"
               >
                 Explore Categories
               </button>
@@ -107,7 +107,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="pt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs sm:text-sm font-semibold text-gray-600"
+              className="pt-1 sm:pt-2 flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1 text-xs sm:text-sm font-semibold text-gray-600"
             >
               <div className="flex items-center gap-1.5 text-emerald-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#30D158] animate-ping" />
@@ -121,7 +121,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
 
           {/* Right 3D Scene */}
-          <div className="lg:col-span-6 flex items-center justify-center w-full max-w-full overflow-hidden">
+          <div className="lg:col-span-6 flex items-center justify-center w-full max-w-full overflow-hidden mt-1 lg:mt-0">
             <HeroScene3D />
           </div>
         </div>
