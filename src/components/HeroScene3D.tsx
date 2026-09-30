@@ -1,10 +1,29 @@
 import React, { useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { Zap, ShoppingBag, Ruler } from 'lucide-react';
+import bundledHeroImg from '../assets/images/ccct_sist_campus_hero_1790791913273.jpg';
+
+// Multi-tier fallback sources for production and CDN stability
+const HERO_IMAGE_SOURCES = [
+  '/assets/hero-banner.png',
+  bundledHeroImg,
+  '/assets/hero-banner.jpg',
+  'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80',
+];
 
 export const HeroScene3D: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [, setMousePos] = useState({ x: 0, y: 0 });
+  const [currentImgIndex, setCurrentImgIndex] = useState(0);
+  const [isImgError, setIsImgError] = useState(false);
+
+  const handleImageError = () => {
+    if (currentImgIndex < HERO_IMAGE_SOURCES.length - 1) {
+      setCurrentImgIndex((prev) => prev + 1);
+    } else {
+      setIsImgError(true);
+    }
+  };
 
   // Spring physics for smooth parallax
   const x = useMotionValue(0);
@@ -73,12 +92,28 @@ export const HeroScene3D: React.FC = () => {
             transform: 'translateZ(-50px)',
           }}
         >
-          <img
-            src="/src/assets/images/ccct_sist_campus_hero_1790791913273.jpg"
-            alt="CCCT & SIST Campus Student Life"
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-700"
-          />
+          {!isImgError ? (
+            <img
+              src={HERO_IMAGE_SOURCES[currentImgIndex]}
+              alt="CCCT & SIST Campus Student Life and Express Delivery"
+              onError={handleImageError}
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-700"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-[#0A84FF]/25 via-[#111111]/85 to-[#1a1a1a] flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(#30D158_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none" />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#0A84FF] to-[#30D158] flex items-center justify-center mb-2.5 shadow-lg shadow-blue-500/30">
+                <Zap className="w-7 h-7 text-white fill-white" />
+              </div>
+              <h4 className="text-white font-black text-base sm:text-lg font-display tracking-tight">
+                CCCT & SIST Campus Express
+              </h4>
+              <p className="text-white/70 text-[11px] max-w-xs mt-1 font-medium">
+                Hyperlocal Delivery to Chisopani & SIST Hostels in 30 - 45 mins
+              </p>
+            </div>
+          )}
           {/* Subtle gradient vignette overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#111111]/75 via-black/20 to-transparent pointer-events-none" />
           <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-[11px] font-bold text-white drop-shadow-md">
