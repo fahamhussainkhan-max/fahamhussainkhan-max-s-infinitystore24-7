@@ -139,37 +139,6 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
           );
         })}
       </div>
-
-      {/* Women's Care Discreet & Express Campus Delivery Banner */}
-      <div className="mt-4 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-rose-500/10 border border-pink-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white flex items-center justify-center shadow-md shrink-0">
-            <Heart className="w-5 h-5 fill-white/30" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-black text-gray-900">
-                Women's Care & Intimate Hygiene Aisle
-              </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-100 text-pink-800 border border-pink-200">
-                100% Discreet Packaging
-              </span>
-            </div>
-            <p className="text-[11px] sm:text-xs text-gray-600 mt-0.5">
-              Sanitary pads, intimate cleansing wash & emergency wellness supplies delivered directly to Girls Hostel & Campus Drop Spots within 30 - 45 mins.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onSelectCategory('womens-care')}
-          className="self-stretch sm:self-auto px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-        >
-          <span>Explore Women's Care</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
     </section>
   );
 };

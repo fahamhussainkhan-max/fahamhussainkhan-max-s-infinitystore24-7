@@ -122,7 +122,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
           {/* Right 3D Scene */}
           <div className="lg:col-span-6 flex items-center justify-center w-full max-w-full overflow-hidden mt-1 lg:mt-0">
-            <HeroScene3D />
+            <div className="w-full max-w-[360px] sm:max-w-[460px] md:max-w-none mx-auto overflow-hidden">
+              <div className="transform scale-[0.78] sm:scale-90 md:scale-100 origin-top -my-6 md:my-0">
+                <HeroScene3D />
+              </div>
+            </div>
           </div>
         </div>
       </div>
