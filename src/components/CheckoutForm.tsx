@@ -536,7 +536,7 @@ Delivery: ₹15 (10% OFF Discount - was ₹25)
 Packaging & Handling: ${isFreeHandlingQualified ? 'FREE (₹0 - Promo Waived)' : '₹9'}
 *Total Due (Cash on Delivery): ₹${totalAmount}*
 ================================
-🚀 Delivery timeframe: Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
+🚀 Delivery timeframe: Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)
 Please confirm and prepare my order!`;
 
         const waUrl = `https://wa.me/${adminWhatsApp}?text=${encodeURIComponent(waOrderMessage)}`;
@@ -618,7 +618,7 @@ Please confirm and prepare my order!`;
           <div>
             <h2 className="text-xl font-bold text-neutral-900 font-display">Delivery Details</h2>
             <p className="text-xs text-neutral-500">
-              Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
+              Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)
             </p>
           </div>
         </div>
@@ -853,7 +853,7 @@ Please confirm and prepare my order!`;
           </div>
 
           <p className="text-[11px] text-neutral-500 leading-relaxed">
-            Delivery timeframe: <strong>Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)</strong>. Verify your location to proceed.
+            Delivery timeframe: <strong>Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)</strong>. Verify your location to proceed.
           </p>
 
           <div className="flex flex-wrap items-center gap-2">

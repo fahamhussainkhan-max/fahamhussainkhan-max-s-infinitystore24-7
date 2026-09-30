@@ -89,7 +89,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
               <span className="hidden sm:inline text-gray-300">•</span>
               <div className="text-gray-700 font-semibold">
-                Delivery within 45 mins - 1 hr
+                Delivery within 30 - 45 mins
               </div>
             </motion.div>
           </div>

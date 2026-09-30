@@ -137,7 +137,7 @@ export const CampusPrintModal: React.FC<CampusPrintModalProps> = ({
                       Instant Campus Service
                     </span>
                     <span className="text-[10px] font-bold text-[#30D158] flex items-center gap-1">
-                      <Zap className="w-3 h-3 fill-[#30D158]" /> 10-Min Ready
+                      <Zap className="w-3 h-3 fill-[#30D158]" /> 30 - 45 mins Campus Delivery
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black font-display text-white mt-1">

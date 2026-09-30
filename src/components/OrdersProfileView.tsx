@@ -385,7 +385,7 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
               </p>
               <div className="pt-2 border-t border-gray-100 flex items-center gap-2 text-[11px] text-emerald-700 font-semibold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Express delivery in 45 mins - 1 hr</span>
+                <span>Delivery within 30 - 45 mins</span>
               </div>
             </div>
           </div>

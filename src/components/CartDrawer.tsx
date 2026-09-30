@@ -247,7 +247,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     Your campus bag is empty
                   </h3>
                   <p className="text-xs text-gray-500 max-w-xs">
-                    Craving snacks, study supplies or chilled drinks? Add anything to get delivery within 45 mins - 1 hr.
+                    Craving snacks, study supplies or chilled drinks? Add anything to get delivery within 30 - 45 mins.
                   </p>
                   <button
                     onClick={onClose}
@@ -332,7 +332,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <div className="rounded-2xl bg-amber-500/10 border border-amber-300/60 p-3 text-xs font-medium text-amber-900 flex items-center justify-between">
                     <span className="flex items-center gap-1.5 font-semibold text-neutral-800">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)</span>
+                      <span>Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)</span>
                     </span>
                   </div>
 
@@ -549,7 +549,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         <span>📍 Delivery Locked - Outside Campus Boundary</span>
                       </div>
                       <p className="text-[11px] text-amber-700 leading-tight">
-                        Delivery timeframe: Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs). Coming Soon to your location!
+                        Delivery timeframe: Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs). Coming Soon to your location!
                       </p>
                       {onOpenZoneSelector && (
                         <button
@@ -572,7 +572,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     >
                       <div className="text-left">
                         <div className="text-[10px] text-red-100 font-medium uppercase tracking-wider">
-                          Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
+                          Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)
                         </div>
                         <div className="text-base font-black">₹{grandTotal}</div>
                       </div>

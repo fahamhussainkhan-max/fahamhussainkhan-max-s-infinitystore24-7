@@ -122,7 +122,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
           id: 'custom-pg-location',
           name: customInputText.trim(),
           block: 'Verified Campus Delivery Zone',
-          estMinutes: '45 mins - 1 hr',
+          estMinutes: '30 - 45 mins',
           isOnline: true,
           deliveryFee: 15,
           campusGroup: 'Hostels / Custom PGs',
@@ -185,7 +185,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                   Select Campus Location
                 </h3>
                 <p className="text-[11px] text-gray-500 font-medium">
-                  Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
+                  Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)
                 </p>
               </div>
             </div>
@@ -208,7 +208,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                 <span>📍 Location Outside CCCT & SIST Delivery Area</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-relaxed">
-                We currently deliver exclusively within CCCT & SIST campuses and nearby affiliated PGs (Delivery within 45 mins - 1 hr).
+                We currently deliver exclusively within CCCT & SIST campuses and nearby affiliated PGs (Delivery within 30 - 45 mins).
                 Tap any verified campus spot below to order now.
               </p>
             </div>
@@ -293,7 +293,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
 
                     <div className="text-right flex-shrink-0 pl-2">
                       <span className="text-[10px] font-black text-emerald-700 bg-emerald-100/70 px-2.5 py-1 rounded-lg inline-flex items-center gap-1">
-                        ⚡ 45m - 1 hr
+                        ⚡ 30 - 45 mins
                       </span>
                     </div>
                   </button>
@@ -389,7 +389,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                       <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1.5 animate-fadeIn">
                         <div className="flex items-center gap-2 font-bold text-emerald-800">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                          <span>✓ Verified: Within Express Campus Delivery Zone (45 mins - 1 hr)</span>
+                          <span>✓ Verified: Within Express Campus Delivery Zone (30 - 45 mins)</span>
                         </div>
                         <p className="text-[11px] text-emerald-700 leading-snug">
                           Location confirmed inside campus boundary. You can proceed with instant checkout!
@@ -413,7 +413,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                           <span>📍 Location Outside Delivery Area</span>
                         </div>
                         <p className="text-[11px] text-rose-700 leading-snug">
-                          We currently deliver only within CCCT & SIST campuses and nearby affiliated PGs (Delivery within 45 mins - 1 hr). Coming Soon to your area!
+                          We currently deliver only within CCCT & SIST campuses and nearby affiliated PGs (Delivery within 30 - 45 mins). Coming Soon to your area!
                         </p>
                       </div>
                     )}
@@ -432,7 +432,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
           {/* Footer note */}
           <div className="mt-4 pt-3 border-t border-gray-100 text-center text-[11px] text-gray-500 font-medium flex items-center justify-center gap-1.5 flex-shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Delivery within 45 mins - 1 hr to verified CCCT & SIST campus spots</span>
+            <span>Delivery within 30 - 45 mins to verified CCCT & SIST campus spots</span>
           </div>
         </motion.div>
       </div>

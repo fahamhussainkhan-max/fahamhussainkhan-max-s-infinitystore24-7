@@ -96,10 +96,10 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
       statusKey: 'Out for Delivery',
       title: 'Out for Delivery',
       subtitle: 'Campus Runner En Route',
-      detail: 'Express 10-min dash to your hostel room/gate',
+      detail: 'Campus dash to your hostel room/gate within 30 - 45 mins',
       icon: Bike,
       accentColor: 'text-purple-600 bg-purple-50 border-purple-200',
-      estimatedTimeText: '6–10 mins',
+      estimatedTimeText: '30 - 45 mins',
     },
     {
       id: 'delivered',

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
-import { Zap, ShoppingBag } from 'lucide-react';
+import { Zap, ShoppingBag, Ruler } from 'lucide-react';
 
 export const HeroScene3D: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,7 +50,7 @@ export const HeroScene3D: React.FC = () => {
           rotateY,
           transformStyle: 'preserve-3d',
         }}
-        className="relative w-full max-w-[480px] h-full flex items-center justify-center scale-[0.82] xs:scale-[0.9] sm:scale-100 origin-center"
+        className="relative w-full max-w-[480px] h-full flex items-center justify-center scale-[0.82] xs:scale-[0.88] sm:scale-100 origin-center"
       >
         {/* Soft Realistic Cast Ground Shadow */}
         <motion.div
@@ -92,7 +92,7 @@ export const HeroScene3D: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* 1. CENTRAL FLOATING DELIVERY BAG */}
+        {/* CARD 3: PRIORITY RUN (SLEEK DARK CARD) */}
         <motion.div
           animate={{
             y: [-10, 8, -10],
@@ -146,18 +146,18 @@ export const HeroScene3D: React.FC = () => {
               INFINITY STORE
             </div>
             <div className="text-white/70 text-xs font-medium tracking-wide">
-              CAMPUS 10-MIN EXPRESS
+              CAMPUS 30 - 45 MIN EXPRESS
             </div>
           </div>
 
-          {/* Bottom tag */}
-          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-white/70 z-10">
-            <span>Room & Hostel Drop</span>
-            <span className="text-[#30D158] font-bold">● CCCT & SIST</span>
+          {/* Card 3: 30 - 45 mins Campus Delivery - Room & Gate */}
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10.5px] text-white/90 z-10">
+            <span className="font-bold truncate pr-1">30 - 45 mins Campus Delivery - Room & Gate</span>
+            <span className="text-[#30D158] font-bold shrink-0">● Active</span>
           </div>
         </motion.div>
 
-        {/* 2. FLOATING CARDBOARD BOX WITH CAMPUS TAPE */}
+        {/* FLOATING CARDBOARD BOX WITH CAMPUS TAPE */}
         <motion.div
           animate={{
             y: [12, -8, 12],
@@ -189,67 +189,86 @@ export const HeroScene3D: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* 3. FLOATING CHILLED SODA CAN */}
+        {/* CARD 2: EXISTING ENERGY DRINK (ENHANCED WITH NEON GRADIENT TAG) */}
         <motion.div
           animate={{
             y: [-14, 10, -14],
             rotateZ: [-12, -6, -12],
           }}
           transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
-          className="absolute top-4 -right-4 sm:-right-8 z-25 w-20 h-36 sm:w-24 sm:h-40 rounded-3xl bg-gradient-to-b from-[#0A84FF] via-[#0060df] to-[#003c99] p-2.5 shadow-xl border-t border-white/50 text-white flex flex-col justify-between overflow-hidden"
+          className="absolute top-4 -right-4 sm:-right-8 z-25 w-24 h-40 sm:w-28 sm:h-44 rounded-3xl bg-gradient-to-b from-[#0A84FF] via-[#0052cc] to-[#002b80] p-2.5 shadow-2xl border-t border-cyan-300 text-white flex flex-col justify-between overflow-hidden"
           style={{
-            boxShadow: '0 18px 36px -8px rgba(10, 132, 255, 0.45)',
+            boxShadow: '0 20px 42px -8px rgba(10, 132, 255, 0.55), 0 0 25px rgba(0, 212, 255, 0.35)',
           }}
         >
           {/* Condensation light effect */}
           <div className="absolute top-0 right-0 w-8 h-full bg-white/20 blur-sm pointer-events-none" />
-          <div className="w-8 h-3 rounded-full bg-slate-200/80 mx-auto shadow-inner border border-slate-300" />
-          <div className="my-auto text-center font-display">
-            <div className="text-[9px] font-bold tracking-widest text-sky-200 uppercase">ICE COLD</div>
-            <div className="text-xs font-black tracking-tight leading-tight">ENERGY</div>
-            <div className="text-[10px] text-yellow-300 font-bold">250ml</div>
+          <div className="w-8 h-3 rounded-full bg-slate-200/90 mx-auto shadow-inner border border-slate-300" />
+          
+          <div className="my-auto text-center font-display space-y-0.5">
+            <div className="inline-block px-1.5 py-0.5 rounded-full bg-cyan-400/20 border border-cyan-300/40 text-[7.5px] font-black tracking-widest text-cyan-200 uppercase">
+              EXAM FUEL
+            </div>
+            <div className="text-xs font-black tracking-tight leading-tight text-white drop-shadow">
+              ENERGY
+            </div>
+            <div className="text-[10px] text-yellow-300 font-bold">250ml Chilled</div>
           </div>
-          <div className="w-full text-center text-[9px] font-bold bg-white/20 rounded py-0.5">
-            CHILLED
+
+          {/* Enhanced Cool Blue / Neon Gradient Tag */}
+          <div className="w-full text-center text-[8px] sm:text-[8.5px] font-black bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 text-white rounded-lg py-1 shadow-sm border border-cyan-300/40 uppercase tracking-tighter leading-tight">
+            Late Night Exam Fuel - Ice Cold
           </div>
         </motion.div>
 
-        {/* 4. FLOATING NOTEBOOK & PILOT PEN */}
+        {/* CARD 1: LAB COATS & DRAFTERS / ASSIGNMENT KITS */}
         <motion.div
           animate={{
             y: [8, -12, 8],
             rotateZ: [14, 18, 14],
           }}
           transition={{ duration: 5.8, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }}
-          className="absolute -top-4 -left-8 sm:-left-12 z-15 w-32 h-40 sm:w-36 sm:h-44 rounded-2xl bg-gradient-to-br from-[#30D158] to-[#1eb843] p-3 shadow-xl border-l-[6px] border-emerald-900 text-white flex flex-col justify-between"
+          className="absolute -top-4 -left-8 sm:-left-12 z-15 w-36 h-44 sm:w-40 sm:h-48 rounded-2xl bg-gradient-to-br from-[#10B981] via-[#059669] to-[#047857] p-3.5 shadow-2xl border-l-[6px] border-emerald-950 text-white flex flex-col justify-between"
           style={{
-            boxShadow: '0 16px 36px -10px rgba(48, 209, 88, 0.35)',
+            boxShadow: '0 18px 40px -10px rgba(16, 185, 129, 0.45)',
           }}
         >
           <div className="flex justify-between items-start">
-            <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[8px] font-bold">
-              A4
+            <span className="text-[9px] font-black uppercase tracking-wider bg-white/20 backdrop-blur-xs px-2 py-0.5 rounded-full border border-white/30 text-white shadow-2xs">
+              Must Have
+            </span>
+            <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+              <Ruler className="w-3 h-3 text-white" />
             </div>
-            <div className="text-[9px] font-bold bg-black/20 px-1.5 py-0.5 rounded">
-              300 PGS
-            </div>
-          </div>
-          <div className="text-xs font-bold text-white/90">
-            Lecture Notes & Formulas
-          </div>
-          <div className="flex items-center gap-1.5 pt-2 border-t border-white/20">
-            <div className="w-full h-1 bg-white/40 rounded-full" />
-            <div className="w-3/4 h-1 bg-white/30 rounded-full" />
           </div>
 
-          {/* Floating pen resting on notebook */}
-          <div className="absolute -right-4 top-8 w-4 h-24 bg-gradient-to-b from-[#111111] via-[#0A84FF] to-[#111111] rounded-full shadow-lg border border-white/20 -rotate-45 flex flex-col justify-between items-center py-1">
+          <div>
+            <div className="text-xs sm:text-sm font-extrabold text-white leading-tight font-display">
+              Lab Coats & Drafters
+            </div>
+            <div className="text-[10px] text-emerald-100 font-semibold mt-0.5">
+              Assignment Kits
+            </div>
+          </div>
+
+          {/* Tag: Essential for CCCT & SIST Practical Labs */}
+          <div className="pt-2 border-t border-white/20 flex flex-col gap-0.5">
+            <span className="text-[8.5px] sm:text-[9px] font-bold text-white/95 leading-tight">
+              Essential for CCCT & SIST Practical Labs
+            </span>
+            <div className="w-full h-1 bg-white/30 rounded-full overflow-hidden mt-1">
+              <div className="w-4/5 h-full bg-[#FFD60A] rounded-full" />
+            </div>
+          </div>
+
+          {/* Floating mini drafting tool vector */}
+          <div className="absolute -right-3 top-8 w-5 h-20 bg-gradient-to-b from-[#111111] via-[#0A84FF] to-[#111111] rounded-full shadow-lg border border-white/30 -rotate-45 flex flex-col justify-between items-center py-1">
             <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-            <div className="w-1 h-3 bg-white/50 rounded-full" />
+            <div className="w-1 h-2 bg-white/70 rounded-full" />
           </div>
         </motion.div>
 
-        {/* 5. FLOATING OVER-EAR HEADPHONES */}
+        {/* FLOATING OVER-EAR HEADPHONES */}
         <motion.div
           animate={{
             y: [-12, 10, -12],
@@ -272,7 +291,7 @@ export const HeroScene3D: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* 6. SCULPTED 3D GLOWING INFINITY SYMBOL */}
+        {/* SCULPTED 3D GLOWING INFINITY SYMBOL */}
         <motion.div
           animate={{
             y: [-15, 12, -15],
@@ -305,7 +324,7 @@ export const HeroScene3D: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* 7. COLOURFUL GLOSSY SPHERES */}
+        {/* COLOURFUL GLOSSY SPHERES */}
         {/* Yellow Sphere */}
         <motion.div
           animate={{
@@ -350,7 +369,7 @@ export const HeroScene3D: React.FC = () => {
           className="absolute bottom-4 left-32 w-6 h-6 rounded-full bg-gradient-to-tr from-[#30D158] to-[#8ef3a7] shadow-md border border-white/40 z-35"
         />
 
-        {/* 8. FLOATING LIGHTNING BOLT */}
+        {/* FLOATING LIGHTNING BOLT */}
         <motion.div
           animate={{
             y: [-10, 6, -10],
@@ -363,7 +382,7 @@ export const HeroScene3D: React.FC = () => {
           <Zap className="w-5 h-5 fill-[#111111]" />
         </motion.div>
 
-        {/* 9. LOCATION PIN WITH RADAR PULSE */}
+        {/* LOCATION PIN WITH RADAR PULSE */}
         <motion.div
           animate={{
             y: [6, -6, 6],

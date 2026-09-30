@@ -4,6 +4,7 @@ import {
   MapPin,
   Check,
   X,
+  Search,
   Sparkles,
   ShoppingBag,
   ArrowRight,
@@ -538,19 +539,106 @@ function CustomerStorefront() {
     }, 3000);
   };
 
-  // Real-time dynamic search filtering
+  // Real-time dynamic search filtering across multiple fields
   const isSearchActive = Boolean(searchQuery.trim());
+  const searchResultsRef = useRef<HTMLElement>(null);
+
   const searchResults = useMemo(() => {
     if (!isSearchActive) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return productsList.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        (p.tags && p.tags.some((t) => t.toLowerCase().includes(q)))
-    );
+    const rawQ = searchQuery.toLowerCase().trim();
+    const tokens = rawQ.split(/\s+/).filter(Boolean);
+
+    return productsList.filter((item) => {
+      const name = (item.name || '').toLowerCase();
+      const cat = (item.category || '').toLowerCase();
+      const desc = (item.description || '').toLowerCase();
+      const unit = (item.unit || '').toLowerCase();
+      const tags = (item.tags || []).map((t) => t.toLowerCase()).join(' ');
+
+      // 1. Case-insensitive substring matching on name, category, description, tags, unit
+      if (
+        name.includes(rawQ) ||
+        cat.includes(rawQ) ||
+        desc.includes(rawQ) ||
+        tags.includes(rawQ) ||
+        unit.includes(rawQ)
+      ) {
+        return true;
+      }
+
+      // 2. Token-based matching: each typed word matches somewhere in the product attributes
+      const combined = `${name} ${cat} ${desc} ${tags} ${unit}`;
+      if (tokens.every((token) => combined.includes(token))) {
+        return true;
+      }
+
+      // 3. Category synonyms & keywords (beverages, snacks, stationery, etc.)
+      const isBeverage =
+        rawQ.includes('drink') ||
+        rawQ.includes('beverage') ||
+        rawQ.includes('soda') ||
+        rawQ.includes('cold') ||
+        rawQ.includes('juice') ||
+        rawQ.includes('chai') ||
+        rawQ.includes('coffee') ||
+        rawQ.includes('tea') ||
+        rawQ.includes('red bull') ||
+        rawQ.includes('sting');
+      if (
+        isBeverage &&
+        (cat.includes('beverage') || cat.includes('drink') || tags.includes('chilled') || tags.includes('drinks'))
+      ) {
+        return true;
+      }
+
+      const isSnack =
+        rawQ.includes('snack') ||
+        rawQ.includes('munch') ||
+        rawQ.includes('biscuit') ||
+        rawQ.includes('chips') ||
+        rawQ.includes('noodle') ||
+        rawQ.includes('maggi') ||
+        rawQ.includes('food');
+      if (
+        isSnack &&
+        (cat.includes('snack') || cat.includes('instant') || tags.includes('instant') || tags.includes('munchies'))
+      ) {
+        return true;
+      }
+
+      const isStationery =
+        rawQ.includes('stationery') ||
+        rawQ.includes('stationary') ||
+        rawQ.includes('study') ||
+        rawQ.includes('book') ||
+        rawQ.includes('notebook') ||
+        rawQ.includes('exam') ||
+        rawQ.includes('pen') ||
+        rawQ.includes('pencil') ||
+        rawQ.includes('drafter') ||
+        rawQ.includes('lab') ||
+        rawQ.includes('assignment');
+      if (
+        isStationery &&
+        (cat.includes('stationery') || tags.includes('study') || tags.includes('exam') || tags.includes('lab'))
+      ) {
+        return true;
+      }
+
+      return false;
+    });
   }, [productsList, isSearchActive, searchQuery]);
+
+  // Seamless handler when user types in the search bar from anywhere
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    if (query.trim()) {
+      if (currentTab !== 'home') {
+        setCurrentTab('home');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const displayedProducts = useMemo(() => {
     if (isSearchActive) {
@@ -632,7 +720,7 @@ function CustomerStorefront() {
         onOpenPrint={() => setIsPrintModalOpen(true)}
         activeTab={currentTab}
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
       />
 
       {/* Floating Outside Boundary Lockout Banner */}
@@ -657,7 +745,7 @@ function CustomerStorefront() {
                     </span>
                   </div>
                   <p className="text-white/95 text-xs mt-0.5 max-w-2xl leading-relaxed">
-                    We currently deliver exclusively within CCCT & SIST campus hostels and labs (Delivery within 45 mins - 1 hr). Coming Soon to your location!
+                    We currently deliver exclusively within CCCT & SIST campus hostels and labs (Delivery within 30 - 45 mins). Coming Soon to your location!
                   </p>
                 </div>
               </div>
@@ -706,61 +794,52 @@ function CustomerStorefront() {
       ) : (
         /* Home Feed View */
         <>
-          {/* 2. Hero Section */}
-          <HeroSection
-            onShopNow={scrollToFavourites}
-            onExploreCategories={scrollToCategories}
-          />
-
-          {/* 3. Delivery Speed & Zone Status Card */}
-          <DeliveryStatusCard
-            selectedZone={selectedZone}
-            onSelectZone={handleSelectZone}
-            onToastMessage={triggerToast}
-          />
-
-          {/* 3.5. Compact 1-Line Teasers: Student Entrepreneurship & Campus Print Desk */}
-          <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 my-2 sm:my-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-              <StudentEntrepreneurshipBanner onToastMessage={triggerToast} />
-              <CampusPrintWidget onOpenPrintModal={() => setIsPrintModalOpen(true)} />
-            </div>
-          </div>
-
-          {/* 4. Smooth Animated Category Pill Filters */}
-          <CategoryPills
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-          />
-
-          {/* 5. Live Search Results / Category Products / Default Aisles */}
+          {/* Active Real-Time Search Results Section - Top Priority When Searching */}
           {isSearchActive ? (
-            <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-              <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+            <section
+              id="product-catalog-section"
+              ref={searchResultsRef}
+              className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 scroll-mt-20 animate-fade-in"
+            >
+              <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-200">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-black text-gray-900">
-                    Search Results for "{searchQuery}"
-                  </h2>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {searchResults.length} {searchResults.length === 1 ? 'item' : 'items'} found in stock
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#0A84FF] animate-ping" />
+                    <h2 className="text-xl sm:text-2xl font-black text-gray-900 font-display">
+                      Search Results for "{searchQuery}"
+                    </h2>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {searchResults.length} {searchResults.length === 1 ? 'product' : 'products'} found in stock
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3.5 py-1.5 rounded-full font-bold transition cursor-pointer"
+                  className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3.5 py-1.5 rounded-full font-bold transition cursor-pointer flex items-center gap-1.5"
                 >
-                  Clear Search
+                  <X className="w-3.5 h-3.5" />
+                  <span>Clear Search</span>
                 </button>
               </div>
 
               {searchResults.length === 0 ? (
-                <div className="bg-white rounded-2xl p-10 text-center border border-gray-100 shadow-sm">
-                  <p className="text-sm font-bold text-gray-700">No matching campus items found.</p>
-                  <p className="text-xs text-gray-400 mt-1">Try searching for "Maggi", "Notebook", "Red Bull", or "Pen".</p>
+                <div className="bg-white rounded-3xl p-10 sm:p-14 text-center border border-gray-100 shadow-sm space-y-3">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center">
+                    <Search className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900">
+                      No products found for "{searchQuery}" - try searching for Maggi, Pen, or Notebooks
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                      Check your spelling or explore the complete campus catalog below.
+                    </p>
+                  </div>
                   <button
+                    type="button"
                     onClick={() => setSearchQuery('')}
-                    className="mt-3 text-xs bg-[#111111] text-white px-4 py-2 rounded-full font-bold cursor-pointer"
+                    className="mt-3 px-6 py-2.5 rounded-xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs font-bold transition-all cursor-pointer shadow-md active:scale-95"
                   >
                     View All Products
                   </button>
@@ -784,7 +863,36 @@ function CustomerStorefront() {
                 </div>
               )}
             </section>
-          ) : selectedCategory ? (
+          ) : (
+            <>
+              {/* 2. Hero Section */}
+              <HeroSection
+                onShopNow={scrollToFavourites}
+                onExploreCategories={scrollToCategories}
+              />
+
+              {/* 3. Delivery Speed & Zone Status Card */}
+              <DeliveryStatusCard
+                selectedZone={selectedZone}
+                onSelectZone={handleSelectZone}
+                onToastMessage={triggerToast}
+              />
+
+              {/* 3.5. Compact 1-Line Teasers: Student Entrepreneurship & Campus Print Desk */}
+              <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 my-2 sm:my-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                  <StudentEntrepreneurshipBanner onToastMessage={triggerToast} />
+                  <CampusPrintWidget onOpenPrintModal={() => setIsPrintModalOpen(true)} />
+                </div>
+              </div>
+
+              {/* 4. Smooth Animated Category Pill Filters */}
+              <CategoryPills
+                selectedCategory={selectedCategory}
+                onSelectCategory={setSelectedCategory}
+              />
+
+              {/* 5. Category Products / Default Aisles */}
             <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
               <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-200">
                 <div className="flex items-center gap-2">
@@ -860,6 +968,8 @@ function CustomerStorefront() {
               <ProductRequestBox onToastMessage={triggerToast} />
             </>
           )}
+        </>
+      )}
 
           {/* Footer */}
           <Footer

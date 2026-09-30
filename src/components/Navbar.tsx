@@ -142,7 +142,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#30D158]" />
           </span>
           <span className="text-[#FFD60A] font-black tracking-wide flex-shrink-0">⚡ Express:</span>
-          <span className="text-gray-100 font-semibold truncate">Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)</span>
+          <span className="text-gray-100 font-semibold truncate">Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)</span>
+          <span className="hidden md:inline text-gray-500 font-semibold">•</span>
+          <span className="hidden md:inline text-amber-300/90 font-medium text-[11px] truncate">
+            Authorized by Entrepreneurship Development Cell (EDC), CCCT Chisopani
+          </span>
         </div>
       </div>
 
@@ -152,8 +156,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           isScrolled ? 'h-14 sm:h-16 py-1 sm:py-2' : 'h-16 sm:h-20 py-2 sm:py-3.5'
         }`}
       >
-        {/* Left Side: Brand Logo & Campus Location Picker */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0">
+        {/* Left Side: Brand Logo, EDC Slot & Campus Location Picker */}
+        <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 min-w-0 flex-shrink-0">
           {/* Brand Logo */}
           <a
             href="#"
@@ -202,6 +206,40 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </a>
 
+          {/* EDC CCCT Integration Slot with explicit comment placeholder */}
+          <div className="hidden lg:flex items-center gap-2 pl-2.5 border-l border-gray-200">
+            {/* <!-- EDC_LOGO_PLACEHOLDER: Replace src with EDC logo asset --> */}
+            {/* EDC_LOGO_PLACEHOLDER: Replace src with EDC logo asset */}
+            <div
+              id="edc-logo-container"
+              className="relative w-8 h-8 rounded-xl border border-dashed border-amber-500/70 bg-gradient-to-br from-amber-50 to-orange-50/60 flex items-center justify-center p-0.5 shadow-2xs group cursor-help transition-all hover:border-amber-600 shrink-0"
+              title="Authorized by Entrepreneurship Development Cell (EDC), CCCT Chisopani"
+            >
+              {/* Fallback stylized EDC emblem / icon */}
+              <div className="w-full h-full rounded-lg bg-white/90 border border-amber-200/80 flex flex-col items-center justify-center text-center">
+                <span className="text-[9px] font-black tracking-tighter text-amber-800 leading-none font-display">
+                  EDC
+                </span>
+                <span className="text-[6.5px] font-bold text-amber-600 tracking-tighter leading-none scale-90">
+                  CCCT
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col min-w-0 max-w-[200px] leading-tight">
+              <span className="text-[9.5px] font-extrabold text-neutral-800 tracking-tight flex items-center gap-1 truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FF9500] shrink-0" />
+                Authorized by EDC
+              </span>
+              <span
+                className="text-[8.5px] text-neutral-500 font-semibold truncate"
+                title="Authorized by Entrepreneurship Development Cell (EDC), CCCT Chisopani"
+              >
+                Authorized by Entrepreneurship Development Cell (EDC), CCCT Chisopani
+              </span>
+            </div>
+          </div>
+
           {/* Location Picker Pill (Opens clean full modal, zero detached panels) */}
           <button
             type="button"
@@ -216,7 +254,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <MapPin className="w-3.5 h-3.5 text-[#30D158] flex-shrink-0" />
             <div className="min-w-0">
               <div className="text-[9px] sm:text-[10px] text-gray-400 font-medium leading-none hidden md:block">
-                {selectedZone.isOutsideDelivery ? 'Outside Campus' : (selectedZone.estMinutes || '45 mins - 1 hr')}
+                {selectedZone.isOutsideDelivery ? 'Outside Campus' : (selectedZone.estMinutes || '30 - 45 mins')}
               </div>
               <div className="text-[10px] sm:text-xs font-bold text-gray-900 leading-tight flex items-center gap-0.5">
                 <span className="truncate max-w-[65px] xs:max-w-[90px] sm:max-w-[120px]">{selectedZone.name}</span>
@@ -234,7 +272,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               ref={desktopSearchInputRef}
               type="text"
               value={searchQuery}
-              onChange={(e) => onSearchChange?.(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                onSearchChange?.(val);
+                if (val.trim() && activeTab !== 'home' && onGoHome) {
+                  onGoHome();
+                }
+              }}
               placeholder="Search Maggi, Red Bull, notes, stationery..."
               className="w-full pl-9 pr-12 py-2 sm:py-2.5 rounded-2xl bg-gray-100/90 hover:bg-gray-100 focus:bg-white text-xs sm:text-sm font-medium text-gray-900 border border-transparent focus:border-[#0A84FF] focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 transition-all shadow-inner"
             />
@@ -394,7 +438,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             ref={mobileSearchInputRef}
             type="text"
             value={searchQuery}
-            onChange={(e) => onSearchChange?.(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              onSearchChange?.(val);
+              if (val.trim() && activeTab !== 'home' && onGoHome) {
+                onGoHome();
+              }
+            }}
             placeholder="Search Maggi, Red Bull, stationery..."
             className="w-full pl-9 pr-9 py-2 rounded-xl bg-gray-100 text-xs font-medium text-gray-900 border border-gray-200 focus:bg-white focus:outline-none focus:border-[#0A84FF]"
           />
@@ -504,6 +554,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <User className="w-4 h-4 text-[#0A84FF] flex-shrink-0" />
                 <span>{authUser ? 'My Profile' : 'Student Sign In'}</span>
               </button>
+            </div>
+
+            {/* Official EDC CCCT Integration Banner in Mobile Menu */}
+            <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-2xl flex items-center gap-2.5">
+              {/* <!-- EDC_LOGO_PLACEHOLDER: Replace src with EDC logo asset --> */}
+              <div className="w-8 h-8 rounded-xl border border-dashed border-amber-500/70 bg-white/90 flex flex-col items-center justify-center text-center shrink-0">
+                <span className="text-[9px] font-black tracking-tighter text-amber-800 leading-none">EDC</span>
+                <span className="text-[6.5px] font-bold text-amber-600 tracking-tighter leading-none scale-90">CCCT</span>
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-amber-900">
+                  Official Campus Entrepreneurship Initiative
+                </div>
+                <div className="text-[9.5px] text-amber-800/90 leading-tight">
+                  Authorized by Entrepreneurship Development Cell (EDC), CCCT Chisopani
+                </div>
+              </div>
             </div>
           </motion.div>
         )}

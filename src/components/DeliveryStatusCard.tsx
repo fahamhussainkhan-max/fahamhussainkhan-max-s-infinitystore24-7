@@ -73,7 +73,7 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
             <div className="flex flex-wrap items-center gap-4 pt-1 text-xs font-semibold text-gray-500">
               <div className="flex items-center gap-1.5 text-gray-700">
                 <Clock className="w-4 h-4 text-[#0A84FF]" />
-                <span>Delivery: <strong className="text-black">45 mins - 1 hr</strong></span>
+                <span>Delivery: <strong className="text-black">30 - 45 mins</strong></span>
               </div>
               <div className="flex items-center gap-1.5 text-gray-700">
                 <ShieldCheck className="w-4 h-4 text-[#30D158]" />

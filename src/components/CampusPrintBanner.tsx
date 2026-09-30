@@ -27,7 +27,7 @@ export const CampusPrintBanner: React.FC<CampusPrintBannerProps> = ({
                 <Zap className="w-3 h-3 fill-[#FFD60A]" /> Campus Xerox & Printout Desk
               </span>
               <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> 10-Min Fast Turnaround
+                <CheckCircle2 className="w-3.5 h-3.5" /> 30 - 45 mins Campus Delivery
               </span>
             </div>
 

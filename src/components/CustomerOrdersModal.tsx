@@ -445,7 +445,7 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
                             Campus Delivery Profile
                           </h4>
                           <p className="text-[11px] text-blue-700">
-                            Saved details automatically fill your hostel checkout for 10-minute delivery.
+                            Saved details automatically fill your hostel checkout for 30 - 45 mins delivery.
                           </p>
                         </div>
                       </div>
@@ -541,7 +541,7 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
                 <div className="p-4 border-t border-gray-100 bg-[#FAFAF7] flex items-center justify-between text-xs text-gray-500">
                   <span className="flex items-center gap-1.5 font-medium">
                     <Bike className="w-4 h-4 text-[#30D158]" />
-                    Delivery within <strong>45 mins - 1 hr</strong> (CCCT & SIST)
+                    Delivery within <strong>30 - 45 mins</strong> (CCCT & SIST)
                   </span>
 
                   <button
