@@ -16,7 +16,6 @@ import { HeroSection } from './components/HeroSection';
 import { DeliveryStatusCard } from './components/DeliveryStatusCard';
 import { CategoryGrid } from './components/CategoryGrid';
 import { CampusFavourites } from './components/CampusFavourites';
-import { SearchSection } from './components/SearchSection';
 import { ProductRequestBox } from './components/ProductRequestBox';
 import { ProductCard } from './components/ProductCard';
 import { CartDrawer } from './components/CartDrawer';
@@ -24,7 +23,6 @@ import { FloatingCart } from './components/FloatingCart';
 import { CustomerOrdersModal } from './components/CustomerOrdersModal';
 import { CategoryPills } from './components/CategoryPills';
 import { Footer } from './components/Footer';
-import { TopGlobalSearchBar } from './components/TopGlobalSearchBar';
 import { WishlistView } from './components/WishlistView';
 import { OrdersProfileView } from './components/OrdersProfileView';
 import { StudentEntrepreneurshipBanner } from './components/StudentEntrepreneurshipBanner';
@@ -633,6 +631,8 @@ function CustomerStorefront() {
         }}
         onOpenPrint={() => setIsPrintModalOpen(true)}
         activeTab={currentTab}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
       {/* Floating Outside Boundary Lockout Banner */}
@@ -706,20 +706,6 @@ function CustomerStorefront() {
       ) : (
         /* Home Feed View */
         <>
-          {/* Top Sticky Global Search Bar with Live Feed Highlighting */}
-          <TopGlobalSearchBar
-            products={productsList}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onSelectAndHighlightProduct={handleSelectAndHighlightProduct}
-            isFilterFeedActive={isFilterFeedActive}
-            onToggleFilterFeed={() => setIsFilterFeedActive((prev) => !prev)}
-            selectedZone={selectedZone}
-            onOpenZoneSelector={() => setIsZoneModalOpen(true)}
-            allZones={CAMPUS_ZONES}
-            onSelectZone={handleSelectZone}
-          />
-
           {/* 2. Hero Section */}
           <HeroSection
             onShopNow={scrollToFavourites}
@@ -870,15 +856,7 @@ function CustomerStorefront() {
                 isStoreOpen={isStoreOpen}
               />
 
-              {/* 7. Search & Discovery Section */}
-              <SearchSection
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                onSelectProduct={(p) => handleAddToCart(p)}
-                products={productsList}
-              />
-
-              {/* 8. Product Request Box */}
+              {/* 7. Product Request Box */}
               <ProductRequestBox onToastMessage={triggerToast} />
             </>
           )}

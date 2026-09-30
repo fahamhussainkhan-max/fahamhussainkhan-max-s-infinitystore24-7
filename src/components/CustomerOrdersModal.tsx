@@ -41,25 +41,16 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [profile, setProfile] = useState(() => {
     try {
-      const saved = localStorage.getItem('infinity_customer_profile');
-      return saved
-        ? JSON.parse(saved)
-        : {
-            fullName: 'Aarav Sharma',
-            phone: '+91 98765 43210',
-            hostel: 'Boys Hostel — Block B',
-            roomNo: 'Room 304, 3rd Floor',
-            notes: 'Leave at reception if in lecture',
-          };
-    } catch {
-      return {
-        fullName: 'Aarav Sharma',
-        phone: '+91 98765 43210',
-        hostel: 'Boys Hostel — Block B',
-        roomNo: 'Room 304, 3rd Floor',
-        notes: '',
-      };
-    }
+      const saved = localStorage.getItem('infinity_student_profile') || localStorage.getItem('infinity_customer_profile');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      fullName: '',
+      phone: '',
+      hostel: 'CCCT — Academic Complex & Admin',
+      roomNo: '',
+      notes: '',
+    };
   });
   const [savedProfileSuccess, setSavedProfileSuccess] = useState(false);
 

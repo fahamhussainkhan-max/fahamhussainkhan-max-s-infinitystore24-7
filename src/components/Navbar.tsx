@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShoppingBag,
   MapPin,
-  Heart,
-  Search,
-  Sparkles,
   ChevronDown,
-  User,
-  Grid,
-  Printer,
-  Menu,
+  Search,
   X,
-  ArrowRight,
+  Heart,
+  User,
+  Sparkles,
+  Grid,
+  Menu,
+  Printer,
+  Compass,
 } from 'lucide-react';
 import { CampusZone } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -24,7 +24,7 @@ interface NavbarProps {
   cartTotal: number;
   onOpenCart: () => void;
   wishlistCount: number;
-  onScrollToSearch: () => void;
+  onScrollToSearch?: () => void;
   onScrollToFavourites: () => void;
   onOpenCustomerOrders: () => void;
   onScrollToCategories?: () => void;
@@ -33,6 +33,8 @@ interface NavbarProps {
   onGoHome?: () => void;
   onOpenPrint?: () => void;
   activeTab?: 'home' | 'wishlist' | 'profile';
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -42,7 +44,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   cartTotal,
   onOpenCart,
   wishlistCount,
-  onScrollToSearch,
   onScrollToFavourites,
   onOpenCustomerOrders,
   onScrollToCategories,
@@ -51,10 +52,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   onGoHome,
   onOpenPrint,
   activeTab = 'home',
+  searchQuery = '',
+  onSearchChange,
 }) => {
-  const { user: authUser, isAuthenticated, openLoginModal } = useAuth();
+  const { user: authUser } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const desktopSearchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -65,6 +70,42 @@ export const Navbar: React.FC<NavbarProps> = ({
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Keyboard shortcut '/' or 'Ctrl+K' / 'Cmd+K' to focus the integrated search bar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isInputActive =
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        activeEl?.tagName === 'SELECT';
+
+      // Press '/' to focus search if not in an input
+      if (
+        (e.key === '/' && !isInputActive) ||
+        ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K'))
+      ) {
+        e.preventDefault();
+        desktopSearchInputRef.current?.focus();
+        desktopSearchInputRef.current?.select();
+      }
+
+      // Press Escape to reset / blur search
+      if (e.key === 'Escape') {
+        if (
+          document.activeElement === desktopSearchInputRef.current ||
+          document.activeElement === mobileSearchInputRef.current
+        ) {
+          onSearchChange?.('');
+          desktopSearchInputRef.current?.blur();
+          mobileSearchInputRef.current?.blur();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onSearchChange]);
 
   // Close mobile menu on resize to desktop
   useEffect(() => {
@@ -83,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       style={{
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        backgroundColor: isScrolled ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.90)',
+        backgroundColor: isScrolled ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.92)',
         boxShadow: isScrolled ? '0 4px 20px -2px rgba(0, 0, 0, 0.08)' : 'none',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
@@ -107,12 +148,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Main navigation row */}
       <div
-        className={`max-w-6xl mx-auto px-2.5 xs:px-3 sm:px-6 flex items-center justify-between gap-1.5 sm:gap-3 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-          isScrolled ? 'h-14 sm:h-16 py-1.5 sm:py-2' : 'h-16 sm:h-20 py-2 sm:py-3.5'
+        className={`max-w-6xl mx-auto px-2.5 xs:px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+          isScrolled ? 'h-14 sm:h-16 py-1 sm:py-2' : 'h-16 sm:h-20 py-2 sm:py-3.5'
         }`}
       >
         {/* Left Side: Brand Logo & Campus Location Picker */}
-        <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 min-w-0 flex-shrink">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0">
           {/* Brand Logo */}
           <a
             href="#"
@@ -161,7 +202,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </a>
 
-          {/* Location Picker Pill (Responsive & Compact on < 480px) */}
+          {/* Location Picker Pill (Opens clean full modal, zero detached panels) */}
           <button
             type="button"
             id="nav-location-picker"
@@ -169,8 +210,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               onOpenZoneSelector();
               setIsMobileMenuOpen(false);
             }}
-            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:border-gray-400 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-left cursor-pointer pointer-events-auto min-h-[38px] sm:min-h-0 min-w-0 flex-shrink"
-            title="Click to change campus delivery spot"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:border-gray-400 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-left cursor-pointer pointer-events-auto min-h-[36px] sm:min-h-0 flex-shrink-0"
+            title="Click to select CCCT, SIST, or Hostel delivery spot"
           >
             <MapPin className="w-3.5 h-3.5 text-[#30D158] flex-shrink-0" />
             <div className="min-w-0">
@@ -178,43 +219,65 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {selectedZone.isOutsideDelivery ? 'Outside Campus' : (selectedZone.estMinutes || '45 mins - 1 hr')}
               </div>
               <div className="text-[10px] sm:text-xs font-bold text-gray-900 leading-tight flex items-center gap-0.5">
-                <span className="truncate max-w-[65px] xs:max-w-[100px] sm:max-w-[130px]">{selectedZone.name}</span>
+                <span className="truncate max-w-[65px] xs:max-w-[90px] sm:max-w-[120px]">{selectedZone.name}</span>
                 <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
               </div>
             </div>
           </button>
         </div>
 
+        {/* Center: Integrated Real-Time Search Bar (Desktop & Tablet) */}
+        <div className="flex-1 max-w-md mx-2 hidden sm:block">
+          <div className="relative w-full">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              ref={desktopSearchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              placeholder="Search Maggi, Red Bull, notes, stationery..."
+              className="w-full pl-9 pr-12 py-2 sm:py-2.5 rounded-2xl bg-gray-100/90 hover:bg-gray-100 focus:bg-white text-xs sm:text-sm font-medium text-gray-900 border border-transparent focus:border-[#0A84FF] focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 transition-all shadow-inner"
+            />
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSearchChange?.('');
+                    desktopSearchInputRef.current?.focus();
+                  }}
+                  className="p-1 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition cursor-pointer"
+                  title="Clear search (Esc)"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold text-gray-400 bg-white border border-gray-200 rounded shadow-2xs pointer-events-none">
+                  /
+                </kbd>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Right Side Actions */}
         <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2.5 flex-shrink-0">
           {/* Desktop Categories / Aisles */}
-          <a
-            href="#categories-section"
-            id="nav-categories-btn"
-            onClick={(e) => {
-              if (onScrollToCategories) {
+          {onScrollToCategories && (
+            <a
+              href="#categories-section"
+              id="nav-categories-btn"
+              onClick={(e) => {
                 e.preventDefault();
                 onScrollToCategories();
-              }
-            }}
-            className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-xs font-bold pointer-events-auto cursor-pointer"
-            title="Browse Categories"
-          >
-            <Grid className="w-4 h-4 text-gray-500" />
-            <span>Categories</span>
-          </a>
-
-          {/* Desktop Search Trigger */}
-          <button
-            type="button"
-            id="nav-search-btn"
-            onClick={onScrollToSearch}
-            className="hidden md:flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-xs font-bold cursor-pointer pointer-events-auto"
-            title="Search catalog"
-          >
-            <Search className="w-4 h-4 text-gray-500" />
-            <span className="hidden sm:inline">Search</span>
-          </button>
+              }}
+              className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-gray-600 hover:text-black hover:bg-gray-100/80 transition-all duration-200 ease-out hover:scale-105 active:scale-95 text-xs font-bold pointer-events-auto cursor-pointer"
+              title="Browse Categories"
+            >
+              <Grid className="w-4 h-4 text-gray-500" />
+              <span>Aisles</span>
+            </a>
+          )}
 
           {/* Desktop Quick Favourites / Top Picks */}
           <button
@@ -244,7 +307,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {/* Wishlist Button (Shown on desktop & medium screens, accessible in hamburger on mobile) */}
+          {/* Wishlist Button */}
           <div className="relative hidden xs:block">
             <button
               type="button"
@@ -286,7 +349,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden lg:inline">{authUser?.name ? authUser.name.split(' ')[0] : 'Orders & Profile'}</span>
           </button>
 
-          {/* Cart / Bag Trigger (Always accessible, touch-friendly min-h-[40px]) */}
+          {/* Cart / Bag Trigger */}
           <button
             type="button"
             id="nav-cart-btn"
@@ -306,7 +369,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </button>
 
-          {/* Mobile Collapsible / Hamburger Menu Toggle Button (Visible on screens < 768px / < 480px) */}
+          {/* Mobile Collapsible / Hamburger Menu Toggle Button */}
           <button
             type="button"
             id="mobile-hamburger-btn"
@@ -323,7 +386,31 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Collapsible Mobile Menu for Screen Widths Under 768px / 480px */}
+      {/* Mobile Integrated Search Row (Visible on small screens < 640px) */}
+      <div className="sm:hidden px-3 pb-2.5 pt-0">
+        <div className="relative w-full">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            ref={mobileSearchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            placeholder="Search Maggi, Red Bull, stationery..."
+            className="w-full pl-9 pr-9 py-2 rounded-xl bg-gray-100 text-xs font-medium text-gray-900 border border-gray-200 focus:bg-white focus:outline-none focus:border-[#0A84FF]"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => onSearchChange?.('')}
+              className="p-1 text-gray-400 hover:text-gray-700 absolute right-2.5 top-1/2 -translate-y-1/2"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Collapsible Mobile Menu */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
@@ -333,7 +420,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             transition={{ duration: 0.22, ease: 'easeOut' }}
             className="md:hidden w-full bg-white/98 backdrop-blur-xl border-t border-gray-200 shadow-2xl overflow-hidden px-4 py-4 space-y-3"
           >
-            {/* 1. Quick Campus Location Selector Card */}
+            {/* Quick Campus Location Selector Card */}
             <div
               onClick={() => {
                 setIsMobileMenuOpen(false);
@@ -355,24 +442,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
               <span className="text-xs font-bold text-[#0A84FF] flex-shrink-0 bg-blue-50 px-2.5 py-1 rounded-lg">
-                Change
+                Change Spot
               </span>
             </div>
 
-            {/* 2. Menu Links Grid with >= 44px touch targets */}
+            {/* Menu Links Grid */}
             <div className="grid grid-cols-2 gap-2 text-xs font-bold">
-              {/* Search */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  onScrollToSearch();
-                }}
-                className="flex items-center gap-2.5 p-3 rounded-xl bg-gray-50 hover:bg-blue-50 text-gray-800 hover:text-[#0A84FF] transition-all min-h-[44px] cursor-pointer text-left"
-              >
-                <Search className="w-4 h-4 text-[#0A84FF] flex-shrink-0" />
-                <span>Search Catalog</span>
-              </button>
+              {/* Categories */}
+              {onScrollToCategories && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onScrollToCategories();
+                  }}
+                  className="flex items-center gap-2.5 p-3 rounded-xl bg-gray-50 hover:bg-blue-50 text-gray-800 hover:text-[#0A84FF] transition-all min-h-[44px] cursor-pointer text-left"
+                >
+                  <Grid className="w-4 h-4 text-[#0A84FF] flex-shrink-0" />
+                  <span>Aisles & Categories</span>
+                </button>
+              )}
 
               {/* Campus Xerox & Printout */}
               {onOpenPrint && (
@@ -382,39 +471,27 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setIsMobileMenuOpen(false);
                     onOpenPrint();
                   }}
-                  className="flex items-center justify-between gap-1 p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 transition-all min-h-[44px] cursor-pointer text-left"
+                  className="flex items-center gap-2.5 p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 text-emerald-800 border border-emerald-300/60 transition-all min-h-[44px] cursor-pointer text-left"
                 >
-                  <div className="flex items-center gap-2">
-                    <Printer className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                    <span>Printout</span>
-                  </div>
-                  <span className="text-[10px] bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded-md">
-                    ₹10
-                  </span>
+                  <Printer className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <span>Printout (₹10)</span>
                 </button>
               )}
 
-              {/* Wishlist */}
+              {/* Saved Wishlist */}
               <button
                 type="button"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
                   if (onOpenWishlist) onOpenWishlist();
                 }}
-                className="flex items-center justify-between gap-1 p-3 rounded-xl bg-gray-50 hover:bg-red-50 text-gray-800 hover:text-[#FF3B30] transition-all min-h-[44px] cursor-pointer text-left"
+                className="flex items-center gap-2.5 p-3 rounded-xl bg-gray-50 hover:bg-red-50 text-gray-800 hover:text-[#FF3B30] transition-all min-h-[44px] cursor-pointer text-left"
               >
-                <div className="flex items-center gap-2">
-                  <Heart className={`w-4 h-4 ${wishlistCount > 0 ? 'text-[#FF3B30] fill-[#FF3B30]' : 'text-gray-500'} flex-shrink-0`} />
-                  <span>Wishlist</span>
-                </div>
-                {wishlistCount > 0 && (
-                  <span className="text-[10px] bg-[#FF3B30] text-white font-black px-1.5 py-0.5 rounded-full">
-                    {wishlistCount}
-                  </span>
-                )}
+                <Heart className="w-4 h-4 text-[#FF3B30] flex-shrink-0" />
+                <span>Wishlist ({wishlistCount})</span>
               </button>
 
-              {/* Orders & Profile */}
+              {/* Customer Profile & Orders */}
               <button
                 type="button"
                 onClick={() => {
@@ -425,45 +502,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center gap-2.5 p-3 rounded-xl bg-gray-50 hover:bg-blue-50 text-gray-800 hover:text-[#0A84FF] transition-all min-h-[44px] cursor-pointer text-left"
               >
                 <User className="w-4 h-4 text-[#0A84FF] flex-shrink-0" />
-                <span>My Orders</span>
+                <span>{authUser ? 'My Profile' : 'Student Sign In'}</span>
               </button>
-
-              {/* Categories */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  if (onScrollToCategories) onScrollToCategories();
-                }}
-                className="flex items-center gap-2.5 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-800 transition-all min-h-[44px] cursor-pointer text-left"
-              >
-                <Grid className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                <span>Campus Aisles</span>
-              </button>
-
-              {/* Top Picks */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  onScrollToFavourites();
-                }}
-                className="flex items-center gap-2.5 p-3 rounded-xl bg-gray-50 hover:bg-amber-50 text-gray-800 hover:text-amber-700 transition-all min-h-[44px] cursor-pointer text-left"
-              >
-                <Sparkles className="w-4 h-4 text-[#FFD60A] flex-shrink-0" />
-                <span>Top Picks</span>
-              </button>
-            </div>
-
-            {/* Campus Express Delivery Status Pill */}
-            <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#30D158] inline-block" />
-                Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
-              </span>
-              <span className="font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                Hub Online
-              </span>
             </div>
           </motion.div>
         )}

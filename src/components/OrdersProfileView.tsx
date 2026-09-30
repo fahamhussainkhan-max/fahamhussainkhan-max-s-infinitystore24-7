@@ -1,28 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   User,
   Phone,
   Building,
   MapPin,
+  Save,
   CheckCircle2,
   Clock,
   Bike,
-  Package,
   CookingPot,
   RefreshCw,
   LogOut,
-  LogIn,
-  KeyRound,
   ShieldCheck,
   Sparkles,
-  ArrowRight,
-  Save,
-  Mail,
-  Zap,
 } from 'lucide-react';
-import { supabase, fetchOrders } from '../lib/supabase';
 import { AdminOrder, CampusZone } from '../types';
+import { fetchOrders, supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 interface OrdersProfileViewProps {
@@ -45,36 +38,77 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
   const [profile, setProfile] = useState(() => {
     try {
       const saved = localStorage.getItem('infinity_student_profile');
-      return saved
-        ? JSON.parse(saved)
-        : {
-            fullName: 'Aarav Sharma',
-            phone: '+91 98765 43210',
-            email: 'aarav.sharma@campus.edu',
-            hostel: 'CCCT — Academic Complex & Admin',
-            roomNo: 'Room 304, 3rd Floor',
-            notes: 'Leave at reception if runner arrives during lecture',
-          };
-    } catch {
-      return {
-        fullName: 'Aarav Sharma',
-        phone: '+91 98765 43210',
-        email: 'aarav.sharma@campus.edu',
-        hostel: 'CCCT — Academic Complex & Admin',
-        roomNo: 'Room 304, 3rd Floor',
-        notes: '',
-      };
-    }
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          fullName: authUser?.name || parsed.fullName || '',
+          phone: parsed.phone || '',
+          email: authUser?.email || parsed.email || '',
+          hostel: parsed.hostel || 'CCCT — Academic Complex & Admin',
+          roomNo: parsed.roomNo || '',
+          notes: parsed.notes || '',
+        };
+      }
+    } catch {}
+    return {
+      fullName: authUser?.name || '',
+      phone: '',
+      email: authUser?.email || '',
+      hostel: 'CCCT — Academic Complex & Admin',
+      roomNo: '',
+      notes: '',
+    };
   });
 
-  // Keep profile synchronized when Google Auth user changes
+  // When user logs in via Google OAuth, automatically fetch & sync profile from Supabase & Google
   useEffect(() => {
     if (authUser) {
-      setProfile((prev: any) => ({
-        ...prev,
-        fullName: authUser.name || prev.fullName,
-        email: authUser.email || prev.email,
-      }));
+      setProfile((prev) => {
+        const updated = {
+          ...prev,
+          fullName: authUser.name || prev.fullName,
+          email: authUser.email || prev.email,
+        };
+        try {
+          localStorage.setItem('infinity_student_profile', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
+      // Query Supabase profiles table for existing saved address/phone
+      const fetchSupabaseProfile = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .or(`id.eq.${authUser.id},email.eq.${authUser.email}`)
+            .maybeSingle();
+
+          if (data && !error) {
+            setProfile((prev) => {
+              const parts = (data.hostel_block || '').split(' - ');
+              const savedHostel = parts[0] || prev.hostel;
+              const savedRoom = parts.slice(1).join(' - ') || prev.roomNo;
+              const merged = {
+                fullName: data.full_name || authUser.name || prev.fullName,
+                email: data.email || authUser.email || prev.email,
+                phone: data.phone || prev.phone,
+                hostel: savedHostel || prev.hostel,
+                roomNo: savedRoom || prev.roomNo,
+                notes: data.notes || prev.notes,
+              };
+              try {
+                localStorage.setItem('infinity_student_profile', JSON.stringify(merged));
+              } catch {}
+              return merged;
+            });
+          }
+        } catch (err) {
+          console.warn('Supabase profile fetch notice:', err);
+        }
+      };
+
+      fetchSupabaseProfile();
     }
   }, [authUser]);
 
@@ -117,23 +151,13 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
     };
   }, []);
 
-  // 1-Click Fast Student Demo Login
-  const handleFastDemoLogin = (demoProfile: any) => {
-    setProfile(demoProfile);
-    try {
-      localStorage.setItem('infinity_student_profile', JSON.stringify(demoProfile));
-    } catch {}
-    saveProfileToSupabaseAndLocal(authUser?.id || `usr-demo-${demoProfile.phone.slice(-4)}`, demoProfile);
-    onToastMessage(`Signed in as ${demoProfile.fullName}!`);
-  };
-
   const handleLogout = async () => {
     await signOut();
     onToastMessage('Logged out from campus session');
   };
 
-  // Save profile to localStorage and Supabase profiles table
-  const saveProfileToSupabaseAndLocal = async (userId: string, updatedProfile: any) => {
+  // Helper to persist profile both to localStorage and Supabase profiles table
+  const saveProfileToSupabaseAndLocal = async (userId: string, updatedProfile: typeof profile) => {
     try {
       localStorage.setItem('infinity_student_profile', JSON.stringify(updatedProfile));
     } catch {}
@@ -158,12 +182,23 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
     }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  // Update profile fields with automatic local persistence
+  const updateField = (key: keyof typeof profile, val: string) => {
+    setProfile((prev) => {
+      const updated = { ...prev, [key]: val };
+      try {
+        localStorage.setItem('infinity_student_profile', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const userId = authUser?.id || 'usr-student-local';
-    saveProfileToSupabaseAndLocal(userId, profile);
+    await saveProfileToSupabaseAndLocal(userId, profile);
     setSaveSuccess(true);
-    onToastMessage('Profile & room details saved! Ready for 1-tap checkout.');
+    onToastMessage('Delivery address saved! Pre-filled for 1-tap checkout.');
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
@@ -250,7 +285,7 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
 
       {activeSubTab === 'profile' ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Left Column: Auth Status & Fast Switcher */}
+          {/* Left Column: Auth Status & Perks */}
           <div className="md:col-span-1 space-y-4">
             {/* Authenticated User Status Card */}
             <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-2xs">
@@ -258,13 +293,13 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                   CAMPUS AUTH STATUS
                 </span>
-                {authUser ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    <ShieldCheck className="w-3 h-3" /> Logged In
+                {authUser && isAuthenticated ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <ShieldCheck className="w-3 h-3" /> Google Verified
                   </span>
                 ) : (
-                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-                    Guest Mode
+                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    Sign-In Required
                   </span>
                 )}
               </div>
@@ -290,9 +325,9 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                   </div>
 
                   <div className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-600">
-                    <p className="font-semibold text-gray-900">📍 Saved Destination:</p>
-                    <p className="text-[11px] mt-0.5">{profile.hostel}</p>
-                    <p className="text-[11px] font-bold text-[#0A84FF]">{profile.roomNo}</p>
+                    <p className="font-semibold text-gray-900">📍 Active Delivery Spot:</p>
+                    <p className="text-[11px] mt-0.5 text-gray-700 font-medium">{profile.hostel}</p>
+                    <p className="text-[11px] font-bold text-[#0A84FF]">{profile.roomNo || 'Room details pending'}</p>
                   </div>
 
                   <button
@@ -340,58 +375,22 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
               )}
             </div>
 
-            {/* 1-Tap Fast Student Switcher (Testing & Instant Demo) */}
+            {/* Campus Express Delivery Info Card */}
             <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-2xs space-y-2.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-[#FFD60A]" /> QUICK DEMO PROFILES
+                <Sparkles className="w-3 h-3 text-[#FFD60A]" /> CAMPUS EXPRESS
               </span>
-              <p className="text-[11px] text-gray-500 leading-tight">
-                Switch profiles to instantly verify persisted address auto-fill:
+              <p className="text-[11px] text-gray-600 leading-relaxed">
+                Saved details sync automatically to your Google account and Supabase database. Room and floor details are pre-filled directly at checkout.
               </p>
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleFastDemoLogin({
-                    fullName: 'Aarav Sharma',
-                    phone: '+91 98765 43210',
-                    email: 'aarav.sharma@campus.edu',
-                    hostel: 'Boys Hostel Complex (Blocks A-D)',
-                    roomNo: 'Room 304, 3rd Floor',
-                    notes: 'Leave with guard if runner arrives during lab',
-                  })
-                }
-                className="w-full text-left p-2.5 rounded-xl border border-gray-200 hover:border-[#0A84FF] hover:bg-blue-50/50 transition-all text-xs cursor-pointer group"
-              >
-                <div className="font-bold text-gray-900 group-hover:text-[#0A84FF]">
-                  Aarav Sharma
-                </div>
-                <div className="text-[11px] text-gray-500">Boys Hostel B, Room 304</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleFastDemoLogin({
-                    fullName: 'Priya Nair',
-                    phone: '+91 98765 43211',
-                    email: 'priya.nair@campus.edu',
-                    hostel: 'Girls Hostel Block (Campus Wing)',
-                    roomNo: 'Room 112, 1st Floor',
-                    notes: 'Ring hostel gate intercom on arrival',
-                  })
-                }
-                className="w-full text-left p-2.5 rounded-xl border border-gray-200 hover:border-[#0A84FF] hover:bg-blue-50/50 transition-all text-xs cursor-pointer group"
-              >
-                <div className="font-bold text-gray-900 group-hover:text-[#0A84FF]">
-                  Priya Nair
-                </div>
-                <div className="text-[11px] text-gray-500">Girls Hostel GH, Room 112</div>
-              </button>
+              <div className="pt-2 border-t border-gray-100 flex items-center gap-2 text-[11px] text-emerald-700 font-semibold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Express delivery in 45 mins - 1 hr</span>
+              </div>
             </div>
           </div>
 
-          {/* Right Column: User Details Form (Saved to localStorage and Supabase) */}
+          {/* Right Column: User Details Form (Auto-saved to localStorage and Supabase) */}
           <div className="md:col-span-2">
             <div className="bg-white rounded-3xl p-6 sm:p-7 border border-gray-200 shadow-2xs">
               <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-5">
@@ -421,7 +420,8 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                       <input
                         type="text"
                         value={profile.fullName}
-                        onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
+                        onChange={(e) => updateField('fullName', e.target.value)}
+                        placeholder="e.g. Rahul Sharma"
                         required
                         className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#0A84FF] bg-[#FAFAF7]"
                       />
@@ -430,14 +430,16 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1.5">
-                      Phone Number (For Runner Call)
+                      Phone Number (For Runner Call) <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
                       <input
                         type="tel"
+                        maxLength={10}
                         value={profile.phone}
-                        onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                        onChange={(e) => updateField('phone', e.target.value.replace(/\D/g, ''))}
+                        placeholder="10-digit mobile number"
                         required
                         className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#0A84FF] bg-[#FAFAF7]"
                       />
@@ -448,14 +450,14 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1.5">
-                      Hostel Wing / Campus Area
+                      Hostel Wing / Campus Area <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <Building className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
                       <select
                         value={profile.hostel}
                         onChange={(e) => {
-                          setProfile({ ...profile, hostel: e.target.value });
+                          updateField('hostel', e.target.value);
                           const matchedZone = allZones.find((z) => z.name === e.target.value);
                           if (matchedZone) onSelectZone(matchedZone);
                         }}
@@ -466,7 +468,7 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                             .filter((z) => z.campusGroup === 'CCCT' || z.campusGroup === 'CCCT Campus' || z.id.startsWith('ccct'))
                             .map((zone) => (
                               <option key={zone.id} value={zone.name}>
-                                {zone.name} (Rs. 15 fee • was Rs. 25)
+                                {zone.name}
                               </option>
                             ))}
                         </optgroup>
@@ -475,7 +477,7 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                             .filter((z) => z.campusGroup === 'SIST' || z.campusGroup === 'SIST Campus' || z.id.startsWith('sist') || z.id.startsWith('ccst'))
                             .map((zone) => (
                               <option key={zone.id} value={zone.name}>
-                                {zone.name} (Rs. 15 fee • was Rs. 25)
+                                {zone.name}
                               </option>
                             ))}
                         </optgroup>
@@ -495,7 +497,7 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                             )
                             .map((zone) => (
                               <option key={zone.id} value={zone.name}>
-                                {zone.name} (Rs. 15 fee • was Rs. 25)
+                                {zone.name}
                               </option>
                             ))}
                         </optgroup>
@@ -505,14 +507,14 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1.5">
-                      Room & Floor #
+                      Room & Floor # <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <MapPin className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
                       <input
                         type="text"
                         value={profile.roomNo}
-                        onChange={(e) => setProfile({ ...profile, roomNo: e.target.value })}
+                        onChange={(e) => updateField('roomNo', e.target.value)}
                         placeholder="e.g. Room 304, Block B, 3rd Floor"
                         required
                         className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#0A84FF] bg-[#FAFAF7]"
@@ -528,20 +530,20 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                   <textarea
                     rows={2}
                     value={profile.notes}
-                    onChange={(e) => setProfile({ ...profile, notes: e.target.value })}
+                    onChange={(e) => updateField('notes', e.target.value)}
                     placeholder="e.g. Call before reaching gate, or leave at room door"
                     className="w-full p-3 text-xs font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#0A84FF] bg-[#FAFAF7]"
                   />
                 </div>
 
-                <div className="pt-2 flex items-center justify-between">
-                  <span className="text-[11px] text-gray-400">
-                    💾 Automatically synchronized with Supabase profiles
+                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <span className="text-[11px] text-gray-500">
+                    💾 Automatically synchronized with Supabase profiles & 1-tap checkout
                   </span>
 
                   <button
                     type="submit"
-                    className="px-6 py-3 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                    className="px-6 py-3 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Save Details</span>
@@ -574,126 +576,86 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
               <p className="text-xs font-semibold mt-2">Loading campus orders...</p>
             </div>
           ) : orders.length > 0 ? (
-            <div className="space-y-4">
-              {orders.map((order) => {
-                const isRecent =
-                  Date.now() - new Date(order.created_at).getTime() < 3600000;
-                return (
-                  <div
-                    key={order.id}
-                    className="bg-white rounded-3xl p-5 sm:p-6 border border-gray-200 shadow-2xs hover:border-gray-300 transition-all space-y-4"
-                  >
-                    {/* Header */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-100">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-black text-gray-900">
-                            Order #{order.order_number || order.id.slice(0, 8)}
-                          </span>
-                          {getStatusBadge(order.status)}
-                        </div>
-                        <span className="text-[11px] text-gray-400">
-                          {new Date(order.created_at).toLocaleDateString()} at{' '}
-                          {new Date(order.created_at).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+            <div className="space-y-3">
+              {orders.map((order) => (
+                <div
+                  key={order.id}
+                  className="bg-white rounded-3xl p-5 border border-gray-200 shadow-2xs hover:border-gray-300 transition-all space-y-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-100">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-sm text-gray-900">
+                          {order.order_number || order.id}
                         </span>
+                        {getStatusBadge(order.status)}
                       </div>
-
-                      <div className="text-right">
-                        <span className="text-base font-black text-gray-900 block">
-                          ₹{order.total_amount}
-                        </span>
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                          Cash on Delivery (COD)
-                        </span>
-                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {new Date(order.created_at).toLocaleString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
                     </div>
-
-                    {/* Progress Step Bar for Active Orders */}
-                    {order.status !== 'Delivered' && order.status !== 'Cancelled' && (
-                      <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-100">
-                        <div className="flex items-center justify-between text-xs font-bold text-[#0A84FF] mb-2">
-                          <span className="flex items-center gap-1.5">
-                            <Zap className="w-3.5 h-3.5 fill-current" />
-                            Live Delivery Progress
-                          </span>
-                          <span>10-15 Min Rush</span>
-                        </div>
-
-                        {/* Step Dots */}
-                        <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-bold text-gray-600">
-                          <div className="flex flex-col items-center">
-                            <div className="w-5 h-5 rounded-full bg-[#0A84FF] text-white flex items-center justify-center text-[10px] mb-1">
-                              ✓
-                            </div>
-                            <span>Received</span>
-                          </div>
-                          <div className="flex flex-col items-center">
-                            <div className="w-5 h-5 rounded-full bg-[#0A84FF] text-white flex items-center justify-center text-[10px] mb-1">
-                              ✓
-                            </div>
-                            <span>Confirmed</span>
-                          </div>
-                          <div className="flex flex-col items-center">
-                            <div className="w-5 h-5 rounded-full bg-[#0A84FF] text-white flex items-center justify-center text-[10px] mb-1 animate-pulse">
-                              🏃
-                            </div>
-                            <span className="text-[#0A84FF]">Packing / Runner</span>
-                          </div>
-                          <div className="flex flex-col items-center">
-                            <div className="w-5 h-5 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-[10px] mb-1">
-                              4
-                            </div>
-                            <span>Hostel Room</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Delivery Destination */}
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <MapPin className="w-3.5 h-3.5 text-[#30D158] flex-shrink-0" />
-                      <span>
-                        Destination: <strong>{order.delivery_zone}</strong> • {order.room_details}
+                    <div className="text-right">
+                      <span className="text-base font-black text-gray-900">
+                        ₹{order.total_amount}
                       </span>
-                    </div>
-
-                    {/* Items List */}
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {order.items?.map((it, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2.5 py-1 rounded-xl bg-gray-100 text-gray-800 text-xs font-semibold"
-                        >
-                          {it.quantity}x {it.name}
-                        </span>
-                      ))}
+                      <p className="text-[10px] text-gray-400 font-semibold">
+                        {order.payment_method || 'COD'}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
+
+                  <div className="flex items-start gap-2 text-xs text-gray-600 bg-[#FAFAF7] p-3 rounded-2xl">
+                    <MapPin className="w-3.5 h-3.5 text-[#30D158] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-gray-900">
+                        {order.delivery_zone || 'Campus Zone'}
+                      </span>
+                      {order.room_details && (
+                        <span className="text-gray-500"> • {order.room_details}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Items snapshot */}
+                  <div className="space-y-1 pt-1">
+                    <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                      Ordered Items:
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {order.items &&
+                        order.items.map((it, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2 py-1 rounded-lg bg-gray-100 text-xs font-medium text-gray-700"
+                          >
+                            {it.quantity}x {it.name}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
-            /* Empty Orders State */
-            <div className="text-center py-16 px-4 bg-white rounded-3xl border border-gray-200/90 shadow-2xs max-w-lg mx-auto">
-              <div className="w-16 h-16 rounded-3xl bg-blue-50 text-[#0A84FF] flex items-center justify-center mx-auto mb-4">
-                <Package className="w-8 h-8 stroke-[1.5]" />
+            <div className="bg-white rounded-3xl p-12 text-center border border-gray-200 shadow-2xs space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center mx-auto">
+                <Bike className="w-7 h-7" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 font-display">
-                No orders placed yet
-              </h3>
-              <p className="text-xs text-gray-500 max-w-sm mx-auto mt-1">
-                Your hostel deliveries will show up here with live minute-by-minute status tracking.
+              <h3 className="text-base font-bold text-gray-900">No Orders Yet</h3>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                Hungry or need stationery? Explore our campus categories and get items delivered to your room in minutes.
               </p>
               <button
                 type="button"
                 onClick={onExploreCatalog}
-                className="mt-6 px-6 py-3 rounded-2xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 inline-flex items-center gap-2 cursor-pointer"
+                className="mt-2 px-5 py-2.5 rounded-xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs font-bold transition-all cursor-pointer shadow-md"
               >
-                <span>Order Campus Essentials</span>
-                <ArrowRight className="w-4 h-4" />
+                Browse Campus Catalog
               </button>
             </div>
           )}

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
-import { Zap, MapPin, Sparkles, ShoppingBag } from 'lucide-react';
+import { Zap, ShoppingBag } from 'lucide-react';
 
 export const HeroScene3D: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [, setMousePos] = useState({ x: 0, y: 0 });
 
   // Spring physics for smooth parallax
   const x = useMotionValue(0);
@@ -62,6 +62,36 @@ export const HeroScene3D: React.FC = () => {
           className="absolute bottom-6 w-72 h-14 bg-black/20 rounded-[100%] blur-xl pointer-events-none -z-10"
         />
 
+        {/* 0. HIGH-RESOLUTION CCCT & SIST CAMPUS GRAPHIC BACKDROP */}
+        <motion.div
+          animate={{
+            y: [-6, 6, -6],
+          }}
+          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute inset-x-2 sm:inset-x-0 -top-2 bottom-6 rounded-3xl overflow-hidden border border-white/60 shadow-xl bg-white/40 backdrop-blur-xs z-0"
+          style={{
+            transform: 'translateZ(-50px)',
+          }}
+        >
+          <img
+            src="/src/assets/images/ccct_sist_campus_hero_1790791913273.jpg"
+            alt="CCCT & SIST Campus Student Life"
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-700"
+          />
+          {/* Subtle gradient vignette overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#111111]/75 via-black/20 to-transparent pointer-events-none" />
+          <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-[11px] font-bold text-white drop-shadow-md">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#30D158] animate-ping" />
+              <span>CCCT & SIST Express Delivery</span>
+            </span>
+            <span className="bg-black/50 backdrop-blur-xs px-2.5 py-0.5 rounded-full border border-white/20 text-[10px]">
+              Chisopani Campus
+            </span>
+          </div>
+        </motion.div>
+
         {/* 1. CENTRAL FLOATING DELIVERY BAG */}
         <motion.div
           animate={{
@@ -71,7 +101,7 @@ export const HeroScene3D: React.FC = () => {
           transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
           className="relative z-20 w-52 h-64 sm:w-60 sm:h-72 rounded-3xl bg-gradient-to-br from-[#111111] via-[#1a1a1a] to-[#252525] p-5 shadow-2xl border border-white/15 flex flex-col justify-between overflow-hidden"
           style={{
-            boxShadow: '0 28px 60px -15px rgba(0,0,0,0.45), 0 0 40px rgba(10, 132, 255, 0.15)',
+            boxShadow: '0 28px 60px -15px rgba(0,0,0,0.55), 0 0 40px rgba(10, 132, 255, 0.2)',
           }}
         >
           {/* Glossy specular highlight */}
@@ -115,7 +145,7 @@ export const HeroScene3D: React.FC = () => {
             <div className="text-white font-extrabold text-lg sm:text-xl tracking-tight font-display">
               INFINITY STORE
             </div>
-            <div className="text-white/60 text-xs font-medium tracking-wide">
+            <div className="text-white/70 text-xs font-medium tracking-wide">
               CAMPUS 10-MIN EXPRESS
             </div>
           </div>
@@ -123,7 +153,7 @@ export const HeroScene3D: React.FC = () => {
           {/* Bottom tag */}
           <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-white/70 z-10">
             <span>Room & Hostel Drop</span>
-            <span className="text-[#30D158] font-bold">● Active</span>
+            <span className="text-[#30D158] font-bold">● CCCT & SIST</span>
           </div>
         </motion.div>
 
@@ -155,7 +185,7 @@ export const HeroScene3D: React.FC = () => {
             </div>
           </div>
           <div className="absolute bottom-2 left-3 text-[10px] font-bold text-[#442c16]">
-            BLOCK A/B/C
+            BLOCK A/B/C • HOSTEL
           </div>
         </motion.div>
 
@@ -275,7 +305,7 @@ export const HeroScene3D: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* 7. COLOURFUL GLOSSY SPHERES (BRAND PALETTE) */}
+        {/* 7. COLOURFUL GLOSSY SPHERES */}
         {/* Yellow Sphere */}
         <motion.div
           animate={{
@@ -345,7 +375,7 @@ export const HeroScene3D: React.FC = () => {
             <span className="absolute w-full h-full rounded-full bg-[#30D158] animate-ping opacity-75" />
             <span className="relative w-2 h-2 rounded-full bg-[#30D158]" />
           </div>
-          <span>Near Campus Gate</span>
+          <span>CCCT & SIST Gate</span>
         </motion.div>
       </motion.div>
     </div>

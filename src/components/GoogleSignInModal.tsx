@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ShieldCheck, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
+import { X, ShieldCheck, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface GoogleSignInModalProps {
@@ -14,46 +14,23 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { loginWithGoogleUser, user } = useAuth();
-  const [emailInput, setEmailInput] = useState(() => {
-    try {
-      const saved = localStorage.getItem('infinity_student_profile');
-      if (saved) {
-        const p = JSON.parse(saved);
-        if (p.email) return p.email;
-      }
-    } catch {}
-    return 'student.ccct@gmail.com';
-  });
-  const [nameInput, setNameInput] = useState(() => {
-    try {
-      const saved = localStorage.getItem('infinity_student_profile');
-      if (saved) {
-        const p = JSON.parse(saved);
-        if (p.fullName) return p.fullName;
-      }
-    } catch {}
-    return 'Rahul Sharma';
-  });
+  const { signInWithGoogle, isLoading, user } = useAuth();
+  const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCustomMode, setIsCustomMode] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleGoogleLogin = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleGoogleLogin = async () => {
+    setAuthError(null);
     setIsSubmitting(true);
-
-    setTimeout(() => {
-      loginWithGoogleUser({
-        name: nameInput.trim() || 'Campus Student',
-        email: emailInput.trim() || 'student@campus.edu',
-        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(nameInput)}`,
-      });
-      setIsSubmitting(false);
-      onClose();
+    try {
+      await signInWithGoogle();
       if (onSuccess) onSuccess();
-    }, 450);
+    } catch (err: any) {
+      setAuthError(err?.message || 'Unable to open Google Sign-In. Please check pop-up permissions.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -79,11 +56,11 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
             <X className="w-5 h-5" />
           </button>
 
-          {/* Google Branding Header */}
+          {/* Official Google Branding Header */}
           <div className="text-center pt-2 pb-4">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-white shadow-md border border-gray-100 flex items-center justify-center mb-3">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-white shadow-md border border-gray-100 flex items-center justify-center mb-3">
               {/* Official Google 'G' Logo SVG */}
-              <svg className="w-8 h-8" viewBox="0 0 48 48">
+              <svg className="w-9 h-9" viewBox="0 0 48 48">
                 <path
                   fill="#EA4335"
                   d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
@@ -106,129 +83,66 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
             <h3 className="text-xl font-extrabold text-gray-900 font-display">
               Sign in with Google
             </h3>
-            <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
-              Please sign in with your Google account to proceed with your campus delivery order.
+            <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto leading-relaxed">
+              Verify your identity with your official Google Account to auto-fill delivery details and place campus orders.
             </p>
           </div>
 
-          {!isCustomMode ? (
-            <div className="space-y-3">
-              {/* Quick 1-Click Google Account Card */}
-              <button
-                type="button"
-                onClick={() => handleGoogleLogin()}
-                disabled={isSubmitting}
-                className="w-full p-3.5 rounded-2xl bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 transition-all flex items-center justify-between group cursor-pointer text-left shadow-2xs hover:shadow-xs"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-sm flex-shrink-0 border border-blue-200">
-                    {nameInput.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-bold text-xs sm:text-sm text-neutral-900 truncate">
-                      {nameInput}
-                    </div>
-                    <div className="text-[11px] text-neutral-500 truncate">
-                      {emailInput}
-                    </div>
-                  </div>
-                </div>
-
-                <ArrowRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-900 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
-              </button>
-
-              {/* Continue with Google Standard Action Button */}
-              <button
-                type="button"
-                id="google-continue-btn"
-                onClick={() => handleGoogleLogin()}
-                disabled={isSubmitting}
-                className="w-full py-3.5 px-4 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-bold text-sm rounded-2xl transition flex items-center justify-center gap-3 cursor-pointer shadow-xs active:scale-98"
-              >
-                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                  />
-                </svg>
-                <span>{isSubmitting ? 'Signing in...' : 'Continue with Google'}</span>
-              </button>
-
-              <div className="pt-1 text-center">
-                <button
-                  type="button"
-                  onClick={() => setIsCustomMode(true)}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline"
-                >
-                  Use a different Google account
-                </button>
-              </div>
+          {authError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span>{authError}</span>
             </div>
-          ) : (
-            <form onSubmit={handleGoogleLogin} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Google Account Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  placeholder="e.g. Rahul Sharma"
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Google Email Address
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="name@gmail.com"
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsCustomMode(false)}
-                  className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition cursor-pointer"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 py-2.5 px-4 bg-[#111111] hover:bg-black text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <span>{isSubmitting ? 'Signing in...' : 'Sign In with Google'}</span>
-                </button>
-              </div>
-            </form>
           )}
 
+          {/* Official Google OAuth Action Button */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              id="google-continue-btn"
+              onClick={handleGoogleLogin}
+              disabled={isSubmitting || isLoading}
+              className="w-full py-3.5 px-4 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-bold text-sm rounded-2xl transition duration-200 flex items-center justify-center gap-3 cursor-pointer shadow-xs active:scale-98 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSubmitting || isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                  <span>Connecting to Google Account...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                    />
+                  </svg>
+                  <span>Continue with Google</span>
+                </>
+              )}
+            </button>
+
+            <p className="text-[11px] text-center text-gray-400">
+              Triggers the official Google account chooser to select your verified student account.
+            </p>
+          </div>
+
           {/* Secure badge */}
-          <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
+          <div className="mt-5 pt-3 border-t border-gray-100 flex items-center justify-center gap-1.5 text-[11px] text-gray-500">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Fast, safe Google authentication</span>
+            <span>Production-grade Google OAuth • Powered by Supabase</span>
           </div>
         </motion.div>
       </div>

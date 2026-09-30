@@ -548,7 +548,40 @@ Please confirm and prepare my order!`;
         console.warn('WhatsApp launch notice:', waErr);
       }
 
-      // 5. Complete checkout: immediate success transition & cart clear
+      // 5. Persist student profile for future orders so details never need to be re-entered
+      try {
+        const studentProfile = {
+          fullName: checkoutDetails.name,
+          email: checkoutDetails.email,
+          phone: checkoutDetails.phone,
+          hostel: selectedLocation,
+          roomNo: roomDetails,
+          notes: formData.notes || '',
+        };
+        localStorage.setItem('infinity_student_profile', JSON.stringify(studentProfile));
+        if (user?.id) {
+          supabase
+            .from('profiles')
+            .upsert(
+              [
+                {
+                  id: user.id,
+                  full_name: checkoutDetails.name,
+                  email: checkoutDetails.email,
+                  phone: checkoutDetails.phone,
+                  hostel_block: `${selectedLocation} - ${roomDetails}`,
+                  created_at: new Date().toISOString(),
+                },
+              ],
+              { onConflict: 'id' }
+            )
+            .then(() => {});
+        }
+      } catch (profErr) {
+        console.warn('Profile persistence notice:', profErr);
+      }
+
+      // 6. Complete checkout: immediate success transition & cart clear
       if (onOrderSuccess) {
         onOrderSuccess(finalOrderId, {
           fullName: checkoutDetails.name,

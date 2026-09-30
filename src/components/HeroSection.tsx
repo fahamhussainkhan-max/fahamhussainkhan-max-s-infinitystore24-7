@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Zap, ArrowRight, Sparkles } from 'lucide-react';
+import { Zap, ArrowRight } from 'lucide-react';
 import { HeroScene3D } from './HeroScene3D';
 
 interface HeroSectionProps {
@@ -18,7 +18,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-6 items-center">
           {/* Left Hero Content */}
           <div className="lg:col-span-6 space-y-4 sm:space-y-6 text-left">
-            {/* Small Badge */}
+            {/* Small Campus Badge */}
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
@@ -26,10 +26,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white shadow-sm border border-gray-200/90 text-xs font-black tracking-wider text-[#111111]"
             >
               <Zap className="w-3.5 h-3.5 fill-[#FF3B30] text-[#FF3B30]" />
-              <span>⚡ CAMPUS DELIVERY</span>
+              <span>⚡ CCCT & SIST CAMPUS EXPRESS</span>
             </motion.div>
 
-            {/* Main Headline */}
+            {/* Main Headline specifically for CCCT & SIST */}
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -37,8 +37,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               className="text-3xl xs:text-4xl sm:text-5xl lg:text-6xl font-black text-[#111111] font-display tracking-tight leading-[1.08]"
             >
               Everything you need.<br />
-              <span className="text-[#0A84FF]">Right when you</span>{' '}
-              <span className="text-[#FF3B30]">need it.</span>
+              <span className="text-[#0A84FF]">Right when you need it</span>{' '}
+              <span className="text-[#FF3B30]">for CCCT & SIST.</span>
             </motion.h1>
 
             {/* Supporting Text */}
@@ -48,10 +48,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               transition={{ duration: 0.5, delay: 0.2 }}
               className="text-sm sm:text-lg text-gray-600 font-medium max-w-lg leading-relaxed"
             >
-              Snacks, drinks, stationery, essentials and more — delivered around your campus.
+              Snacks, chilled drinks, stationery, and hostel essentials — delivered directly to your room or campus spot in minutes.
             </motion.p>
 
-            {/* Action Buttons - Stack vertically on mobile, row on tablet/desktop */}
+            {/* Action Buttons */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
