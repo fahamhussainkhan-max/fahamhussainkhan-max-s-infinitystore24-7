@@ -68,8 +68,8 @@ export async function verifyGPSInsideBoundary(): Promise<{
           longitude,
           accuracy: Math.round(accuracy),
           message: isInside
-            ? '✓ Verified: Within 10-15 Min Express Campus Delivery Zone'
-            : '📍 Location Outside Delivery Area — We currently deliver only within campus and nearby affiliated PGs (10-15 min express). Coming Soon to your area!',
+            ? '✓ Verified: Within Express Campus Delivery Zone (Delivery within 30 - 45 mins)'
+            : '📍 Location Outside Delivery Area — We currently deliver exclusively within campus and nearby affiliated PGs (Delivery within 30 - 45 mins). Coming Soon to your area!',
         });
       },
       (error) => {

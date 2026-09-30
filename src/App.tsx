@@ -618,10 +618,16 @@ function CustomerStorefront() {
         rawQ.includes('drafter') ||
         rawQ.includes('lab') ||
         rawQ.includes('assignment');
-      if (
-        isStationery &&
-        (cat.includes('stationery') || tags.includes('study') || tags.includes('exam') || tags.includes('lab'))
-      ) {
+      const isTech =
+        rawQ.includes('tech') ||
+        rawQ.includes('electronic') ||
+        rawQ.includes('cable') ||
+        rawQ.includes('charger') ||
+        rawQ.includes('adapter') ||
+        rawQ.includes('calculator') ||
+        rawQ.includes('usb') ||
+        rawQ.includes('gadget');
+      if (isTech && (cat.includes('electronic') || tags.includes('tech') || tags.includes('electronics'))) {
         return true;
       }
 
@@ -636,7 +642,16 @@ function CustomerStorefront() {
       if (currentTab !== 'home') {
         setCurrentTab('home');
       }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Auto-scroll smoothly to the catalog section when typing starts if user is at the top
+      setTimeout(() => {
+        const catalogEl =
+          document.getElementById('product-catalog-section') ||
+          document.getElementById('campus-favourites') ||
+          searchResultsRef.current;
+        if (catalogEl && window.scrollY < 200) {
+          catalogEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 60);
     }
   };
 
@@ -876,6 +891,7 @@ function CustomerStorefront() {
                 selectedZone={selectedZone}
                 onSelectZone={handleSelectZone}
                 onToastMessage={triggerToast}
+                onOpenZoneSelector={() => setIsZoneModalOpen(true)}
               />
 
               {/* 3.5. Compact 1-Line Teasers: Student Entrepreneurship & Campus Print Desk */}
@@ -893,9 +909,10 @@ function CustomerStorefront() {
               />
 
               {/* 5. Category Products / Default Aisles */}
-            <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-              <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-200">
-                <div className="flex items-center gap-2">
+              {selectedCategory ? (
+                <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+                  <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-200">
+                    <div className="flex items-center gap-2">
                   <span className="text-2xl">{activeCategoryObj?.emoji || '🛍️'}</span>
                   <div>
                     <h2 className="text-xl sm:text-2xl font-black text-gray-900">

@@ -18,16 +18,42 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-6 items-center">
           {/* Left Hero Content */}
           <div className="lg:col-span-6 space-y-4 sm:space-y-6 text-left">
-            {/* Small Campus Badge */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white shadow-sm border border-gray-200/90 text-xs font-black tracking-wider text-[#111111]"
-            >
-              <Zap className="w-3.5 h-3.5 fill-[#FF3B30] text-[#FF3B30]" />
-              <span>⚡ CCCT & SIST CAMPUS EXPRESS</span>
-            </motion.div>
+            <div className="flex flex-col items-start gap-2">
+              {/* EDC Authorization Sub-Badge */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35 }}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50/90 border border-amber-300/80 shadow-2xs text-amber-900 text-xs font-semibold max-w-full"
+              >
+                {/* <!-- EDC_LOGO_PLACEHOLDER: Replace src with EDC logo asset --> */}
+                <div
+                  id="hero-edc-logo-container"
+                  className="relative w-6 h-6 rounded-md border border-dashed border-amber-500/70 bg-white flex items-center justify-center p-0.5 shadow-2xs flex-shrink-0"
+                  title="EDC Logo Slot"
+                >
+                  <div className="w-full h-full rounded bg-amber-100/80 border border-amber-200 flex flex-col items-center justify-center text-center">
+                    <span className="text-[7.5px] font-black tracking-tighter text-amber-800 leading-none">
+                      EDC
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[11px] sm:text-xs font-bold text-amber-950 truncate">
+                  Authorized by Entrepreneurship Development Cell (EDC), CCCT Chisopani
+                </span>
+              </motion.div>
+
+              {/* Small Campus Badge */}
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.05 }}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white shadow-sm border border-gray-200/90 text-xs font-black tracking-wider text-[#111111]"
+              >
+                <Zap className="w-3.5 h-3.5 fill-[#FF3B30] text-[#FF3B30]" />
+                <span>⚡ CCCT & SIST CAMPUS EXPRESS</span>
+              </motion.div>
+            </div>
 
             {/* Main Headline specifically for CCCT & SIST */}
             <motion.h1

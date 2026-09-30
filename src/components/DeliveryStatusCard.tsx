@@ -9,12 +9,14 @@ interface DeliveryStatusCardProps {
   selectedZone: CampusZone;
   onSelectZone: (zone: CampusZone) => void;
   onToastMessage?: (msg: string) => void;
+  onOpenZoneSelector?: () => void;
 }
 
 export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
   selectedZone,
   onSelectZone,
   onToastMessage,
+  onOpenZoneSelector,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -53,7 +55,7 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
           <div className="space-y-1.5 max-w-xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/70 text-emerald-800 text-xs font-black tracking-wide uppercase">
               <Zap className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
-              <span>⚡ DELIVERY WITHIN 45 MINS - 1 HR</span>
+              <span>⚡ DELIVERY WITHIN 30 - 45 MINS</span>
             </div>
 
             <h3 className="text-xl sm:text-2xl font-black text-[#111111] font-display tracking-tight">
@@ -102,7 +104,13 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsOpen(!isOpen)}
+                  onClick={() => {
+                    if (onOpenZoneSelector) {
+                      onOpenZoneSelector();
+                    } else {
+                      setIsOpen(!isOpen);
+                    }
+                  }}
                   className="w-full sm:w-auto flex items-center justify-between gap-3 px-4 py-2.5 bg-[#111111] hover:bg-black text-white rounded-2xl shadow-md transition-all active:scale-95 text-xs sm:text-sm font-bold cursor-pointer"
                 >
                   <div className="flex items-center gap-2">

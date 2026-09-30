@@ -79,6 +79,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
     if (lower.includes('boys')) return <Building className="w-4 h-4 text-emerald-600" />;
     if (lower.includes('girls')) return <Home className="w-4 h-4 text-purple-600" />;
     if (lower.includes('gate')) return <DoorOpen className="w-4 h-4 text-amber-600" />;
+    if (lower.includes('hub')) return <Sparkles className="w-4 h-4 text-sky-600" />;
     if (lower.includes('makaju') || lower.includes('happy')) return <Home className="w-4 h-4 text-rose-600" />;
     if (lower.includes('custom')) return <MapPin className="w-4 h-4 text-orange-600" />;
     return <MapPin className="w-4 h-4 text-gray-500" />;
@@ -90,12 +91,16 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
       setIsCustomExpanded(true);
       return;
     }
-    onSelectZone({
+    const updatedZone: CampusZone = {
       ...zone,
       isCustom: false,
       isOutsideDelivery: false,
       isVerifiedInside: true,
-    });
+    };
+    onSelectZone(updatedZone);
+    try {
+      localStorage.setItem('infinity_campus_zone', JSON.stringify(updatedZone));
+    } catch {}
     onClose();
   };
 
@@ -165,6 +170,11 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
     <AnimatePresence>
       <div
         id="campus-location-modal-backdrop"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
         className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
       >
         <motion.div
@@ -213,6 +223,65 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
               </p>
             </div>
           )}
+
+          {/* Quick Select: 4 Key Campus Delivery Spots */}
+          <div className="mb-3.5 flex-shrink-0 bg-gray-50/70 p-2.5 rounded-2xl border border-gray-200/80">
+            <div className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-2 px-0.5 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-[#0A84FF]" />
+                Primary Campus Spots
+              </span>
+              <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                Delivery within 30 - 45 mins
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'ccct-main-gate', label: 'CCCT — Main Gate', fallback: 'Main Gate' },
+                { id: 'ccct-boys-hostel', label: 'CCCT — Mokugo Boys Hostel', fallback: 'Mokugo Boys Hostel' },
+                { id: 'ccct-girls-hostel', label: 'CCCT — Girls Hostel', fallback: 'Girls Hostel' },
+                { id: 'sist-campus-hub', label: 'SIST Campus Hub', fallback: 'Campus Hub' },
+              ].map((item) => {
+                const zone = allZones.find((z) => z.id === item.id) || {
+                  id: item.id,
+                  name: item.label,
+                  block: 'Campus Hub',
+                  estMinutes: '30 - 45 mins',
+                  isOnline: true,
+                  deliveryFee: 15,
+                  campusGroup: item.id.startsWith('sist') ? 'SIST' : 'CCCT',
+                  coordinates: { lat: 27.147, lng: 88.298 },
+                };
+                const isSelected = selectedZone.id === zone.id && !selectedZone.isCustom && !isOutsideBoundary;
+
+                return (
+                  <button
+                    key={zone.id}
+                    type="button"
+                    onClick={() => handlePresetSelect(zone as CampusZone)}
+                    className={`p-2.5 rounded-xl border text-left transition-all duration-150 flex items-center gap-2 cursor-pointer ${
+                      isSelected
+                        ? 'border-[#0A84FF] bg-blue-50/90 ring-2 ring-[#0A84FF]/20 shadow-xs'
+                        : 'border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="w-6 h-6 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-700">
+                      {getZoneIcon(zone.id)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-gray-900 truncate flex items-center gap-1">
+                        <span className="truncate">{item.label}</span>
+                        {isSelected && <Check className="w-3 h-3 text-[#0A84FF] flex-shrink-0" />}
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium truncate">
+                        ₹15 Flat • 30-45m
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* 3 Clear Delivery Zones Choices: CCCT, SIST, and Hostels / Custom PGs */}
           <div className="flex p-1 bg-gray-100 rounded-2xl mb-3 flex-shrink-0 gap-1">

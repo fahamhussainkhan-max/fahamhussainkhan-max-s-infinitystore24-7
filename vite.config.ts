@@ -25,15 +25,21 @@ export default defineConfig(() => {
     build: {
       rollupOptions: {
         input: {
-          main: path.resolve(__dirname, 'index.html'),
-          admin: path.resolve(__dirname, 'admin.html'),
+          main: path.resolve(import.meta.dirname, 'index.html'),
+          admin: path.resolve(import.meta.dirname, 'admin.html'),
         },
       },
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
+        react: path.resolve(import.meta.dirname, 'node_modules/react'),
+        'react-dom': path.resolve(import.meta.dirname, 'node_modules/react-dom'),
       },
+      dedupe: ['react', 'react-dom'],
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'framer-motion', 'motion/react', 'motion'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

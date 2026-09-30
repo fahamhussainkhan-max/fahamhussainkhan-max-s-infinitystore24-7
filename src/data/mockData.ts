@@ -15,7 +15,7 @@ export const CAMPUS_ZONES: CampusZone[] = [
   },
   {
     id: 'ccct-boys-hostel',
-    name: 'CCCT — Boys Hostel',
+    name: 'CCCT — Mokugo Boys Hostel',
     block: 'Boys Hostel Complex (Blocks A/B/C) & Common Area',
     estMinutes: '30 - 45 mins',
     isOnline: true,
@@ -59,6 +59,17 @@ export const CAMPUS_ZONES: CampusZone[] = [
   },
 
   // 2. SIST Campus Spots (Rs. 15)
+  {
+    id: 'sist-campus-hub',
+    name: 'SIST Campus Hub',
+    block: 'Central Student Hub, Canteen Area & Library Quad',
+    estMinutes: '30 - 45 mins',
+    isOnline: true,
+    deliveryFee: 15,
+    campusGroup: 'SIST',
+    spotType: 'Campus Hub',
+    coordinates: { lat: 27.1492, lng: 88.2998 },
+  },
   {
     id: 'sist-main-gate',
     name: 'SIST — Main Gate',
