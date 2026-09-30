@@ -129,3 +129,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     </section>
   );
 };
+
+export { HERO_CAMPUS_ILLUSTRATION_BASE64 } from './heroAssetBase64';
+export const Hero = HeroSection;
+export default HeroSection;

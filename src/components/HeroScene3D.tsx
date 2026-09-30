@@ -2,9 +2,11 @@ import React, { useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { Zap, ShoppingBag, Ruler } from 'lucide-react';
 import bundledHeroImg from '../assets/images/ccct_sist_campus_hero_1790791913273.jpg';
+import { HERO_CAMPUS_ILLUSTRATION_BASE64 } from './heroAssetBase64';
 
-// Multi-tier fallback sources for production and CDN stability
+// Multi-tier fallback sources: Inline Base64 Data URL is primary for 100% production reliability
 const HERO_IMAGE_SOURCES = [
+  HERO_CAMPUS_ILLUSTRATION_BASE64,
   '/assets/hero-banner.png',
   bundledHeroImg,
   '/assets/hero-banner.jpg',
