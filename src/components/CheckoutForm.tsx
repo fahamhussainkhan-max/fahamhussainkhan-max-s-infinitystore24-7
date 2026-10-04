@@ -270,9 +270,10 @@ export default function CheckoutForm({
         );
 
   // 3. Pricing & Delivery Display & Dynamic Free Handling (above Rs. 200)
-  const originalDeliveryFee = 25;
-  const deliveryCharge = 15; // Discounted flat rate
   const subtotalAmount = Number(productPrice);
+  const isFreeDeliveryQualified = subtotalAmount >= 200;
+  const originalDeliveryFee = 30;
+  const deliveryCharge = isFreeDeliveryQualified ? 0 : 15; // Promotional delivery charge ₹15 (50% OFF on ₹30), FREE over ₹200
   const isFreeHandlingQualified = isSecretPromoApplied || subtotalAmount >= 200;
   const handlingFee = isFreeHandlingQualified ? 0 : PACKAGING_HANDLING_FEE;
   const totalAmount = subtotalAmount + Number(deliveryCharge) + Number(handlingFee);
@@ -865,7 +866,7 @@ ${checkoutDetails.notes ? `*Delivery Note:* ${checkoutDetails.notes}\n` : ''}Ple
               Campus Delivery Location <span className="text-red-500">*</span>
             </label>
             <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
-              10% OFF Delivery
+              50% OFF Delivery
             </span>
           </div>
 
@@ -1058,14 +1059,14 @@ ${checkoutDetails.notes ? `*Delivery Note:* ${checkoutDetails.notes}\n` : ''}Ple
 
         {/* 3. Pricing & Delivery Display */}
         <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/80 text-xs space-y-2.5">
-          {/* Promotional Banner Badge showing 10% OFF */}
+          {/* Promotional Banner Badge showing 50% OFF */}
           <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300 text-amber-950 font-bold flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>10% OFF on delivery charges for this month</span>
+              <span>Delivery: ₹15 (50% OFF on ₹30)</span>
             </div>
-            <span className="text-[11px] text-amber-900 bg-white/90 px-2 py-0.5 rounded-md font-extrabold border border-amber-300 shrink-0">
-              ₹15 FLAT
+            <span className="text-[10px] text-amber-900 bg-white/90 px-2 py-0.5 rounded-md font-extrabold border border-amber-300 shrink-0 uppercase">
+              50% OFF on Delivery Charges
             </span>
           </div>
 
@@ -1080,17 +1081,27 @@ ${checkoutDetails.notes ? `*Delivery Note:* ${checkoutDetails.notes}\n` : ''}Ple
               <span className="font-semibold text-neutral-900">₹{subtotalAmount}</span>
             </div>
 
-            {/* Delivery fee with Rs 25 strikethrough, followed by Rs 15, and 10% OFF discount badge */}
+            {/* Delivery fee with Rs 30 strikethrough, followed by Rs 15, and 50% OFF discount badge */}
             <div className="flex justify-between items-center">
               <span className="flex items-center gap-1.5">
                 <span>Runner Delivery Fee</span>
-                <span className="text-[10px] text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-md font-extrabold uppercase">
-                  10% OFF
-                </span>
+                {isFreeDeliveryQualified ? (
+                  <span className="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded-md font-extrabold uppercase">
+                    FREE
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-md font-extrabold uppercase">
+                    50% OFF
+                  </span>
+                )}
               </span>
               <span className="font-semibold text-neutral-900 flex items-center gap-1.5">
                 <span className="line-through text-neutral-400 font-normal text-xs">Rs. {originalDeliveryFee}</span>
-                <span className="text-neutral-900 font-extrabold text-sm">Rs. {deliveryCharge}</span>
+                {isFreeDeliveryQualified ? (
+                  <span className="text-emerald-600 font-bold">FREE (₹0)</span>
+                ) : (
+                  <span className="text-neutral-900 font-extrabold text-sm">Rs. {deliveryCharge}</span>
+                )}
               </span>
             </div>
 

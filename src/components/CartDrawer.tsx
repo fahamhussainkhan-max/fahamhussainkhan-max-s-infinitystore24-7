@@ -535,14 +535,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {/* Drawer Footer & Checkout Action */}
               {!placedOrder && !isCheckoutFormOpen && cartItems.length > 0 && (
                 <div className="p-5 sm:p-6 border-t border-gray-100 bg-[#FAFAF7] space-y-3">
-                  {/* Delivery Promo Badge / 10% OFF Announcement */}
+                  {/* Delivery Promo Badge / 50% OFF Announcement */}
                   <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300 text-amber-950 text-xs font-bold flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>10% OFF on delivery charges for this month</span>
+                      <span>Delivery: ₹15 (50% OFF on ₹30)</span>
                     </span>
                     <span className="text-[10px] text-amber-900 bg-white/90 px-2 py-0.5 rounded-md font-extrabold border border-amber-300 shrink-0 uppercase">
-                      10% OFF
+                      50% OFF on Delivery Charges
                     </span>
                   </div>
 
@@ -555,13 +555,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div className="flex justify-between items-center">
                       <span className="truncate pr-2 flex items-center gap-1.5">
                         <span>Runner Delivery Fee</span>
-                        <span className="text-[10px] text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded font-extrabold uppercase">
-                          10% OFF
-                        </span>
+                        {isFreeDeliveryQualified ? (
+                          <span className="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded font-extrabold uppercase">
+                            FREE
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded font-extrabold uppercase">
+                            50% OFF
+                          </span>
+                        )}
                       </span>
                       <span className="font-semibold flex-shrink-0 text-gray-900 flex items-center gap-1.5">
-                        <span className="line-through text-gray-400 font-normal">Rs. 25</span>
-                        <span className="text-gray-900 font-bold">Rs. 15</span>
+                        <span className="line-through text-gray-400 font-normal">Rs. 30</span>
+                        {isFreeDeliveryQualified ? (
+                          <span className="text-emerald-600 font-bold">FREE (₹0)</span>
+                        ) : (
+                          <span className="text-gray-900 font-bold">Rs. 15</span>
+                        )}
                       </span>
                     </div>
 

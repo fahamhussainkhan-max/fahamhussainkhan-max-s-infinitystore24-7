@@ -317,7 +317,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                 {activeGroup} Delivery Spots
               </span>
               <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300">
-                10% Off • ₹15 Flat (was ₹25)
+                50% OFF • ₹15 (was ₹30)
               </span>
             </div>
 
@@ -359,7 +359,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                           {isSelected && <Check className="w-3.5 h-3.5 text-[#0A84FF] flex-shrink-0" />}
                         </div>
                         <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                          {zone.block} • <span className="line-through text-gray-400">₹25</span> <span className="text-gray-900 font-bold">₹15</span> (10% Off)
+                          {zone.block} • <span className="line-through text-gray-400">₹30</span> <span className="text-gray-900 font-bold">₹15</span> (50% OFF)
                         </div>
                       </div>
                     </div>

@@ -173,12 +173,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#30D158] opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#30D158]" />
           </span>
-          <span className="text-[#FFD60A] font-black tracking-wide flex-shrink-0">⚡ Express:</span>
-          <span className="text-gray-100 font-semibold truncate hidden sm:inline">Official 45-Min Campus Quick-Commerce for CCCT & SIST</span>
-          <span className="text-gray-100 font-semibold truncate sm:hidden">CCCT & SIST</span>
-          {/* Highlighted Promotional Badge: 10% off for 1 month */}
+          <span className="text-[#FFD60A] font-black tracking-wide flex-shrink-0">⚡ Special Offer:</span>
+          <span className="text-gray-100 font-semibold truncate hidden md:inline">Flat 50% OFF on Delivery Charges — Now at ₹15!</span>
+          <span className="text-gray-100 font-semibold truncate md:hidden">Flat 50% OFF Delivery — Now ₹15!</span>
           <span className="ml-1 sm:ml-1.5 px-2 py-0.5 rounded-full bg-gradient-to-r from-[#FF3B30] to-[#FF9500] text-white text-[9.5px] sm:text-[10.5px] font-black tracking-wide uppercase shadow-xs border border-white/20 whitespace-nowrap flex-shrink-0">
-            🎉 10% off for 1 month
+            50% OFF
           </span>
         </div>
       </div>

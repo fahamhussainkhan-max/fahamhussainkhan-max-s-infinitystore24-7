@@ -69,7 +69,7 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
             {/* Promo banner badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300 text-amber-900 text-xs font-bold">
               <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>Delivery: ₹15 (10% Off from ₹25) • Handling: ₹9 (FREE over ₹200)</span>
+              <span>Delivery: ₹15 (50% OFF on ₹30) • Handling: ₹9 (FREE over ₹200)</span>
             </div>
 
             <div className="flex flex-wrap items-center gap-4 pt-1 text-xs font-semibold text-gray-500">
@@ -80,8 +80,11 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
               <div className="flex items-center gap-1.5 text-gray-700">
                 <ShieldCheck className="w-4 h-4 text-[#30D158]" />
                 <span>
-                  Delivery: <span className="line-through text-gray-400 font-normal mr-1">₹25</span>
+                  Delivery: <span className="line-through text-gray-400 font-normal mr-1">₹30</span>
                   <strong className="text-emerald-700">₹15</strong>
+                  <span className="text-[10px] ml-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold border border-amber-300 uppercase">
+                    50% OFF on Delivery Charges
+                  </span>
                   <span className="text-[11px] text-gray-500 ml-1.5">• Handling: ₹9 (FREE &gt; ₹200)</span>
                 </span>
               </div>
@@ -217,9 +220,9 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                             <div className="text-[10px] text-gray-400 font-normal truncate flex items-center gap-1">
                               <span>{zone.block}</span>
                               <span>•</span>
-                              <span className="line-through text-gray-400">Rs. 25</span>
+                              <span className="line-through text-gray-400">Rs. 30</span>
                               <span className="text-gray-800 font-bold">Rs. 15</span>
-                              <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 rounded">10% OFF</span>
+                              <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 rounded">50% OFF</span>
                             </div>
                           </div>
                         </div>

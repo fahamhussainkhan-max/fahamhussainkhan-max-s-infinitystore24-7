@@ -54,7 +54,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 <span>⚡ OFFICIAL 45-MIN CAMPUS QUICK-COMMERCE FOR CCCT & SIST</span>
               </motion.div>
 
-              {/* Highlighted Promotional Badge: 10% off for 1 month */}
+              {/* Highlighted Promotional Badge: 50% OFF on Delivery Charges */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -69,7 +69,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   🔥 Special Offer:
                 </span>
                 <span className="font-extrabold text-white text-xs sm:text-sm">
-                  10% off for 1 month
+                  Flat 50% OFF on Delivery Charges — Now at ₹15!
                 </span>
               </motion.div>
             </div>
