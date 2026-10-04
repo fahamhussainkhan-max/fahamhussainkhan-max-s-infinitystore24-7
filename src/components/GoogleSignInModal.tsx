@@ -17,7 +17,7 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
   onSuccess,
   isMandatory = false,
 }) => {
-  const { signInWithGoogle, fastCampusLogin, isLoading, user } = useAuth();
+  const { signInWithGoogle, isLoading, user } = useAuth();
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [legalType, setLegalType] = useState<LegalModalType>(null);
@@ -49,20 +49,6 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
     }
   };
 
-  const handleDemoLogin = async (demo: { fullName: string; email: string }) => {
-    setAuthError(null);
-    setIsSubmitting(true);
-    try {
-      await fastCampusLogin(demo);
-      if (onSuccess) onSuccess();
-    } catch (err: any) {
-      console.error('[GoogleSignInModal] Fast login error:', err);
-      setAuthError(err?.message || 'Login failed. Please retry.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
     <>
       <AnimatePresence>
@@ -82,12 +68,12 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-gray-100 relative my-auto max-h-[92vh] overflow-y-auto"
           >
-          {/* Close button - only shown if user is already logged in and just re-authenticating */}
-          {!isMandatory && user && (
+          {/* Close button - available whenever modal is not mandatory */}
+          {!isMandatory && (
             <button
               type="button"
               onClick={onClose}
-              className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+              className="absolute top-4 right-4 p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -179,19 +165,6 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
             <p className="text-[11px] text-center text-gray-400">
               Triggers the official Google account chooser to select your verified student account.
             </p>
-
-            {/* 1-Click Fast Student Demo Sign-In (For testing environments) */}
-            <div className="pt-2 border-t border-gray-100">
-              <button
-                type="button"
-                id="demo-student-fast-login-btn"
-                onClick={() => handleDemoLogin({ fullName: 'Rahul Sharma', email: 'rahul.ccct@gmail.com' })}
-                disabled={isSubmitting || isLoading}
-                className="w-full py-2.5 px-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-              >
-                <span>⚡ 1-Click Student Fast Login (Demo)</span>
-              </button>
-            </div>
           </div>
 
           {/* Secure badge */}

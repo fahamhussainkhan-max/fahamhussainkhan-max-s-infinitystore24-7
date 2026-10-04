@@ -515,7 +515,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center gap-2.5 p-3 rounded-xl bg-gray-50 hover:bg-blue-50 text-gray-800 hover:text-[#0A84FF] transition-all min-h-[44px] cursor-pointer text-left"
               >
                 <User className="w-4 h-4 text-[#0A84FF] flex-shrink-0" />
-                <span>{authUser ? 'My Profile' : 'Student Sign In'}</span>
+                <span>{authUser ? `${authUser.name.split(' ')[0]}'s Profile` : 'Orders & Profile'}</span>
               </button>
             </div>
 

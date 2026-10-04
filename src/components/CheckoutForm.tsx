@@ -13,8 +13,8 @@ import {
   Loader2,
   Check,
   Sparkles,
-  LogIn,
   AlertCircle,
+  MessageCircle,
 } from 'lucide-react';
 import { verifyGPSInsideBoundary } from '../utils/geolocation';
 import { PACKAGING_HANDLING_FEE } from '../utils/delivery';
@@ -88,31 +88,26 @@ export default function CheckoutForm({
   initialArea,
   isStoreOpen = true,
 }: CheckoutFormProps) {
-  const { user, signInWithGoogle } = useAuth();
+  const { user } = useAuth();
   const [storeOpen, setStoreOpen] = useState(isStoreOpen);
-  const [isVerifyingGoogle, setIsVerifyingGoogle] = useState(false);
-  const [googleNotice, setGoogleNotice] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
 
-  // Single-tap Google verification handler (fail-safe: user is never blocked if skipped/failed)
-  const handleVerifyWithGoogle = async () => {
-    setIsVerifyingGoogle(true);
-    setGoogleNotice(null);
+  // Store WhatsApp number for verification and order notifications
+  const STORE_WHATSAPP_NUMBER = '919332727610';
+
+  // Check if student is ALREADY VERIFIED in localStorage
+  const checkIsVerifiedStudent = () => {
     try {
-      await signInWithGoogle();
-      setGoogleNotice({
-        type: 'success',
-        message: 'Google account verified! Full name and email auto-filled.',
-      });
-    } catch (err: any) {
-      console.warn('Google verification note:', err);
-      setGoogleNotice({
-        type: 'info',
-        message: 'Google verification was skipped or unavailable. You can enter your details manually below.',
-      });
-    } finally {
-      setIsVerifyingGoogle(false);
+      const verified = localStorage.getItem('infinity_user_verified') === 'true';
+      const phone = localStorage.getItem('infinity_user_phone');
+      const name = localStorage.getItem('infinity_user_name');
+      return Boolean(verified && phone && name);
+    } catch {
+      return false;
     }
   };
+
+  const [isVerifiedStudent, setIsVerifiedStudent] = useState<boolean>(checkIsVerifiedStudent);
+  const [isEditingDetails, setIsEditingDetails] = useState<boolean>(false);
 
   useEffect(() => {
     setStoreOpen(isStoreOpen);
@@ -177,18 +172,26 @@ export default function CheckoutForm({
     return 'CCCT';
   });
 
-  // Form Fields State with Auto-fill from authenticated user or profile
+  // Form Fields State: Auto-fill from localStorage verified student details
   const [formData, setFormData] = useState(() => {
     try {
+      const savedPhone = localStorage.getItem('infinity_user_phone') || '';
+      const savedName = localStorage.getItem('infinity_user_name') || '';
+      const savedRoom = localStorage.getItem('infinity_user_room') || '';
       const saved = localStorage.getItem('infinity_student_profile');
       const p = saved ? JSON.parse(saved) : {};
+
+      const fullName = savedName || p.fullName || user?.name || '';
+      const phone = savedPhone || p.phone || '';
+      const roomNo = savedRoom || p.roomNo || '';
       const areaToUse = initialArea || p.hostel || 'CCCT — Academic Complex & Admin';
+
       return {
-        fullName: user?.name || p.fullName || '',
-        email: user?.email || p.email || '',
-        phone: p.phone || '',
+        fullName,
+        email: p.email || (fullName ? `${fullName.toLowerCase().replace(/\s+/g, '.')}@campus.edu` : ''),
+        phone,
         area: areaToUse,
-        roomNo: p.roomNo || '',
+        roomNo,
         notes: p.notes || '',
       };
     } catch {
@@ -202,17 +205,6 @@ export default function CheckoutForm({
       };
     }
   });
-
-  // Auto-fill user name/email whenever authenticated user updates
-  useEffect(() => {
-    if (user) {
-      setFormData((prev) => ({
-        ...prev,
-        fullName: prev.fullName || user.name,
-        email: user.email,
-      }));
-    }
-  }, [user]);
 
   // 3. Location Verification State (Confirm user is within delivery parameters)
   const [locationVerification, setLocationVerification] = useState<{
@@ -419,13 +411,6 @@ export default function CheckoutForm({
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const finalEmail = (formData.email || user?.email || '').trim();
-    if (!finalEmail || !emailRegex.test(finalEmail)) {
-      setErrorMsg('Please enter a valid Email / Gmail address (required for order receipt and live dispatch).');
-      return;
-    }
-
     if (isCustomOption && !customPgName.trim()) {
       setErrorMsg('Please enter your Custom PG / Building Name.');
       return;
@@ -458,13 +443,17 @@ export default function CheckoutForm({
     const roomDetails = formData.roomNo.trim();
     const deliveryLocation = `${selectedLocation} - Room: ${roomDetails || 'N/A'}`;
 
+    // Check verification status BEFORE saving: repeat orders are already verified
+    const wasAlreadyVerified = checkIsVerifiedStudent();
+    const orderStatus = wasAlreadyVerified ? 'Confirmed' : 'Pending Verification';
+
     try {
       const currentDeliveryFee = Number(deliveryCharge);
       const currentHandlingFee = Number(handlingFee);
 
       const checkoutDetails = {
-        name: formData.fullName.trim() || user?.name || 'Campus Student',
-        email: finalEmail,
+        name: formData.fullName.trim() || 'Campus Student',
+        email: (formData.email || '').trim() || `${cleanPhone}@campus.infinity.store`,
         phone: cleanPhone,
         location: deliveryLocation,
         notes: formData.notes || '',
@@ -475,7 +464,7 @@ export default function CheckoutForm({
         typeof str === 'string' &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
-      // 1. Insert main order directly into Supabase (zero artificial delay)
+      // 1. Insert main order directly into Supabase (0.0s artificial delay)
       const orderPayload: Record<string, any> = {
         customer_name: checkoutDetails.name,
         customer_email: checkoutDetails.email,
@@ -490,9 +479,9 @@ export default function CheckoutForm({
         subtotal: Number(productPrice),
         total: totalAmount,
         total_amount: totalAmount,
-        payment_method: checkoutDetails.paymentMethod || 'COD',
+        payment_method: 'COD',
         payment_status: 'unpaid',
-        status: 'pending',
+        status: orderStatus,
         gps_verified: true,
         gps_status: locationVerification.status,
       };
@@ -517,7 +506,7 @@ export default function CheckoutForm({
           subtotal: Number(productPrice),
           payment_method: 'COD',
           payment_status: 'unpaid',
-          status: 'pending',
+          status: orderStatus,
         };
         const { data: retryData, error: retryErr } = await supabase
           .from('orders')
@@ -565,102 +554,71 @@ export default function CheckoutForm({
         }
       }
 
-      // 3. Save student profile locally for convenience in next orders
+      // 3. Save user info to localStorage and set 'infinity_user_verified' = true
       try {
-        const studentProfile = {
-          fullName: checkoutDetails.name,
-          email: checkoutDetails.email,
-          phone: checkoutDetails.phone,
-          hostel: selectedLocation,
-          roomNo: roomDetails,
-          notes: formData.notes,
-        };
-        localStorage.setItem('infinity_student_profile', JSON.stringify(studentProfile));
-      } catch (profileSaveErr) {
-        console.warn('Profile persistence notice:', profileSaveErr);
+        localStorage.setItem('infinity_user_phone', cleanPhone);
+        localStorage.setItem('infinity_user_name', checkoutDetails.name);
+        localStorage.setItem('infinity_user_room', roomDetails);
+        localStorage.setItem('infinity_user_verified', 'true');
+        localStorage.setItem(
+          'infinity_student_profile',
+          JSON.stringify({
+            fullName: checkoutDetails.name,
+            phone: cleanPhone,
+            hostel: selectedLocation,
+            roomNo: roomDetails,
+            notes: formData.notes || '',
+            email: checkoutDetails.email,
+          })
+        );
+        setIsVerifiedStudent(true);
+      } catch (storageErr) {
+        console.warn('LocalStorage error:', storageErr);
       }
 
       const finalOrderId = orderData?.id || `INF-${Date.now()}`;
 
-      // 4. Open WhatsApp order dispatch message
-      try {
-        const adminWhatsApp = (import.meta.env?.VITE_ADMIN_WHATSAPP_NUMBER as string)?.replace(/\D/g, '') || "919332727610";
-        const itemsListText = cartItems.map((item: any) => {
-          const itPrice = Number(item.price !== undefined ? item.price : item.product?.price || 0);
-          const itQty = Number(item.quantity || 1);
-          const itName = item.name || item.title || item.product?.name || 'Campus Item';
-          return `• ${itQty}x ${itName} (₹${itPrice * itQty})`;
-        }).join('\n');
+      // 4. WhatsApp verification routing:
+      // If ALREADY VERIFIED in localStorage:
+      //   Save directly to Supabase with status 'Confirmed' (0.0s delay, NO WhatsApp redirect needed for repeat orders).
+      // If FIRST-TIME USER (Not Verified):
+      //   Open WhatsApp to https://wa.me/919332727610 with pre-filled message
+      if (!wasAlreadyVerified) {
+        try {
+          const itemSummary = cartItems
+            .map((item: any) => {
+              const qty = Number(item.quantity || 1);
+              const name = item.name || item.title || item.product?.name || 'Campus Item';
+              return `${qty}x ${name}`;
+            })
+            .join(', ');
 
-        const waOrderMessage = 
-`*NEW CAMPUS ORDER — INFINITY STORE* 🛍️
-================================
-Order ID: #${finalOrderId}
-Campus: ${selectedLocation}
-Room / Floor: ${roomDetails || 'Campus Spot'}
-Customer: ${checkoutDetails.name}
-Email: ${checkoutDetails.email || 'N/A'}${user ? ' (✓ Google Verified)' : ''}
-Phone: +91 ${checkoutDetails.phone}
-${checkoutDetails.notes ? `Delivery Note: ${checkoutDetails.notes}\n` : ''}================================
-*ITEMS:*
-${itemsListText}
-================================
-Subtotal: ₹${productPrice}
-Delivery: ₹15 (10% OFF Discount - was ₹25)
-Packaging & Handling: ${isFreeHandlingQualified ? 'FREE (₹0 - Promo Waived)' : '₹9'}
-*Total Due (Cash on Delivery): ₹${totalAmount}*
-================================
-🚀 Delivery timeframe: Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
-Please confirm and prepare my order!`;
+          const waOrderMessage = 
+`🛍️ *NEW CAMPUS ORDER: #${finalOrderId}*
+*Name:* ${checkoutDetails.name}
+*Phone:* ${cleanPhone}
+*Delivery:* ${selectedLocation}, Room: ${roomDetails || 'Campus Spot'}
+*Items:* ${itemSummary}
+*Total Amount:* ₹${totalAmount} (COD)
 
-        const waUrl = `https://wa.me/${adminWhatsApp}?text=${encodeURIComponent(waOrderMessage)}`;
-        const opened = window.open(waUrl, '_blank', 'noopener,noreferrer');
-        if (opened) {
-          opened.focus();
+Please confirm and dispatch my order!`;
+
+          const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(waOrderMessage)}`;
+          const opened = window.open(waUrl, '_blank', 'noopener,noreferrer');
+          if (!opened || opened.closed || typeof opened.closed === 'undefined') {
+            window.location.href = waUrl;
+          }
+        } catch (waErr) {
+          console.warn('WhatsApp dispatch notice:', waErr);
         }
-      } catch (waErr) {
-        console.warn('WhatsApp launch notice:', waErr);
       }
 
-      // 5. Persist student profile for future orders so details never need to be re-entered
-      try {
-        const studentProfile = {
-          fullName: checkoutDetails.name,
-          email: checkoutDetails.email,
-          phone: checkoutDetails.phone,
-          hostel: selectedLocation,
-          roomNo: roomDetails,
-          notes: formData.notes || '',
-        };
-        localStorage.setItem('infinity_student_profile', JSON.stringify(studentProfile));
-        if (user?.id) {
-          supabase
-            .from('profiles')
-            .upsert(
-              [
-                {
-                  id: user.id,
-                  full_name: checkoutDetails.name,
-                  email: checkoutDetails.email,
-                  phone: checkoutDetails.phone,
-                  hostel_block: `${selectedLocation} - ${roomDetails}`,
-                  created_at: new Date().toISOString(),
-                },
-              ],
-              { onConflict: 'id' }
-            )
-            .then(() => {});
-        }
-      } catch (profErr) {
-        console.warn('Profile persistence notice:', profErr);
-      }
-
-      // 6. Complete checkout: immediate success transition & cart clear
+      // 5. Complete checkout: immediate success transition & cart clear
       if (onOrderSuccess) {
         onOrderSuccess(finalOrderId, {
           fullName: checkoutDetails.name,
           email: checkoutDetails.email,
-          phone: checkoutDetails.phone,
+          phone: cleanPhone,
           area: selectedLocation,
           roomNo: roomDetails,
           notes: formData.notes,
@@ -725,102 +683,47 @@ Please confirm and prepare my order!`;
         </div>
       )}
 
-      {/* 2. Top Verification: Single-Tap Google Verification (Optional) or Verified Profile */}
-      {user ? (
-        <div className="mb-4 p-3 rounded-2xl bg-blue-50/70 border border-blue-200/90 flex items-center justify-between gap-3 text-xs shadow-2xs">
+      {/* 2. Top Verification Status: Verified Campus Student Badge or First-Time User Banner */}
+      {isVerifiedStudent ? (
+        <div className="mb-4 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/90 flex items-center justify-between gap-3 text-xs shadow-2xs">
           <div className="flex items-center gap-2.5 min-w-0">
-            {user.avatar ? (
-              <img
-                src={user.avatar}
-                alt={user.name}
-                className="w-8 h-8 rounded-full border border-blue-300 flex-shrink-0 object-cover"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
             <div className="min-w-0">
-              <div className="font-bold text-blue-950 truncate flex items-center gap-1.5">
-                <span className="truncate">{user.name}</span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded-full shrink-0 flex items-center gap-0.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                  Google Verified
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-extrabold text-emerald-950 truncate text-xs sm:text-sm">
+                  {formData.fullName || 'Campus Student'}
+                </span>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full shrink-0 border border-emerald-300/60">
+                  ✓ Verified Campus Student
                 </span>
               </div>
-              <div className="text-[11px] text-blue-700 truncate">{user.email}</div>
+              <p className="text-[11px] text-emerald-700 truncate font-medium mt-0.5">
+                +91 {formData.phone} • 1-Click Instant COD Active
+              </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-bold bg-white/90 px-2.5 py-1 rounded-xl border border-blue-100 shrink-0 shadow-2xs">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="hidden xs:inline">Verified</span>
-          </div>
-        </div>
-      ) : (
-        <div className="mb-4 p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200/90 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-2xs border border-neutral-200 shrink-0">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
-              </div>
-              <span className="text-xs font-bold text-neutral-800">Quick Verify with Google</span>
-              <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.2 rounded-full">Optional</span>
-            </div>
-            <span className="text-[11px] text-neutral-400 hidden sm:inline">Auto-fills name & email</span>
           </div>
 
           <button
             type="button"
-            id="verify-with-google-btn"
-            onClick={handleVerifyWithGoogle}
-            disabled={isVerifyingGoogle}
-            className="w-full py-2.5 px-4 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-neutral-800 text-xs sm:text-sm font-bold rounded-xl border border-neutral-300 hover:border-neutral-400 transition flex items-center justify-center gap-2.5 cursor-pointer shadow-2xs active:scale-98 disabled:opacity-60"
+            onClick={() => setIsEditingDetails(!isEditingDetails)}
+            className="px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 hover:bg-emerald-100/80 rounded-lg transition shrink-0 cursor-pointer border border-emerald-200"
           >
-            {isVerifyingGoogle ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                <span>Verifying with Google...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
-                <span>Verify with Google</span>
-              </>
-            )}
+            {isEditingDetails ? 'Done' : 'Edit'}
           </button>
-
-          {googleNotice && (
-            <div
-              className={`p-2.5 rounded-xl text-xs flex items-start gap-2 ${
-                googleNotice.type === 'success'
-                  ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
-                  : 'bg-blue-50 text-blue-900 border border-blue-200'
-              }`}
-            >
-              {googleNotice.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-              )}
-              <span className="font-medium leading-relaxed">{googleNotice.message}</span>
-            </div>
-          )}
+        </div>
+      ) : (
+        <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 flex items-start gap-2.5 text-xs text-blue-900 shadow-2xs">
+          <Sparkles className="w-4 h-4 text-[#0A84FF] shrink-0 mt-0.5" />
+          <div className="leading-relaxed">
+            <span className="font-bold">First-Time Campus Order:</span> Enter your details below. You will verify once via WhatsApp, and enjoy instant 1-click COD checkout for all future orders!
+          </div>
         </div>
       )}
 
       <form onSubmit={handleSubmitOrder} className="space-y-4">
-        {/* Full Name (Auto-filled from Google or manually entered) */}
+        {/* Full Name */}
         <div>
           <label className="block text-xs sm:text-sm font-bold text-neutral-700 mb-1">
             Full Name <span className="text-red-500">*</span>
@@ -836,7 +739,7 @@ Please confirm and prepare my order!`;
           />
         </div>
 
-        {/* 1. Normal Contact Phone Number (Strictly 10 digits for delivery agents) */}
+        {/* 10-digit Phone Number (Strictly required for campus delivery runners) */}
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="block text-xs sm:text-sm font-bold text-neutral-700">
@@ -861,35 +764,6 @@ Please confirm and prepare my order!`;
           </div>
           <p className="text-[11px] text-neutral-400 mt-1">
             Our campus runner will call this number when arriving at your delivery spot.
-          </p>
-        </div>
-
-        {/* Email / Gmail Address (Required: auto-filled from Google or captured manually as fail-safe) */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs sm:text-sm font-bold text-neutral-700">
-              Email / Gmail Address <span className="text-red-500">*</span>
-            </label>
-            {user?.email ? (
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                Verified via Google
-              </span>
-            ) : (
-              <span className="text-[10px] text-neutral-400 font-medium">Receipt & dispatch tracking</span>
-            )}
-          </div>
-          <input
-            type="email"
-            name="email"
-            required
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="e.g. rahul.sharma@gmail.com or campus@college.edu"
-            className="w-full px-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white"
-          />
-          <p className="text-[11px] text-neutral-400 mt-1">
-            Your Gmail/email is captured so you receive instant order receipts and dispatch updates even if Google login is skipped.
           </p>
         </div>
 
@@ -1211,32 +1085,56 @@ Please confirm and prepare my order!`;
           )}
         </div>
 
-        {/* Direct Continue and Place Order Button */}
+        {/* Verification or Instant 1-Click Order Button */}
         <div className="pt-2">
-          <button
-            type="submit"
-            id="continue-and-place-order-btn"
-            disabled={!storeOpen || loading}
-            className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg transition duration-200 text-sm sm:text-base cursor-pointer active:scale-98 ${
-              !storeOpen || loading
-                ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
-                : 'bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-emerald-500/20'
-            }`}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Processing Order...</span>
-              </>
-            ) : !storeOpen ? (
-              <span>Store Closed for Deliveries</span>
-            ) : (
-              <>
-                <ArrowRight className="w-5 h-5" />
-                <span>Continue & Place Order • ₹{totalAmount}</span>
-              </>
-            )}
-          </button>
+          {isVerifiedStudent ? (
+            <button
+              type="submit"
+              id="place-order-instantly-btn"
+              disabled={!storeOpen || loading}
+              className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg transition duration-200 text-sm sm:text-base cursor-pointer active:scale-98 min-h-[48px] ${
+                !storeOpen || loading
+                  ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25'
+              }`}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Placing Order Instantly...</span>
+                </>
+              ) : !storeOpen ? (
+                <span>Store Closed for Deliveries</span>
+              ) : (
+                <span>🚀 Place Order Instantly (COD) • ₹{totalAmount}</span>
+              )}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              id="verify-whatsapp-order-btn"
+              disabled={!storeOpen || loading}
+              className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg transition duration-200 text-sm sm:text-base cursor-pointer active:scale-98 min-h-[48px] ${
+                !storeOpen || loading
+                  ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
+                  : 'bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-emerald-500/25'
+              }`}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Saving & Opening WhatsApp...</span>
+                </>
+              ) : !storeOpen ? (
+                <span>Store Closed for Deliveries</span>
+              ) : (
+                <>
+                  <MessageCircle className="w-5 h-5 shrink-0" />
+                  <span>Verify & Place Order via WhatsApp • ₹{totalAmount}</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 pt-1">

@@ -37,22 +37,23 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
   // Profile state (persisted in localStorage and Supabase profiles table)
   const [profile, setProfile] = useState(() => {
     try {
+      const savedPhone = localStorage.getItem('infinity_user_phone') || '';
+      const savedName = localStorage.getItem('infinity_user_name') || '';
+      const savedRoom = localStorage.getItem('infinity_user_room') || '';
       const saved = localStorage.getItem('infinity_student_profile');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          fullName: authUser?.name || parsed.fullName || '',
-          phone: parsed.phone || '',
-          email: authUser?.email || parsed.email || '',
-          hostel: parsed.hostel || 'CCCT — Academic Complex & Admin',
-          roomNo: parsed.roomNo || '',
-          notes: parsed.notes || '',
-        };
-      }
+      const parsed = saved ? JSON.parse(saved) : {};
+      return {
+        fullName: savedName || authUser?.name || parsed.fullName || '',
+        phone: savedPhone || authUser?.phone || parsed.phone || '',
+        email: authUser?.email || parsed.email || '',
+        hostel: parsed.hostel || 'CCCT — Academic Complex & Admin',
+        roomNo: savedRoom || parsed.roomNo || '',
+        notes: parsed.notes || '',
+      };
     } catch {}
     return {
       fullName: authUser?.name || '',
-      phone: '',
+      phone: authUser?.phone || '',
       email: authUser?.email || '',
       hostel: 'CCCT — Academic Complex & Admin',
       roomNo: '',
@@ -195,10 +196,20 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    const userId = authUser?.id || 'usr-student-local';
+    const cleanPhone = profile.phone.replace(/\D/g, '');
+    try {
+      if (profile.fullName) localStorage.setItem('infinity_user_name', profile.fullName.trim());
+      if (cleanPhone) localStorage.setItem('infinity_user_phone', cleanPhone);
+      if (profile.roomNo) localStorage.setItem('infinity_user_room', profile.roomNo.trim());
+      if (cleanPhone.length === 10 && profile.fullName.trim()) {
+        localStorage.setItem('infinity_user_verified', 'true');
+      }
+    } catch {}
+
+    const userId = authUser?.id || (cleanPhone ? `student-${cleanPhone}` : 'usr-student-local');
     await saveProfileToSupabaseAndLocal(userId, profile);
     setSaveSuccess(true);
-    onToastMessage('Delivery address saved! Pre-filled for 1-tap checkout.');
+    onToastMessage('Delivery address saved! Pre-filled for 1-click checkout.');
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
@@ -291,86 +302,61 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
             <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-2xs">
               <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
                 <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-                  CAMPUS AUTH STATUS
+                  CAMPUS VERIFICATION STATUS
                 </span>
-                {authUser && isAuthenticated ? (
+                {profile.phone && (localStorage.getItem('infinity_user_verified') === 'true' || authUser?.isVerified) ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    <ShieldCheck className="w-3 h-3" /> Google Verified
+                    <ShieldCheck className="w-3 h-3" /> Verified Student
                   </span>
                 ) : (
                   <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                    Sign-In Required
+                    First-Time User
                   </span>
                 )}
               </div>
 
-              {authUser && isAuthenticated ? (
+              {profile.phone && (localStorage.getItem('infinity_user_verified') === 'true' || authUser?.isVerified) ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    {authUser.avatar ? (
-                      <img
-                        src={authUser.avatar}
-                        alt={authUser.name}
-                        className="w-10 h-10 rounded-full border border-blue-200 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-sm border border-blue-200 shrink-0">
-                        {authUser.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-sm border border-emerald-200 shrink-0">
+                      {(profile.fullName || 'S').charAt(0).toUpperCase()}
+                    </div>
                     <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-gray-900 truncate">{authUser.name}</h3>
-                      <p className="text-xs text-gray-500 truncate">{authUser.email}</p>
+                      <h3 className="text-sm font-bold text-gray-900 truncate">{profile.fullName || 'Campus Student'}</h3>
+                      <p className="text-xs text-gray-500 truncate">+91 {profile.phone}</p>
                     </div>
                   </div>
 
-                  <div className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-600">
-                    <p className="font-semibold text-gray-900">📍 Active Delivery Spot:</p>
-                    <p className="text-[11px] mt-0.5 text-gray-700 font-medium">{profile.hostel}</p>
-                    <p className="text-[11px] font-bold text-[#0A84FF]">{profile.roomNo || 'Room details pending'}</p>
+                  <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100 text-xs text-emerald-800">
+                    <div className="flex items-center gap-1 font-bold text-emerald-900 mb-0.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>1-Click COD Checkout Active</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-700">
+                      {profile.hostel} • {profile.roomNo || 'Room set'}
+                    </p>
                   </div>
 
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 border border-red-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-2 rounded-xl text-xs font-bold text-neutral-600 hover:text-red-600 hover:bg-red-50 border border-neutral-200 hover:border-red-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    <span>Log Out</span>
+                    <span>Reset Saved Details</span>
                   </button>
                 </div>
               ) : (
-                /* Google Sign In Box */
+                /* First-Time User Explanation */
                 <div className="space-y-3">
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Sign in with your Google account to automatically link past orders, save room details, and speed up checkout.
+                    Verify once via WhatsApp on your first order. Your name, phone, and room details are saved locally so you enjoy instant <strong>1-click checkout</strong> on all future orders.
                   </p>
 
-                  <button
-                    type="button"
-                    onClick={openLoginModal}
-                    className="w-full py-2.5 px-3 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                  >
-                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                      />
-                    </svg>
-                    <span>Sign In with Google</span>
-                  </button>
+                  <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-900 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span className="font-semibold text-[11px]">No password or repeated login required!</span>
+                  </div>
                 </div>
               )}
             </div>

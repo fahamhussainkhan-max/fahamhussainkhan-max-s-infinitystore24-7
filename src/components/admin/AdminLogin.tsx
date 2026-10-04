@@ -49,25 +49,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
         });
 
         if (error) {
-          // If Supabase credentials failed or network offline, check if it's super admin or known internal staff
-          if (
-            cleanEmail === 'fahamhussainkhan@gmail.com' ||
-            cleanEmail === 'admin@infinity.store' ||
-            cleanEmail === 'staff@infinity.store' ||
-            cleanEmail.endsWith('@infinity.store')
-          ) {
-            const isSuper = cleanEmail === 'fahamhussainkhan@gmail.com';
-            const staffUser = {
-              email: cleanEmail,
-              role: isSuper ? 'super_admin' : cleanEmail.includes('admin') ? 'admin' : 'staff',
-              name: isSuper ? 'Faham (Super Admin)' : cleanEmail.includes('admin') ? 'Senior Store Admin' : 'Dispatch Staff',
-            };
-            localStorage.setItem('infinity_staff_session', JSON.stringify(staffUser));
-            localStorage.setItem('infinity_admin_logged_in', 'true');
-            localStorage.setItem('infinity_admin_email', cleanEmail);
-            onSuccess(staffUser);
-            return;
-          }
           throw error;
         }
 
@@ -150,37 +131,11 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
     } catch (err: any) {
       console.warn('Auth notice:', err);
       setErrorMessage(
-        err.message || 'Authentication failed. Please verify your credentials or use Instant Staff Access below.'
+        err.message || 'Authentication failed. Please verify your credentials.'
       );
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleInstantDemoLogin = (roleType: 'dispatcher' | 'admin' | 'superadmin') => {
-    const demoUser =
-      roleType === 'superadmin'
-        ? {
-            email: 'fahamhussainkhan@gmail.com',
-            role: 'super_admin',
-            name: 'Faham (Super Admin)',
-          }
-        : roleType === 'admin'
-        ? {
-            email: 'admin@infinity.store',
-            role: 'admin',
-            name: 'Operations Manager',
-          }
-        : {
-            email: 'dispatcher@infinity.store',
-            role: 'staff',
-            name: 'Campus Dispatch Staff',
-          };
-
-    localStorage.setItem('infinity_staff_session', JSON.stringify(demoUser));
-    localStorage.setItem('infinity_admin_logged_in', 'true');
-    localStorage.setItem('infinity_admin_email', demoUser.email);
-    onSuccess(demoUser);
   };
 
   return (
@@ -287,51 +242,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
             )}
           </button>
         </form>
-
-        {/* Instant 1-Click Access for Evaluation & Store Dispatchers */}
-        <div className="mt-6 pt-6 border-t border-[#1E293B]/80">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3 text-center">
-            Quick Staff Dispatch Access
-          </p>
-
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => handleInstantDemoLogin('superadmin')}
-              className="py-2.5 px-2 rounded-xl bg-[#1A2333] hover:bg-[#223047] border border-amber-500/40 text-xs font-bold text-white transition-all flex flex-col items-center justify-center gap-1 group cursor-pointer"
-            >
-              <div className="flex items-center gap-1 text-amber-400 group-hover:text-amber-300">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span className="truncate">Super Admin</span>
-              </div>
-              <span className="text-[9px] text-gray-400 font-normal truncate">Faham Hussain</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleInstantDemoLogin('dispatcher')}
-              className="py-2.5 px-2 rounded-xl bg-[#1A2333] hover:bg-[#223047] border border-[#2B3B54] text-xs font-bold text-white transition-all flex flex-col items-center justify-center gap-1 group cursor-pointer"
-            >
-              <div className="flex items-center gap-1 text-blue-400 group-hover:text-blue-300">
-                <Radio className="w-3.5 h-3.5" />
-                <span className="truncate">Kitchen</span>
-              </div>
-              <span className="text-[9px] text-gray-400 font-normal truncate">Dispatch</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleInstantDemoLogin('admin')}
-              className="py-2.5 px-2 rounded-xl bg-[#1A2333] hover:bg-[#223047] border border-[#2B3B54] text-xs font-bold text-white transition-all flex flex-col items-center justify-center gap-1 group cursor-pointer"
-            >
-              <div className="flex items-center gap-1 text-emerald-400 group-hover:text-emerald-300">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span className="truncate">Store Admin</span>
-              </div>
-              <span className="text-[9px] text-gray-400 font-normal truncate">Catalog/Stock</span>
-            </button>
-          </div>
-        </div>
       </motion.div>
 
       {/* Database indicator */}

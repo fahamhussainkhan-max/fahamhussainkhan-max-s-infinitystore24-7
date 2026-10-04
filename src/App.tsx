@@ -35,7 +35,6 @@ import { Product, CartItem, CampusZone } from './types';
 import { fetchProducts, supabase } from './lib/supabase';
 import { detectNearestCampusZone, isInsideDeliveryZone } from './utils/geolocation';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { GoogleSignInModal } from './components/GoogleSignInModal';
 
 export type NavigationTab = 'home' | 'wishlist' | 'profile';
 
@@ -1061,13 +1060,6 @@ function CustomerStorefront() {
           setIsCustomerOrdersOpen(false);
           setCurrentTab('home');
         }}
-      />
-
-      {/* Google Sign-In Modal (Optional - opened only on explicit user request) */}
-      <GoogleSignInModal
-        isOpen={isLoginModalOpen}
-        onClose={closeLoginModal}
-        isMandatory={false}
       />
 
       {/* Floating Toast Notification */}
