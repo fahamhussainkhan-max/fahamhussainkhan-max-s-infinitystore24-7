@@ -206,6 +206,14 @@ export const CAMPUS_ZONES: CampusZone[] = [
   },
 ];
 
+export const CATEGORY_IMAGES = {
+  stationery: "https://images.unsplash.com/photo-1516962215378-7fa2e137ae93?auto=format&fit=crop&w=600&q=80",
+  drinks: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80",
+  snacks: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80",
+  techEssentials: "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=600&q=80",
+  womensCare: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=600&q=80",
+};
+
 export const CATEGORIES: Category[] = [
   {
     id: 'stationery',
@@ -214,7 +222,7 @@ export const CATEGORIES: Category[] = [
     accentColor: '#30D158',
     bgGradient: 'from-emerald-500/10 via-teal-500/10 to-green-500/10 border-emerald-200/80',
     textColor: 'text-emerald-800',
-    image: 'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&w=600&q=80',
+    image: CATEGORY_IMAGES.stationery,
     description: 'Spiral registers, exam pens, scientific calculators & sticky pads',
     itemCount: 10,
   },
@@ -225,7 +233,7 @@ export const CATEGORIES: Category[] = [
     accentColor: '#0A84FF',
     bgGradient: 'from-blue-500/10 via-cyan-500/10 to-sky-500/10 border-blue-200/80',
     textColor: 'text-blue-700',
-    image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80',
+    image: CATEGORY_IMAGES.drinks,
     description: 'Chilled sodas, energy drinks, cold brew & iced refreshments',
     itemCount: 8,
   },
@@ -236,19 +244,19 @@ export const CATEGORIES: Category[] = [
     accentColor: '#FFD60A',
     bgGradient: 'from-yellow-500/10 via-amber-500/10 to-orange-500/10 border-yellow-300/80',
     textColor: 'text-amber-800',
-    image: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80',
+    image: CATEGORY_IMAGES.snacks,
     description: 'Chips, 2-minute noodles, cookies, chocolates & midnight snacks',
     itemCount: 11,
   },
   {
     id: 'electronics',
-    name: 'Electronics & Gadgets',
+    name: 'Daily Essentials & Tech',
     emoji: '🔌',
     accentColor: '#BF5AF2',
     bgGradient: 'from-purple-500/10 via-indigo-500/10 to-violet-500/10 border-purple-200/80',
     textColor: 'text-purple-800',
-    image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
-    description: 'Extension boards, charging cables, adapters & student tech',
+    image: CATEGORY_IMAGES.techEssentials,
+    description: 'Extension boards, charging cables, adapters & hostel personal utilities',
     itemCount: 5,
   },
   {
@@ -259,8 +267,8 @@ export const CATEGORIES: Category[] = [
     accentColor: '#FF2D55',
     bgGradient: 'from-pink-500/10 via-rose-500/10 to-purple-500/10 border-pink-200/80',
     textColor: 'text-pink-700',
-    image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80',
-    description: 'Sanitary pads, intimate hygiene, daily cleansing wash & wellness essentials',
+    image: CATEGORY_IMAGES.womensCare,
+    description: 'Intimate hygiene, gentle skincare, comforting wellness & daily essentials',
     itemCount: 6,
   },
 ];
@@ -362,7 +370,7 @@ export const PRODUCTS: Product[] = [
     discount: '17% OFF',
     rating: 4.95,
     reviewsCount: 180,
-    image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1582719471384-894fbb16e074?auto=format&fit=crop&w=800&q=80',
     inStock: true,
     stockCount: 40,
     isPopular: true,
@@ -803,7 +811,7 @@ export const PRODUCTS: Product[] = [
     discount: '14% OFF',
     rating: 4.95,
     reviewsCount: 164,
-    image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80',
+    image: CATEGORY_IMAGES.womensCare,
     inStock: true,
     stockCount: 50,
     isPopular: true,

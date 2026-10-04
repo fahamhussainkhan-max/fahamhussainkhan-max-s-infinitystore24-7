@@ -13,10 +13,13 @@ import {
   LogOut,
   ShieldCheck,
   Sparkles,
+  ArrowLeft,
 } from 'lucide-react';
 import { AdminOrder, CampusZone } from '../types';
 import { fetchOrders, supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { OrderDispatchTracker } from './OrderDispatchTracker';
+import { OrderTrackingTimeline } from './OrderTrackingTimeline';
 
 interface OrdersProfileViewProps {
   onExploreCatalog: () => void;
@@ -33,6 +36,7 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
 }) => {
   const { user: authUser, isAuthenticated, openLoginModal, signOut } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'orders'>('profile');
+  const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<AdminOrder | null>(null);
 
   // Profile state (persisted in localStorage and Supabase profiles table)
   const [profile, setProfile] = useState(() => {
@@ -244,8 +248,52 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
     );
   };
 
+  if (selectedOrderForTracking) {
+    return (
+      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-8 animate-fade-in">
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => setSelectedOrderForTracking(null)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-gray-100 border border-gray-200/90 text-xs font-bold text-gray-800 shadow-2xs transition-all active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-gray-700" />
+            <span>← Back to Orders List</span>
+          </button>
+        </div>
+        <div className="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden">
+          <OrderTrackingTimeline
+            order={selectedOrderForTracking}
+            onBack={() => setSelectedOrderForTracking(null)}
+            onStatusUpdate={(updated) => {
+              setOrders((prev) =>
+                prev.map((o) => (o.id === updated.id ? updated : o))
+              );
+              setSelectedOrderForTracking(updated);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 animate-fade-in">
+    <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-8 animate-fade-in">
+      {/* Universal Top-Left Back Navigation */}
+      <div className="flex items-center justify-between mb-4 pb-2">
+        <button
+          type="button"
+          onClick={onExploreCatalog}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-gray-100 border border-gray-200/90 text-xs font-bold text-gray-800 shadow-2xs transition-all active:scale-95 cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4 text-gray-700" />
+          <span>← Back to Store</span>
+        </button>
+        <span className="text-xs text-gray-500 font-semibold hidden sm:inline">
+          CCCT & SIST Campus Account
+        </span>
+      </div>
+
       {/* Top Title & Navigation Subtabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-200 gap-4 mb-6">
         <div>
@@ -542,18 +590,30 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
       ) : (
         /* Orders Tab: Live Tracking & Past Orders */
         <div className="space-y-4">
-          <div className="flex items-center justify-between pb-2">
-            <h2 className="text-lg font-bold text-gray-900">
-              Your Campus Order History ({orders.length})
-            </h2>
+          {/* Sticky Back to Store Bar */}
+          <div className="sticky top-20 z-20 bg-white/95 backdrop-blur-md p-3 rounded-2xl border border-gray-200/90 shadow-sm flex items-center justify-between">
             <button
               type="button"
-              onClick={loadOrders}
-              className="text-xs font-bold text-[#0A84FF] hover:underline flex items-center gap-1 cursor-pointer"
+              onClick={onExploreCatalog}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-800 transition-all active:scale-95 cursor-pointer"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>← Back to Store</span>
             </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-800">
+                Orders ({orders.length})
+              </span>
+              <button
+                type="button"
+                onClick={loadOrders}
+                className="text-xs font-bold text-[#0A84FF] hover:bg-blue-50 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                title="Refresh Orders"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Refresh</span>
+              </button>
+            </div>
           </div>
 
           {loadingOrders ? (
@@ -607,10 +667,21 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                     </div>
                   </div>
 
+                  {/* Interactive 4-step Progress Tracker */}
+                  <OrderDispatchTracker
+                    orderId={order.order_number || order.id}
+                    status={order.status}
+                    deliveryZone={order.delivery_zone}
+                    roomDetails={order.room_details}
+                    totalAmount={order.total_amount}
+                    onTrackLive={() => setSelectedOrderForTracking(order)}
+                    showContactActions={true}
+                  />
+
                   {/* Items snapshot */}
-                  <div className="space-y-1 pt-1">
+                  <div className="space-y-1 pt-1 border-t border-gray-100">
                     <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                      Ordered Items:
+                      Ordered Items ({order.items?.length || 0}):
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {order.items &&

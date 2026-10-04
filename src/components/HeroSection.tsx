@@ -39,11 +39,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   </div>
                 </div>
                 <span className="text-[10.5px] xs:text-[11px] sm:text-xs font-bold text-amber-950 truncate max-w-[260px] xs:max-w-none">
-                  Authorized by Entrepreneurship Development Cell (EDC), CCCT Chisopani
+                  Authorized by Entrepreneurship Development Cell (EDC) • Verified Student Initiative
                 </span>
               </motion.div>
 
-              {/* Small Campus Badge */}
+              {/* Official Motto Campus Badge */}
               <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -51,7 +51,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-white shadow-sm border border-gray-200/90 text-[11px] sm:text-xs font-black tracking-wider text-[#111111]"
               >
                 <Zap className="w-3.5 h-3.5 fill-[#FF3B30] text-[#FF3B30]" />
-                <span>⚡ CCCT & SIST CAMPUS EXPRESS</span>
+                <span>⚡ OFFICIAL 45-MIN CAMPUS QUICK-COMMERCE FOR CCCT & SIST</span>
               </motion.div>
             </div>
 

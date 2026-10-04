@@ -69,6 +69,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       }
       return;
     }
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(15);
+      }
+    } catch {}
     if (product.minQuantity && product.minQuantity > 1 && quantityInCart === 0) {
       onUpdateQuantity(product.id, product.minQuantity);
     } else {
@@ -90,12 +95,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       }
       return;
     }
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(12);
+      }
+    } catch {}
     onUpdateQuantity(product.id, quantityInCart + 1);
   };
 
   const handleDecrement = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(10);
+      }
+    } catch {}
     if (product.minQuantity && product.minQuantity > 1 && quantityInCart <= product.minQuantity) {
       onUpdateQuantity(product.id, 0);
     } else {
@@ -288,75 +303,89 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </div>
             </div>
 
-            {/* Transformative Quick Add Button / Quantity Selector with Spring Animations */}
+            {/* Transformative Quick Add Button / Sleek Pill Quantity Selector with Spring Animations */}
             <div className="relative z-20 pointer-events-auto">
-              {quantityInCart === 0 ? (
-                <motion.button
-                  type="button"
-                  disabled={!isStoreOpen}
-                  onClick={handleAdd}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  whileHover={isStoreOpen ? { scale: 1.06 } : undefined}
-                  whileTap={isStoreOpen ? { scale: 0.92 } : undefined}
-                  transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-                  style={{ pointerEvents: 'auto' }}
-                  className={`relative z-20 pointer-events-auto flex items-center justify-center gap-1 px-2.5 xs:px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] xs:text-xs sm:text-sm font-extrabold shadow-sm min-h-[38px] ${
-                    !isStoreOpen
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 shadow-none'
-                      : isDark
-                      ? 'cursor-pointer bg-white text-black hover:bg-gray-200 active:scale-95'
-                      : 'cursor-pointer bg-[#111111] hover:bg-[#0A84FF] text-white shadow-[0_4px_12px_rgba(0,0,0,0.12)] active:scale-95'
-                  }`}
-                >
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
-                  <span>
-                    {!isStoreOpen
-                      ? 'Closed'
-                      : product.minQuantity && product.minQuantity > 1
-                      ? `Add (Min ${product.minQuantity})`
-                      : 'Add'}
-                  </span>
-                </motion.button>
-              ) : (
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 450, damping: 25 }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  style={{ pointerEvents: 'auto' }}
-                  className="relative z-20 pointer-events-auto flex items-center rounded-xl bg-[#0A84FF] text-white p-0.5 shadow-md"
-                >
+              <AnimatePresence mode="wait" initial={false}>
+                {quantityInCart === 0 ? (
                   <motion.button
+                    key="add-btn"
                     type="button"
-                    whileTap={{ scale: 0.82 }}
-                    onClick={handleDecrement}
+                    disabled={!isStoreOpen}
+                    onClick={handleAdd}
                     onPointerDown={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
+                    initial={{ scale: 0.85, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.85, opacity: 0 }}
+                    whileHover={isStoreOpen ? { scale: 1.06 } : undefined}
+                    whileTap={isStoreOpen ? { scale: 0.92 } : undefined}
+                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                     style={{ pointerEvents: 'auto' }}
-                    className="w-7 h-7 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors cursor-pointer pointer-events-auto"
-                    aria-label="Decrease count"
-                  >
-                    <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
-                  </motion.button>
-                  <span className="px-2 text-xs font-black min-w-[20px] text-center select-none pointer-events-none">
-                    {quantityInCart}
-                  </span>
-                  <motion.button
-                    type="button"
-                    whileTap={{ scale: 0.82 }}
-                    onClick={handleIncrement}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    style={{ pointerEvents: 'auto' }}
-                    className="w-7 h-7 flex items-center justify-center hover:bg-white/20 rounded-lg transition-colors cursor-pointer pointer-events-auto"
-                    aria-label="Increase count"
+                    className={`relative z-20 pointer-events-auto flex items-center justify-center gap-1.5 px-3 xs:px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] xs:text-xs sm:text-sm font-extrabold shadow-sm min-h-[36px] transition-colors ${
+                      !isStoreOpen
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 shadow-none'
+                        : isDark
+                        ? 'cursor-pointer bg-white text-black hover:bg-gray-200 active:scale-95'
+                        : 'cursor-pointer bg-[#111111] hover:bg-[#0A84FF] text-white shadow-[0_4px_14px_rgba(0,0,0,0.15)] active:scale-95'
+                    }`}
                   >
                     <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>
+                      {!isStoreOpen
+                        ? 'Closed'
+                        : product.minQuantity && product.minQuantity > 1
+                        ? `Add (Min ${product.minQuantity})`
+                        : 'Add'}
+                    </span>
                   </motion.button>
-                </motion.div>
-              )}
+                ) : (
+                  <motion.div
+                    key="counter-pill"
+                    initial={{ scale: 0.85, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.85, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ pointerEvents: 'auto' }}
+                    className="relative z-20 pointer-events-auto flex items-center rounded-full bg-[#111111] hover:bg-black text-white p-0.5 sm:p-1 shadow-md border border-white/10"
+                  >
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.76 }}
+                      onClick={handleDecrement}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={{ pointerEvents: 'auto' }}
+                      className="w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center hover:bg-white/20 active:bg-white/30 rounded-full transition-colors cursor-pointer pointer-events-auto"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    </motion.button>
+                    <motion.span
+                      key={`qty-count-${quantityInCart}`}
+                      initial={{ y: -3, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ duration: 0.15 }}
+                      className="px-2 text-xs sm:text-sm font-black min-w-[20px] text-center select-none pointer-events-none"
+                    >
+                      {quantityInCart}
+                    </motion.span>
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.76 }}
+                      onClick={handleIncrement}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={{ pointerEvents: 'auto' }}
+                      className="w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center hover:bg-white/20 active:bg-white/30 rounded-full transition-colors cursor-pointer pointer-events-auto"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    </motion.button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>

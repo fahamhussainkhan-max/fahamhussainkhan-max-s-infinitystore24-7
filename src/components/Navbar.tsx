@@ -35,6 +35,8 @@ interface NavbarProps {
   activeTab?: 'home' | 'wishlist' | 'profile';
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  products?: any[];
+  onSelectProduct?: (productId: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -54,12 +56,30 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab = 'home',
   searchQuery = '',
   onSearchChange,
+  products = [],
+  onSelectProduct,
 }) => {
   const { user: authUser } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isMobileSearchFocused, setIsMobileSearchFocused] = useState(false);
   const desktopSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+
+  // Quick matching products for instant detached search dropdown
+  const matchingProducts = searchQuery.trim()
+    ? (products || [])
+        .filter((p: any) => {
+          const q = searchQuery.toLowerCase();
+          return (
+            (p.name && p.name.toLowerCase().includes(q)) ||
+            (p.category && p.category.toLowerCase().includes(q)) ||
+            (p.tags && p.tags.some((t: string) => t.toLowerCase().includes(q)))
+          );
+        })
+        .slice(0, 5)
+    : [];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -90,8 +110,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         desktopSearchInputRef.current?.select();
       }
 
-      // Press Escape to reset / blur search
+      // Press Escape to reset / blur search and dismiss dropdowns
       if (e.key === 'Escape') {
+        setIsSearchFocused(false);
+        setIsMobileSearchFocused(false);
+        setIsMobileMenuOpen(false);
         if (
           document.activeElement === desktopSearchInputRef.current ||
           document.activeElement === mobileSearchInputRef.current
@@ -124,34 +147,25 @@ export const Navbar: React.FC<NavbarProps> = ({
       style={{
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        backgroundColor: isScrolled ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.92)',
+        backgroundColor: isScrolled ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.95)',
         boxShadow: isScrolled ? '0 4px 20px -2px rgba(0, 0, 0, 0.08)' : 'none',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
-      className="sticky top-0 z-50 w-full max-w-full border-b border-gray-200/80 pointer-events-auto select-none overflow-x-hidden"
+      className="sticky top-0 z-50 w-full max-w-full border-b border-gray-200/80 pointer-events-auto select-none overflow-visible"
     >
-      {/* Top Quick-Delivery pill banner */}
-      <div
-        className={`w-full bg-[#111111] px-2.5 sm:px-4 flex items-center justify-center border-b border-white/10 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden ${
-          isScrolled ? 'py-1' : 'py-1.5'
-        }`}
-      >
+      {/* Top Quick-Delivery pill banner (Fixed Height h-7 to prevent vertical layout shifts) */}
+      <div className="w-full bg-[#111111] px-2.5 sm:px-4 h-7 flex items-center justify-center border-b border-white/10 overflow-hidden">
         <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-0.5 rounded-full bg-[#1c1c1e] text-[10px] sm:text-xs font-bold text-white border border-[#30D158]/60 shadow-[0_0_18px_rgba(48,209,88,0.4),0_0_6px_rgba(10,132,255,0.3)] animate-pulse max-w-full">
           <span className="relative flex h-2 w-2 flex-shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#30D158] opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#30D158]" />
           </span>
           <span className="text-[#FFD60A] font-black tracking-wide flex-shrink-0">⚡ Express:</span>
-          <span className="text-gray-100 font-semibold truncate">Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)</span>
+          <span className="text-gray-100 font-semibold truncate">Official 45-Min Campus Quick-Commerce for CCCT & SIST (Delivery in 30 - 45 mins)</span>
         </div>
       </div>
 
-      {/* Main navigation row */}
-      <div
-        className={`max-w-6xl mx-auto px-2.5 xs:px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-          isScrolled ? 'h-14 sm:h-16 py-1 sm:py-2' : 'h-16 sm:h-20 py-2 sm:py-3.5'
-        }`}
-      >
+      {/* Main navigation row (Locked Height h-16 sm:h-18 with zero jitter) */}
+      <div className="max-w-6xl mx-auto px-2.5 xs:px-3 sm:px-6 h-16 sm:h-18 flex items-center justify-between gap-2 sm:gap-4 relative">
         {/* Left Side: Brand Logo, EDC Slot & Campus Location Picker */}
         <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 min-w-0 flex-shrink-0">
           {/* Brand Logo */}
@@ -196,8 +210,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="font-extrabold text-base xs:text-lg sm:text-xl tracking-tight text-[#111111] font-display flex items-center leading-none">
                 Infinity<span className="text-[#0A84FF]">Store</span>
               </span>
-              <span className="text-[9px] sm:text-[10px] text-gray-400 font-semibold tracking-wide hidden xs:block">
-                "Need it? Get it."
+              <span className="text-[8.5px] sm:text-[9.5px] text-gray-500 font-bold tracking-wide hidden xs:block truncate max-w-[190px] sm:max-w-none">
+                Official 45-Min Campus Quick-Commerce
               </span>
             </div>
           </a>
@@ -227,22 +241,25 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Center: Integrated Real-Time Search Bar (Desktop & Tablet) */}
-        <div className="flex-1 max-w-md mx-2 hidden sm:block">
+        <div className="flex-1 max-w-md mx-2 hidden sm:block relative">
           <div className="relative w-full">
             <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               ref={desktopSearchInputRef}
               type="text"
               value={searchQuery}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
               onChange={(e) => {
                 const val = e.target.value;
                 onSearchChange?.(val);
+                setIsSearchFocused(true);
                 if (val.trim() && activeTab !== 'home' && onGoHome) {
                   onGoHome();
                 }
               }}
               placeholder="Search Maggi, Red Bull, notes, stationery..."
-              className="w-full pl-9 pr-12 py-2 sm:py-2.5 rounded-2xl bg-gray-100/90 hover:bg-gray-100 focus:bg-white text-xs sm:text-sm font-medium text-gray-900 border border-transparent focus:border-[#0A84FF] focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 transition-all shadow-inner"
+              className="w-full pl-9 pr-12 py-2 sm:py-2.5 rounded-2xl bg-gray-100/90 hover:bg-gray-100 focus:bg-white text-xs sm:text-sm font-medium text-gray-900 border border-transparent focus:border-[#0A84FF] focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 transition-colors shadow-inner"
             />
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {searchQuery ? (
@@ -250,6 +267,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   type="button"
                   onClick={() => {
                     onSearchChange?.('');
+                    setIsSearchFocused(false);
                     desktopSearchInputRef.current?.focus();
                   }}
                   className="p-1 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition cursor-pointer"
@@ -263,6 +281,56 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </kbd>
               )}
             </div>
+
+            {/* Completely Detached Autocomplete Search Dropdown */}
+            {isSearchFocused && searchQuery.trim().length > 0 && (
+              <div
+                style={{ position: 'absolute', top: '100%', left: 0, width: '100%' }}
+                className="mt-2 bg-white rounded-2xl shadow-2xl border border-gray-200/90 overflow-hidden z-60 text-left pointer-events-auto"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <div className="px-3.5 py-2 bg-gray-50/90 border-b border-gray-100 flex items-center justify-between text-[11px] font-bold text-gray-500">
+                  <span>Instant Campus Matches ({matchingProducts.length})</span>
+                  <span className="text-[10px] text-gray-400">Esc to close</span>
+                </div>
+                {matchingProducts.length > 0 ? (
+                  <div className="max-h-60 overflow-y-auto p-1.5 divide-y divide-gray-50">
+                    {matchingProducts.map((p: any) => (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          if (onSelectProduct) onSelectProduct(p.id);
+                          if (onGoHome && activeTab !== 'home') onGoHome();
+                          setIsSearchFocused(false);
+                        }}
+                        className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-blue-50/80 cursor-pointer transition-colors group"
+                      >
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          className="w-9 h-9 rounded-lg object-cover shrink-0 border border-gray-200"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-900 truncate group-hover:text-[#0A84FF]">
+                            {p.name}
+                          </p>
+                          <p className="text-[10px] text-gray-400 capitalize">
+                            {p.category} • ₹{p.price}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-extrabold text-[#0A84FF] bg-blue-50 px-2 py-0.5 rounded-md shrink-0">
+                          ₹{p.price}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3.5 text-center text-xs text-gray-500">
+                    No instant matches for "{searchQuery}". Press Enter to view full results.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -393,31 +461,85 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Mobile Integrated Search Row (Visible on small screens < 640px) */}
-      <div className="sm:hidden px-3 pb-2.5 pt-0">
+      <div className="sm:hidden px-3 pb-2.5 pt-0 relative">
         <div className="relative w-full">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             ref={mobileSearchInputRef}
             type="text"
             value={searchQuery}
+            onFocus={() => setIsMobileSearchFocused(true)}
+            onBlur={() => setTimeout(() => setIsMobileSearchFocused(false), 200)}
             onChange={(e) => {
               const val = e.target.value;
               onSearchChange?.(val);
+              setIsMobileSearchFocused(true);
               if (val.trim() && activeTab !== 'home' && onGoHome) {
                 onGoHome();
               }
             }}
             placeholder="Search Maggi, Red Bull, stationery..."
-            className="w-full pl-9 pr-9 py-2 rounded-xl bg-gray-100 text-xs font-medium text-gray-900 border border-gray-200 focus:bg-white focus:outline-none focus:border-[#0A84FF]"
+            className="w-full pl-9 pr-9 py-2 rounded-xl bg-gray-100 text-xs font-medium text-gray-900 border border-gray-200 focus:bg-white focus:outline-none focus:border-[#0A84FF] transition-colors"
           />
           {searchQuery && (
             <button
               type="button"
-              onClick={() => onSearchChange?.('')}
+              onClick={() => {
+                onSearchChange?.('');
+                setIsMobileSearchFocused(false);
+              }}
               className="p-1 text-gray-400 hover:text-gray-700 absolute right-2.5 top-1/2 -translate-y-1/2"
             >
               <X className="w-3.5 h-3.5" />
             </button>
+          )}
+
+          {/* Completely Detached Mobile Search Autocomplete Dropdown */}
+          {isMobileSearchFocused && searchQuery.trim().length > 0 && (
+            <div
+              style={{ position: 'absolute', top: '100%', left: 0, width: '100%' }}
+              className="mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-200/90 overflow-hidden z-60 text-left pointer-events-auto"
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-[10px] font-bold text-gray-500">
+                <span>Instant Matches ({matchingProducts.length})</span>
+                <span className="text-[9px] text-gray-400">Esc to close</span>
+              </div>
+              {matchingProducts.length > 0 ? (
+                <div className="max-h-56 overflow-y-auto p-1 divide-y divide-gray-50">
+                  {matchingProducts.map((p: any) => (
+                    <div
+                      key={`mob-match-${p.id}`}
+                      onClick={() => {
+                        if (onSelectProduct) onSelectProduct(p.id);
+                        if (onGoHome && activeTab !== 'home') onGoHome();
+                        setIsMobileSearchFocused(false);
+                      }}
+                      className="flex items-center gap-2 p-2 rounded-xl hover:bg-blue-50/80 cursor-pointer transition-colors group"
+                    >
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        className="w-8 h-8 rounded-lg object-cover shrink-0 border border-gray-200"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-gray-900 truncate group-hover:text-[#0A84FF]">
+                          {p.name}
+                        </p>
+                        <p className="text-[10px] text-gray-400 capitalize">₹{p.price}</p>
+                      </div>
+                      <span className="text-[10px] font-extrabold text-[#0A84FF] bg-blue-50 px-2 py-0.5 rounded-md shrink-0">
+                        ₹{p.price}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 text-center text-xs text-gray-500">
+                  No instant matches for "{searchQuery}".
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

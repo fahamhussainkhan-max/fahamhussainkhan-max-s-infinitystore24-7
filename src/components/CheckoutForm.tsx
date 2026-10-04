@@ -60,7 +60,7 @@ const LOCATION_SECTIONS = {
     'Makaju Boys Hostel',
     'Happy Hostel',
     'Anshuman PG',
-    'Custom PG / Building Name',
+    'Custom PG / Landmark',
   ],
 };
 
@@ -223,6 +223,7 @@ export default function CheckoutForm({
 
   // Custom PG specific fields
   const isCustomOption =
+    formData.area === 'Custom PG / Landmark' ||
     formData.area === 'Custom PG / Building Name' ||
     formData.area === 'Custom PG / Other Specific Location' ||
     (!Object.values(LOCATION_SECTIONS).flat().includes(formData.area) && Boolean(formData.area));
@@ -440,14 +441,8 @@ export default function CheckoutForm({
       return;
     }
 
-    // 5. Custom PG / Building Sanitization (if selected)
-    if (isCustomOption) {
-      const trimmedCustom = customPgName.trim();
-      if (!trimmedCustom || trimmedCustom.length < 2) {
-        setErrorMsg('Please enter your Custom PG / Building Name or landmark (minimum 2 characters).');
-        return;
-      }
-    }
+    // 5. Custom PG / Landmark (Optional text input - defaults cleanly to selected area)
+    const trimmedCustom = customPgName.trim();
 
     // 6. Room / Flat / Floor Number (Strictly Optional: never block checkout if empty)
     const trimmedRoom = formData.roomNo.trim();
@@ -689,18 +684,11 @@ export default function CheckoutForm({
           const waOrderMessage = 
 `🛍️ *NEW CAMPUS ORDER: #${finalOrderId}*
 *Name:* ${checkoutDetails.name}
-*Phone:* +91 ${cleanPhone}
-*Delivery Location:* ${selectedLocation}
-*Room / Hostel:* ${roomDetails}
+*Phone:* ${cleanPhone}
+*Delivery:* ${selectedLocation}, Room: ${roomDetails}
 *Items:* ${itemSummary}
-================================
-Subtotal: ₹${subtotalAmount}
-Runner Delivery Fee: ₹${deliveryCharge} (10% OFF Flat Rate)
-Packaging & Handling Fee: ${isFreeHandlingQualified ? 'FREE (₹0 - Orders above ₹200)' : '₹9'}
-*Total Amount Due:* ₹${totalAmount} (Cash on Delivery)
-================================
-${checkoutDetails.notes ? `*Delivery Note:* ${checkoutDetails.notes}\n` : ''}
-Please verify my campus order and dispatch runner!`;
+*Total:* ₹${totalAmount} (COD)
+${checkoutDetails.notes ? `*Delivery Note:* ${checkoutDetails.notes}\n` : ''}Please confirm and dispatch my order!`;
 
           const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(waOrderMessage)}`;
           const opened = window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -1224,7 +1212,7 @@ Please verify my campus order and dispatch runner!`;
               ) : !storeOpen ? (
                 <span>Store Closed for Deliveries</span>
               ) : (
-                <span>🚀 Place Order Instantly (COD) • ₹{totalAmount}</span>
+                <span>🚀 Place Order (COD) • ₹{totalAmount}</span>
               )}
             </button>
           ) : (
@@ -1248,7 +1236,7 @@ Please verify my campus order and dispatch runner!`;
               ) : (
                 <>
                   <MessageCircle className="w-5 h-5 shrink-0" />
-                  <span>Confirm Order via WhatsApp • ₹{totalAmount}</span>
+                  <span>Verify & Place Order via WhatsApp • ₹{totalAmount}</span>
                 </>
               )}
             </button>

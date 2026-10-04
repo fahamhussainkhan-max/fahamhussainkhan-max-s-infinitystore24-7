@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, Shield, Clock, Phone, MapPin, Package, Code, UserCheck, Mail, Headphones, FileText } from 'lucide-react';
+import { Heart, Shield, Clock, Phone, MapPin, Package, Code, UserCheck, Mail, Headphones, FileText, ShieldCheck, MessageCircle } from 'lucide-react';
 import { LegalModal, LegalModalType } from './LegalModal';
 
 interface FooterProps {
@@ -39,19 +39,37 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
               </span>
             </div>
 
-            <p className="text-xs sm:text-sm text-gray-400 max-w-sm leading-relaxed">
-              Hyperlocal quick-commerce engineered exclusively for CCCT & SIST students, faculty, and surrounding hostels. Delivery within 30 - 45 mins.
+            {/* Official Brand Motto */}
+            <p className="text-sm font-extrabold text-[#0A84FF] tracking-tight">
+              Official 45-Min Campus Quick-Commerce for CCCT & SIST.
             </p>
 
-            <div className="flex flex-col gap-1.5 text-xs font-semibold text-emerald-400">
-              <div className="flex items-center gap-2">
+            <p className="text-xs sm:text-sm text-gray-400 max-w-sm leading-relaxed">
+              Delivering snacks, chilled drinks, exam stationery, and daily room supplies directly to hostel blocks and academic spots in 30 - 45 mins.
+            </p>
+
+            {/* Trust Badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-2xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Verified Campus Student Entrepreneurship Initiative.</span>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-1 text-xs">
+              <div className="flex items-center gap-2 text-emerald-400 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-[#30D158] animate-ping" />
-                <span>Campus Hub Operating Hours: 24/7 (Priority Delivery Active During Exam Cycles)</span>
+                <span>Campus Dispatch Hub: 24/7 Operating Hours</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-400 font-normal">
-                <Headphones className="w-3.5 h-3.5 text-[#0A84FF]" />
-                <span>Student Support Helpline: Available via in-app dispatch</span>
-              </div>
+              
+              {/* WhatsApp Support & Dispatch */}
+              <a
+                href="https://wa.me/919332727610?text=Hi%2C%20I%20have%20a%20query%20regarding%20Infinity%20Store%20campus%20delivery"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-gray-200 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 transition-colors w-fit font-medium"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
+                <span>Support & WhatsApp Dispatch: <strong>+91 93327 27610</strong></span>
+              </a>
             </div>
           </div>
 
@@ -139,10 +157,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
         <div className="pt-6 flex flex-col md:flex-row items-center justify-between text-xs text-gray-400 gap-3">
           <div className="text-center md:text-left space-y-1">
             <div className="font-bold text-gray-300">
-              © 2026 Infinity Store Inc. Hyperlocal Campus Quick-Commerce.
+              © 2026 Infinity Store. Official 45-Min Campus Quick-Commerce for CCCT & SIST.
             </div>
             <div className="text-[11px] text-gray-500">
-              Campus Hub Operating Hours: 24/7 (Priority Delivery Active During Exam Cycles). Student Support Helpline: Available via in-app dispatch.
+              Verified Campus Student Entrepreneurship Initiative • Direct WhatsApp Dispatch: +91 93327 27610
             </div>
             {/* Subtle legal text links */}
             <div className="pt-1.5 flex flex-wrap items-center justify-center md:justify-start gap-x-3 gap-y-1 text-[11.5px] text-gray-400">

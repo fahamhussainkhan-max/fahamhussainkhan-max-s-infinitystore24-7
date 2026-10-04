@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Heart, Sparkles } from 'lucide-react';
 import { CATEGORIES } from '../data/mockData';
 import { Category } from '../types';
 
@@ -105,7 +105,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                     {cat.emoji}
                   </span>
                   {cat.id === 'womens-care' && (
-                    <Heart className="w-4 h-4 text-pink-500 fill-pink-500/30 shrink-0" />
+                    <Sparkles className="w-4 h-4 text-rose-500 fill-rose-500/20 shrink-0" />
                   )}
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/80 text-gray-700 shadow-xs border border-black/5">
@@ -113,15 +113,15 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                 </span>
               </div>
 
-              {/* Category Image with hover scale */}
-              <div className="relative w-full h-20 xs:h-24 sm:h-28 my-1.5 rounded-xl sm:rounded-2xl overflow-hidden shadow-inner bg-gray-100">
+              {/* Category Image with rounded-2xl, object-cover, and subtle drop-shadow */}
+              <div className="relative w-full h-24 xs:h-28 sm:h-32 my-2 rounded-2xl overflow-hidden shadow-md bg-gray-100 border border-black/5">
                 <img
                   src={cat.image}
                   alt={cat.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  className="w-full h-full object-cover rounded-2xl transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
               </div>
 
               {/* Title & Arrow */}

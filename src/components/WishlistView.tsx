@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, ShoppingBag, Trash2, ArrowRight, Sparkles, Plus } from 'lucide-react';
+import { Heart, ShoppingBag, Trash2, ArrowRight, Sparkles, Plus, ArrowLeft } from 'lucide-react';
 import { Product } from '../types';
 
 interface WishlistViewProps {
@@ -39,7 +39,22 @@ export const WishlistView: React.FC<WishlistViewProps> = ({
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 animate-fade-in">
+    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 animate-fade-in">
+      {/* Top-Left Back Navigation */}
+      <div className="flex items-center justify-between mb-4 pb-2">
+        <button
+          type="button"
+          onClick={onExploreCatalog}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-gray-100 border border-gray-200/90 text-xs font-bold text-gray-800 shadow-2xs transition-all active:scale-95 cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4 text-gray-700" />
+          <span>← Back to Store</span>
+        </button>
+        <span className="text-xs text-gray-500 font-semibold hidden sm:inline">
+          {wishlistedProducts.length} items saved
+        </span>
+      </div>
+
       {/* Header bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-200 gap-4 mb-6">
         <div>

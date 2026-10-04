@@ -26,6 +26,7 @@ import { CategoryPills } from './components/CategoryPills';
 import { Footer } from './components/Footer';
 import { WishlistView } from './components/WishlistView';
 import { OrdersProfileView } from './components/OrdersProfileView';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { StudentEntrepreneurshipBanner } from './components/StudentEntrepreneurshipBanner';
 import { CampusLocationModal } from './components/CampusLocationModal';
 import { CampusPrintModal } from './components/CampusPrintModal';
@@ -383,6 +384,58 @@ function CustomerStorefront() {
     }
   }, []);
 
+  // Universal Modal Escape (Esc key) & Desktop/Mobile Back Handling
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isCartOpen) {
+          setIsCartOpen(false);
+        } else if (isZoneModalOpen) {
+          setIsZoneModalOpen(false);
+        } else if (isPrintModalOpen) {
+          setIsPrintModalOpen(false);
+        } else if (isCustomerOrdersOpen) {
+          setIsCustomerOrdersOpen(false);
+        } else if (searchQuery) {
+          setSearchQuery('');
+        } else if (selectedCategory) {
+          setSelectedCategory(null);
+        } else if (currentTab !== 'home') {
+          setCurrentTab('home');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCartOpen, isZoneModalOpen, isPrintModalOpen, isCustomerOrdersOpen, searchQuery, selectedCategory, currentTab]);
+
+  // Support native hardware / browser back button to dismiss modals/drawers instead of closing page
+  useEffect(() => {
+    const hasAnyOverlay = isCartOpen || isZoneModalOpen || isPrintModalOpen || isCustomerOrdersOpen || currentTab !== 'home';
+
+    if (hasAnyOverlay) {
+      window.history.pushState({ infinityOverlay: true }, '');
+    }
+
+    const handlePopState = () => {
+      if (isCartOpen) {
+        setIsCartOpen(false);
+      } else if (isZoneModalOpen) {
+        setIsZoneModalOpen(false);
+      } else if (isPrintModalOpen) {
+        setIsPrintModalOpen(false);
+      } else if (isCustomerOrdersOpen) {
+        setIsCustomerOrdersOpen(false);
+      } else if (currentTab !== 'home') {
+        setCurrentTab('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isCartOpen, isZoneModalOpen, isPrintModalOpen, isCustomerOrdersOpen, currentTab]);
+
   // Cart state
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
@@ -726,7 +779,7 @@ function CustomerStorefront() {
   );
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#FAFAF7] text-[#111111] font-sans antialiased selection:bg-[#0A84FF]/20 selection:text-[#0A84FF]">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#FAFAF7] text-[#111111] font-sans antialiased selection:bg-[#0A84FF]/20 selection:text-[#0A84FF] pb-16 sm:pb-0">
       {/* 0. Prominent Store Closed Top Alert Banner */}
       {!isStoreOpen && (
         <div
@@ -769,6 +822,11 @@ function CustomerStorefront() {
         activeTab={currentTab}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
+        products={productsList}
+        onSelectProduct={(productId: string) => {
+          setHighlightedProductId(productId);
+          scrollToFavourites();
+        }}
       />
 
       {/* Floating Outside Boundary Lockout Banner */}
@@ -1046,9 +1104,26 @@ function CustomerStorefront() {
           setIsZoneModalOpen(true);
         }}
         isStoreOpen={isStoreOpen}
+        onOpenCustomerOrders={() => {
+          setIsCartOpen(false);
+          setCurrentTab('profile');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
-      {/* Floating Cart Pill */}
+      {/* Mobile Sticky Bottom Navigation (Zero layout shift, responsive quick navigation) */}
+      <MobileBottomNav
+        activeTab={currentTab}
+        onSelectTab={(tab) => {
+          setCurrentTab(tab);
+          setHighlightedProductId(null);
+          setSelectedCategory(null);
+        }}
+        onScrollToCategories={scrollToCategories}
+        wishlistCount={wishlist.length}
+      />
+
+      {/* Floating Cart Pill (Desktop bottom-right & Mobile sticky strip above bottom nav) */}
       <FloatingCart
         cartItems={cartItems}
         onOpenCart={() => setIsCartOpen(true)}

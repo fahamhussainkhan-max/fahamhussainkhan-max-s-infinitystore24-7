@@ -20,6 +20,7 @@ import {
   ChevronRight,
   AlertCircle,
   Truck,
+  MessageCircle,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { AdminOrder, OrderStatus } from '../types';
@@ -69,34 +70,34 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
 
   const activeStep = getStepIndex(currentOrder.status);
 
-  // Order timeline milestones
+  // Order timeline milestones: 4-step active progress tracker
   const steps: TimelineStep[] = [
     {
-      id: 'received',
+      id: 'placed',
       statusKey: 'Received',
-      title: 'Order Received',
-      subtitle: 'Verified by Campus Store',
-      detail: 'Order recorded, kitchen/store alert triggered',
+      title: 'Order Placed',
+      subtitle: 'Verified by Campus Dispatch',
+      detail: 'Order logged and campus fulfillment alert triggered',
       icon: PackageCheck,
       accentColor: 'text-[#0A84FF] bg-blue-50 border-blue-200',
       estimatedTimeText: 'Just now',
     },
     {
-      id: 'preparing',
+      id: 'whatsapp_verified',
       statusKey: 'Preparing',
-      title: 'Preparing & Packing',
-      subtitle: 'At Campus Dispatch Hub',
-      detail: 'Items picked from inventory and sealed in security bag',
-      icon: CookingPot,
-      accentColor: 'text-amber-600 bg-amber-50 border-amber-200',
-      estimatedTimeText: '2–4 mins',
+      title: 'WhatsApp Verified',
+      subtitle: 'Runner Assigned & Confirmed',
+      detail: 'Verified via campus runner WhatsApp network (+91 93327 27610)',
+      icon: MessageCircle,
+      accentColor: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+      estimatedTimeText: '1–2 mins',
     },
     {
-      id: 'out_for_delivery',
+      id: 'dispatched',
       statusKey: 'Out for Delivery',
-      title: 'Out for Delivery',
+      title: 'Packed & Dispatched',
       subtitle: 'Campus Runner En Route',
-      detail: 'Campus dash to your hostel room/gate within 30 - 45 mins',
+      detail: 'Express campus transit to your hostel room/gate within 30 - 45 mins',
       icon: Bike,
       accentColor: 'text-purple-600 bg-purple-50 border-purple-200',
       estimatedTimeText: '30 - 45 mins',
@@ -104,9 +105,9 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
     {
       id: 'delivered',
       statusKey: 'Delivered',
-      title: 'Delivered',
+      title: 'Delivered to Room/Gate',
       subtitle: 'Handed Over at Hostel',
-      detail: 'Order fulfilled. Enjoy your snacks & supplies!',
+      detail: 'Order fulfilled safely. Enjoy your snacks & supplies!',
       icon: CheckCircle2,
       accentColor: 'text-emerald-600 bg-emerald-50 border-emerald-200',
       estimatedTimeText: 'Completed',
@@ -156,11 +157,11 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
 
   const handleCallRunner = () => {
     setCallingRunner(true);
-    setCallNotice('Connecting to campus runner Vikram (+91 98765 00192)...');
+    setCallNotice('Connecting to campus runner (+91 93327 27610)...');
     setTimeout(() => {
       setCallingRunner(false);
       try {
-        window.location.href = 'tel:+919876500192';
+        window.location.href = 'tel:+919332727610';
       } catch {}
     }, 600);
     setTimeout(() => {
@@ -429,15 +430,29 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleCallRunner}
-                disabled={callingRunner}
-                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>{callingRunner ? 'Dialing...' : 'Call Runner'}</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={`https://wa.me/919332727610?text=${encodeURIComponent(
+                    `Hi Runner! I need an update on my Infinity Store order #${currentOrder.order_number || currentOrder.id}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 fill-white/20 stroke-[2.2]" />
+                  <span>WhatsApp Runner (+91 93327 27610)</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleCallRunner}
+                  disabled={callingRunner}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>{callingRunner ? 'Dialing...' : 'Call'}</span>
+                </button>
+              </div>
             </div>
             {callNotice && (
               <div className="p-2 rounded-xl bg-purple-100/90 text-purple-900 text-xs font-semibold text-center border border-purple-200">

@@ -65,37 +65,30 @@ export const FloatingCart: React.FC<FloatingCartProps> = ({
             </button>
           </motion.div>
 
-          {/* MOBILE: Sticky Bottom Cart Bar */}
+          {/* MOBILE: Floating "View Cart" Strip */}
           <motion.div
             key={`mobile-cart-${lastUpdated}`}
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="sm:hidden fixed bottom-0 inset-x-0 z-40 p-3 bg-white/95 backdrop-blur-xl border-t border-gray-200 shadow-2xl"
+            initial={{ y: 80, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 80, opacity: 0, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+            className="sm:hidden fixed bottom-[calc(62px+env(safe-area-inset-bottom,8px))] inset-x-3 z-40"
           >
             <button
               type="button"
               onClick={onOpenCart}
-              className="w-full flex items-center justify-between bg-[#111111] active:bg-black text-white px-5 py-3.5 rounded-2xl shadow-lg active:scale-98 transition-all"
+              className="w-full flex items-center justify-between bg-[#111111]/95 hover:bg-black active:bg-black text-white px-4 py-3.5 rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.45)] border border-white/15 backdrop-blur-xl active:scale-98 transition-all cursor-pointer select-none"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#FF3B30] to-[#FFD60A] text-white flex items-center justify-center text-xs font-black">
-                  {totalCount}
-                </div>
-                <div className="text-left">
-                  <div className="text-xs text-gray-300 font-medium leading-none">
-                    {totalCount} {totalCount === 1 ? 'item' : 'items'} in bag
-                  </div>
-                  <div className="text-base font-black text-white leading-tight">
-                    ₹{totalPrice}
-                  </div>
-                </div>
+              <div className="flex items-center gap-2.5">
+                <span className="text-lg filter drop-shadow">🛒</span>
+                <span className="text-xs sm:text-sm font-extrabold text-white tracking-wide">
+                  {totalCount} {totalCount === 1 ? 'item' : 'items'} • ₹{totalPrice}
+                </span>
               </div>
 
-              <div className="flex items-center gap-1.5 text-xs font-black text-[#FFD60A]">
-                <span>View Cart</span>
-                <ArrowRight className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 text-xs font-black text-[#FFD60A] bg-white/10 hover:bg-white/15 px-3.5 py-1.5 rounded-xl border border-white/15 shadow-2xs">
+                <span>View Bag</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </button>
           </motion.div>

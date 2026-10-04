@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Zap, CheckCircle2, Bike, MapPin, Sparkles, AlertCircle } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Zap, CheckCircle2, Bike, MapPin, Sparkles, AlertCircle, ArrowLeft } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CartItem, CampusZone } from '../types';
 import { recordCampusOrder } from '../lib/supabase';
 import CheckoutForm from './CheckoutForm';
 import { calculateDeliveryFee, getBaseDeliveryFee, PACKAGING_HANDLING_FEE } from '../utils/delivery';
+import { OrderDispatchTracker } from './OrderDispatchTracker';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface CartDrawerProps {
   isOutsideBoundary?: boolean;
   onOpenZoneSelector?: () => void;
   isStoreOpen?: boolean;
+  onOpenCustomerOrders?: () => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -29,6 +31,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   isOutsideBoundary = false,
   onOpenZoneSelector,
   isStoreOpen = true,
+  onOpenCustomerOrders,
 }) => {
   const [roomDetails, setRoomDetails] = useState('Room 204, 2nd Floor');
   const [promoInput, setPromoInput] = useState('');
@@ -155,53 +158,85 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               transition={{ type: 'spring', damping: 28, stiffness: 280 }}
               className="w-full sm:w-screen sm:max-w-md max-h-[92vh] sm:max-h-full bg-white rounded-t-3xl sm:rounded-t-none shadow-2xl flex flex-col justify-between overflow-hidden pointer-events-auto border-t sm:border-t-0 sm:border-l border-gray-100"
             >
-              {/* Drawer Header */}
-              <div className="p-5 sm:p-6 border-b border-gray-100 flex items-center justify-between bg-[#FAFAF7]">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#111111] text-white flex items-center justify-center shadow-md">
-                    <ShoppingBag className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-black text-[#111111] font-display">
-                      Campus Bag
+              {/* Drawer Header with Universal Back / Close Navigation */}
+              <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between bg-[#FAFAF7]">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {isCheckoutFormOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsCheckoutFormOpen(false)}
+                      className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-gray-100 border border-gray-200 text-gray-800 text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0"
+                      title="Back to Bag"
+                    >
+                      <ArrowLeft className="w-4 h-4 text-gray-700" />
+                      <span>Back</span>
+                    </button>
+                  ) : (
+                    <div className="w-9 h-9 rounded-xl bg-[#111111] text-white flex items-center justify-center shadow-md shrink-0">
+                      <ShoppingBag className="w-5 h-5" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <h2 className="text-base sm:text-lg font-black text-[#111111] font-display truncate">
+                      {isCheckoutFormOpen ? 'Checkout' : 'Campus Bag'}
                     </h2>
-                    <p className="text-xs text-gray-500 font-medium">
-                      Delivering to {selectedZone.name}
+                    <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate">
+                      {selectedZone.name}
                     </p>
                   </div>
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setIsCheckoutFormOpen(false);
                     onClose();
                   }}
-                  className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-gray-200 transition-colors"
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
                   aria-label="Close cart"
                 >
-                  <X className="w-5 h-5" />
+                  <span>Close</span>
+                  <X className="w-4 h-4 text-gray-500" />
                 </button>
               </div>
 
               {/* Placed Order Success Modal View */}
               {placedOrder ? (
-                <div className="flex-1 p-6 flex flex-col items-center justify-center text-center space-y-4">
-                  <div className="w-20 h-20 rounded-full bg-emerald-100 text-[#30D158] flex items-center justify-center shadow-lg animate-bounce">
-                    <CheckCircle2 className="w-12 h-12 stroke-[2.5]" />
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col items-center text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 text-[#30D158] flex items-center justify-center shadow-lg animate-bounce shrink-0">
+                    <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold uppercase tracking-wider">
                     <Zap className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
-                    Runner Dispatched
+                    Order Confirmed & Runner Dispatched
                   </div>
-                  <h3 className="text-2xl font-black text-gray-900 font-display">
-                    Order Confirmed!
-                  </h3>
-                  <p className="text-xs sm:text-sm text-gray-600 max-w-xs">
-                    Order <strong>#{placedOrder.id}</strong> has been sent to our campus hub. A verified student runner is packing your bag right now.
-                  </p>
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-black text-gray-900 font-display">
+                      Order Placed Successfully!
+                    </h3>
+                    <p className="text-xs text-gray-500 max-w-xs mt-1 mx-auto">
+                      Order <strong>#{placedOrder.id}</strong> has been transmitted to our campus runner desk.
+                    </p>
+                  </div>
 
+                  {/* Active 4-step progress tracker with quick actions */}
+                  <OrderDispatchTracker
+                    orderId={placedOrder.id}
+                    status="Pending"
+                    deliveryZone={placedOrder.delivery_address?.area || placedOrder.deliveryZone}
+                    roomDetails={placedOrder.delivery_address?.roomNo || placedOrder.roomDetails}
+                    totalAmount={placedOrder.total}
+                    onTrackLive={() => {
+                      setPlacedOrder(null);
+                      setIsCheckoutFormOpen(false);
+                      onClose();
+                      if (onOpenCustomerOrders) onOpenCustomerOrders();
+                    }}
+                    showContactActions={true}
+                  />
+
+                  {/* Delivery Location Summary */}
                   <div className="w-full bg-gray-50 rounded-2xl p-4 border border-gray-100 text-left space-y-2 text-xs">
-                    {/* order.delivery_address direct JSON object format me milta hai */}
                     {placedOrder.delivery_address ? (
                       <div className="pb-2 border-b border-gray-200">
                         <p className="font-semibold text-neutral-900">{placedOrder.delivery_address?.fullName}</p>
@@ -226,8 +261,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Est Arrival:</span>
-                      <span className="font-bold text-[#0A84FF]">{selectedZone.estMinutes}</span>
+                      <span className="text-gray-500">Estimated Delivery:</span>
+                      <span className="font-bold text-[#0A84FF]">30 - 45 mins</span>
                     </div>
                     <div className="flex justify-between border-t pt-2">
                       <span className="font-bold text-gray-700">Payment:</span>
@@ -236,14 +271,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => {
                       setPlacedOrder(null);
                       setIsCheckoutFormOpen(false);
                       onClose();
                     }}
-                    className="w-full py-3.5 bg-[#111111] hover:bg-black text-white font-bold rounded-2xl transition-all shadow-md active:scale-95 text-sm"
+                    className="w-full py-3.5 bg-[#111111] hover:bg-black text-white font-bold rounded-2xl transition-all shadow-md active:scale-95 text-xs sm:text-sm cursor-pointer"
                   >
-                    Track or Continue Shopping
+                    Continue Shopping
                   </button>
                 </div>
               ) : cartItems.length === 0 ? (
