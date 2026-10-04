@@ -4,14 +4,16 @@ import { Zap, ShoppingBag, Ruler, Tag } from 'lucide-react';
 import bundledHeroImg from '../assets/images/ccct_sist_campus_hero_1790791913273.jpg';
 import { HERO_CAMPUS_ILLUSTRATION_BASE64 } from './heroAssetBase64';
 
-// Multi-tier fallback sources: high-availability CDN + local bundle + base64 data URL
+// Multi-tier fallback sources: dedicated high-resolution campus delivery graphic + student quick-commerce
 const HERO_IMAGE_SOURCES = [
-  'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80',
   bundledHeroImg,
-  HERO_CAMPUS_ILLUSTRATION_BASE64,
-  '/assets/hero-banner.png',
   '/assets/hero-banner.jpg',
+  '/assets/hero-banner.png',
+  HERO_CAMPUS_ILLUSTRATION_BASE64,
+  'https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1619468129361-605ebea04b44?auto=format&fit=crop&w=1600&q=85',
+  'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1600&q=85',
 ];
 
 export const HeroScene3D: React.FC = () => {
@@ -90,7 +92,7 @@ export const HeroScene3D: React.FC = () => {
             y: [-6, 6, -6],
           }}
           transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute inset-x-2 sm:inset-x-0 -top-2 bottom-6 rounded-3xl overflow-hidden border border-white/60 shadow-xl bg-[#111111] backdrop-blur-xs z-0"
+          className="absolute inset-x-2 sm:inset-x-0 -top-2 bottom-6 rounded-3xl overflow-hidden border border-black/15 shadow-xl bg-[#111111] backdrop-blur-xs z-0"
           style={{
             transform: 'translateZ(-50px)',
           }}

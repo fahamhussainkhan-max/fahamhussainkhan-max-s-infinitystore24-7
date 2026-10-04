@@ -13,6 +13,7 @@ import {
   Menu,
   Printer,
   Compass,
+  MoreHorizontal,
 } from 'lucide-react';
 import { CampusZone } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -64,8 +65,21 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isMobileSearchFocused, setIsMobileSearchFocused] = useState(false);
+  const [isDesktopMoreOpen, setIsDesktopMoreOpen] = useState(false);
   const desktopSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+  const desktopMoreRef = useRef<HTMLDivElement>(null);
+
+  // Close desktop more menu on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (desktopMoreRef.current && !desktopMoreRef.current.contains(e.target as Node)) {
+        setIsDesktopMoreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   // Quick matching products for instant detached search dropdown
   const matchingProducts = searchQuery.trim()
@@ -152,15 +166,20 @@ export const Navbar: React.FC<NavbarProps> = ({
       }}
       className="sticky top-0 z-50 w-full max-w-full border-b border-gray-200/80 pointer-events-auto select-none overflow-visible"
     >
-      {/* Top Quick-Delivery pill banner (Fixed Height h-7 to prevent vertical layout shifts) */}
-      <div className="w-full bg-[#111111] px-2.5 sm:px-4 h-7 flex items-center justify-center border-b border-white/10 overflow-hidden">
+      {/* Top Quick-Delivery pill banner (Fixed Height h-7.5 to prevent vertical layout shifts) */}
+      <div className="w-full bg-[#111111] px-2.5 sm:px-4 h-7.5 sm:h-8 flex items-center justify-center border-b border-white/10 overflow-hidden">
         <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-0.5 rounded-full bg-[#1c1c1e] text-[10px] sm:text-xs font-bold text-white border border-[#30D158]/60 shadow-[0_0_18px_rgba(48,209,88,0.4),0_0_6px_rgba(10,132,255,0.3)] animate-pulse max-w-full">
           <span className="relative flex h-2 w-2 flex-shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#30D158] opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#30D158]" />
           </span>
           <span className="text-[#FFD60A] font-black tracking-wide flex-shrink-0">⚡ Express:</span>
-          <span className="text-gray-100 font-semibold truncate">Official 45-Min Campus Quick-Commerce for CCCT & SIST (Delivery in 30 - 45 mins)</span>
+          <span className="text-gray-100 font-semibold truncate hidden sm:inline">Official 45-Min Campus Quick-Commerce for CCCT & SIST</span>
+          <span className="text-gray-100 font-semibold truncate sm:hidden">CCCT & SIST</span>
+          {/* Highlighted Promotional Badge: 10% off for 1 month */}
+          <span className="ml-1 sm:ml-1.5 px-2 py-0.5 rounded-full bg-gradient-to-r from-[#FF3B30] to-[#FF9500] text-white text-[9.5px] sm:text-[10.5px] font-black tracking-wide uppercase shadow-xs border border-white/20 whitespace-nowrap flex-shrink-0">
+            🎉 10% off for 1 month
+          </span>
         </div>
       </div>
 
@@ -442,6 +461,129 @@ export const Navbar: React.FC<NavbarProps> = ({
               {cartCount > 0 ? `₹${cartTotal}` : 'Bag'}
             </span>
           </button>
+
+          {/* Desktop Three Dots (...) More Options Menu Button */}
+          <div className="relative hidden md:flex items-center flex-shrink-0" ref={desktopMoreRef}>
+            <button
+              type="button"
+              id="desktop-three-dots-btn"
+              onClick={() => setIsDesktopMoreOpen((prev) => !prev)}
+              className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl transition-all duration-200 ease-out hover:scale-105 active:scale-95 cursor-pointer pointer-events-auto border ${
+                isDesktopMoreOpen
+                  ? 'bg-gray-200 text-black border-gray-300 ring-2 ring-black/10 shadow-xs'
+                  : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200/90 shadow-2xs'
+              }`}
+              title="More Campus Options (...)"
+              aria-label="More options"
+            >
+              <MoreHorizontal className="w-5 h-5 text-gray-800" />
+            </button>
+
+            <AnimatePresence>
+              {isDesktopMoreOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                  transition={{ duration: 0.16, ease: 'easeOut' }}
+                  className="absolute right-0 top-full mt-2 w-64 bg-white/98 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200/90 py-2 z-50 overflow-hidden"
+                >
+                  <div className="px-3.5 py-1.5 border-b border-gray-100 text-[10.5px] font-black uppercase tracking-wider text-gray-400">
+                    Campus Quick Actions
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenZoneSelector();
+                      setIsDesktopMoreOpen(false);
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-gray-800 hover:bg-gray-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <MapPin className="w-4 h-4 text-[#30D158]" />
+                    <span>Select Campus Delivery Spot</span>
+                  </button>
+
+                  {onOpenPrint && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenPrint();
+                        setIsDesktopMoreOpen(false);
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-xs font-bold text-emerald-800 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Printer className="w-4 h-4 text-emerald-600" />
+                      <span>Campus Xerox & Printout</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onScrollToFavourites();
+                      setIsDesktopMoreOpen(false);
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-gray-800 hover:bg-gray-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-[#FFD60A]" />
+                    <span>Campus Top Picks</span>
+                  </button>
+
+                  {onScrollToCategories && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onScrollToCategories();
+                        setIsDesktopMoreOpen(false);
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-xs font-bold text-gray-800 hover:bg-gray-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Grid className="w-4 h-4 text-[#0A84FF]" />
+                      <span>Browse All Aisles</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenWishlist) onOpenWishlist();
+                      else onScrollToFavourites();
+                      setIsDesktopMoreOpen(false);
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-gray-800 hover:bg-gray-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Heart className="w-4 h-4 text-[#FF3B30]" />
+                    <span>Saved Wishlist ({wishlistCount})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenProfile) onOpenProfile();
+                      else onOpenCustomerOrders();
+                      setIsDesktopMoreOpen(false);
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-gray-800 hover:bg-gray-100 flex items-center gap-2.5 transition-colors cursor-pointer border-t border-gray-100 mt-1 pt-2"
+                  >
+                    <User className="w-4 h-4 text-[#0A84FF]" />
+                    <span>Orders & Student Profile</span>
+                  </button>
+
+                  <a
+                    href="/admin.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setIsDesktopMoreOpen(false)}
+                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-gray-600 hover:bg-gray-100 flex items-center gap-2.5 transition-colors cursor-pointer border-t border-gray-100 mt-1 pt-2"
+                  >
+                    <Compass className="w-4 h-4 text-gray-500" />
+                    <span>Admin Operations Portal</span>
+                  </a>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {/* Mobile Collapsible / Hamburger Menu Toggle Button */}
           <button

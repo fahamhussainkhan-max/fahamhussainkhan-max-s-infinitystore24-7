@@ -170,7 +170,11 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
             selectedCategory === cat.name;
 
           const imgUrl = getCategoryImageUrl(cat);
-          const isFifthCard = idx === 4;
+          const isWomensCareCard =
+            cat.id === 'womens-care' ||
+            cat.slug === 'womens-care' ||
+            cat.name?.toLowerCase().includes('women') ||
+            idx === 4;
 
           return (
             <motion.div
@@ -182,7 +186,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
               className={`group cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-4 border transition-all duration-300 relative overflow-hidden flex flex-col justify-between h-full min-h-[230px] sm:min-h-[250px] ${
                 viewMode === 'carousel'
                   ? 'flex-shrink-0 w-[165px] xs:w-[195px] sm:w-auto snap-start'
-                  : isFifthCard
+                  : isWomensCareCard
                   ? 'col-span-2 sm:col-span-1'
                   : 'col-span-1'
               } ${
@@ -201,59 +205,51 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                 }}
               />
 
-              {/* Special adaptive layout for 5th card on 2-col mobile screens to fill grid symmetrically */}
-              {isFifthCard && viewMode === 'grid' ? (
-                <div className="flex sm:flex-col justify-between h-full w-full gap-3 sm:gap-0">
-                  {/* Left Column on mobile / Top content on desktop */}
-                  <div className="flex flex-col justify-between flex-1">
-                    {/* Top Row: Emoji & Item Count badge */}
-                    <div className="flex items-center justify-between z-10 mb-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xl sm:text-2xl filter drop-shadow-2xs group-hover:scale-110 transition-transform">
-                          {cat.emoji || '🌸'}
-                        </span>
-                        <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500 fill-rose-500/20 shrink-0" />
-                      </div>
-                      <span className="text-[10px] xs:text-[11px] font-bold px-2 sm:px-2.5 py-0.5 rounded-full bg-white/90 text-gray-700 shadow-2xs border border-black/5 whitespace-nowrap">
-                        {cat.itemCount}+ items
+              {/* Special adaptive layout for Women's Care on mobile screens: spans full-width across 2 columns */}
+              {isWomensCareCard && viewMode === 'grid' ? (
+                <div className="flex flex-col justify-between h-full w-full">
+                  {/* Mobile Full-Width Card Header */}
+                  <div className="flex items-center justify-between z-10 mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl sm:text-2xl filter drop-shadow-2xs group-hover:scale-110 transition-transform">
+                        {cat.emoji || '🌸'}
                       </span>
-                    </div>
-
-                    {/* Mobile teaser description */}
-                    <div className="hidden xs:block sm:hidden text-[11px] text-gray-500 font-medium line-clamp-2 my-1">
-                      {cat.description || 'Intimate hygiene, gentle skincare & comfort'}
-                    </div>
-
-                    {/* Desktop hidden placeholder for image slot */}
-                    <div className="hidden sm:block relative w-full aspect-[4/3] my-2 sm:my-2.5 rounded-xl sm:rounded-2xl overflow-hidden shadow-2xs bg-gray-100 border border-black/5 group-hover:shadow-md transition-shadow">
-                      <img
-                        src={imgUrl}
-                        alt={cat.name}
-                        loading="lazy"
-                        className="w-full h-full object-cover rounded-xl sm:rounded-2xl transition-transform duration-500 ease-out group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl sm:rounded-2xl pointer-events-none" />
-                    </div>
-
-                    {/* Bottom Title & Action Button */}
-                    <div className="z-10 mt-auto flex items-center justify-between pt-1">
-                      <h3 className="text-xs xs:text-sm font-extrabold text-gray-900 leading-snug group-hover:text-[#0A84FF] transition-colors line-clamp-2">
+                      <h3 className="text-xs xs:text-sm font-extrabold text-gray-900 leading-snug group-hover:text-[#0A84FF] transition-colors">
                         {cat.name}
                       </h3>
-                      <div className="w-6 h-6 rounded-full bg-white/90 shadow-2xs flex items-center justify-center text-gray-700 group-hover:bg-[#111111] group-hover:text-white transition-all transform group-hover:translate-x-0.5 ml-2 shrink-0">
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </div>
+                      <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500 fill-rose-500/20 shrink-0" />
                     </div>
+                    <span className="text-[10px] xs:text-[11px] font-bold px-2 sm:px-2.5 py-0.5 rounded-full bg-white/90 text-gray-700 shadow-2xs border border-black/5 whitespace-nowrap">
+                      {cat.itemCount}+ items
+                    </span>
                   </div>
 
-                  {/* Right image banner on mobile screen */}
-                  <div className="block sm:hidden w-28 xs:w-36 aspect-[4/3] rounded-xl overflow-hidden shadow-2xs bg-gray-100 border border-black/5 shrink-0 my-auto">
+                  {/* Full-Width Image: aspect-[2.2/1] on mobile, standard aspect-[4/3] on sm+ desktop */}
+                  <div className="relative w-full aspect-[2.2/1] sm:aspect-[4/3] my-2 sm:my-2.5 rounded-xl sm:rounded-2xl overflow-hidden shadow-2xs bg-gray-100 border border-black/5 group-hover:shadow-md transition-shadow">
                     <img
                       src={imgUrl}
                       alt={cat.name}
                       loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                      className="w-full h-full object-cover rounded-xl sm:rounded-2xl transition-transform duration-500 ease-out group-hover:scale-105"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl sm:rounded-2xl pointer-events-none" />
+                    {/* Floating teaser tag on mobile */}
+                    <div className="sm:hidden absolute bottom-2 left-2.5 right-2.5 text-white text-[11px] font-bold drop-shadow-md truncate">
+                      {cat.description || 'Intimate hygiene, gentle skincare & comfort'}
+                    </div>
+                  </div>
+
+                  {/* Footer Row: Teaser & Action Button */}
+                  <div className="z-10 mt-auto flex items-center justify-between min-h-[32px] sm:min-h-[36px] pt-1">
+                    <span className="text-[11px] xs:text-xs text-gray-600 font-semibold sm:hidden truncate pr-2">
+                      Campus wellness & intimate essentials
+                    </span>
+                    <h3 className="hidden sm:block text-xs xs:text-sm font-extrabold text-gray-900 leading-snug group-hover:text-[#0A84FF] transition-colors line-clamp-2 pr-1">
+                      {cat.name}
+                    </h3>
+                    <div className="w-6 h-6 rounded-full bg-white/90 shadow-2xs flex items-center justify-center text-gray-700 group-hover:bg-[#111111] group-hover:text-white transition-all transform group-hover:translate-x-0.5 shrink-0 ml-auto">
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </div>
                   </div>
                 </div>
               ) : (

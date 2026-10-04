@@ -53,6 +53,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 <Zap className="w-3.5 h-3.5 fill-[#FF3B30] text-[#FF3B30]" />
                 <span>⚡ OFFICIAL 45-MIN CAMPUS QUICK-COMMERCE FOR CCCT & SIST</span>
               </motion.div>
+
+              {/* Highlighted Promotional Badge: 10% off for 1 month */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.08 }}
+                className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 text-white shadow-md shadow-red-500/25 border border-white/30 text-xs sm:text-sm font-black tracking-wide"
+              >
+                <span className="flex h-2.5 w-2.5 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-90" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-300" />
+                </span>
+                <span className="text-yellow-200 font-black uppercase text-[11px] sm:text-xs tracking-wider">
+                  🔥 Special Offer:
+                </span>
+                <span className="font-extrabold text-white text-xs sm:text-sm">
+                  10% off for 1 month
+                </span>
+              </motion.div>
             </div>
 
             {/* Main Headline specifically for CCCT & SIST */}
