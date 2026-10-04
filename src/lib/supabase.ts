@@ -10,7 +10,14 @@ import {
   Product,
   Category,
 } from '../types';
-import { PRODUCTS, CATEGORIES, CATEGORY_BANNER_IMAGE, CATEGORY_SPRITES } from '../data/mockData';
+import {
+  PRODUCTS,
+  CATEGORIES,
+  CATEGORY_BANNER_IMAGE,
+  CATEGORY_SPRITES,
+  CATEGORY_DEFAULT_IMAGES,
+  sortCategoriesInStorefrontOrder,
+} from '../data/mockData';
 
 const DEFAULT_SUPABASE_URL = 'https://egdbegaujzrzsbbstzsr.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
@@ -540,7 +547,14 @@ export function mapStorefrontCategory(item: any, fallbackIndex: number = 0): Cat
     mockMatch?.bgGradient ||
     'from-blue-500/10 via-cyan-500/10 to-sky-500/10 border-blue-200/80';
   const textColor = item.text_color || item.textColor || mockMatch?.textColor || 'text-blue-800';
-  const image = item.image_url || item.image || mockMatch?.image || CATEGORY_BANNER_IMAGE;
+  const defaultImg =
+    CATEGORY_DEFAULT_IMAGES[safeId] ||
+    mockMatch?.image ||
+    'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
+  let image = item.image_url || item.image || defaultImg;
+  if (!image || image === CATEGORY_BANNER_IMAGE || image.includes('categories-banner.png')) {
+    image = defaultImg;
+  }
   const description = item.description || mockMatch?.description || '';
   const itemCount = Number(item.item_count ?? item.itemCount ?? (mockMatch?.itemCount ?? 10));
 
@@ -584,7 +598,9 @@ export async function fetchStorefrontCategories(): Promise<Category[]> {
     if (error) {
       console.warn('[Supabase] Categories query notice:', error.message);
     } else if (Array.isArray(data) && data.length > 0) {
-      const mapped = data.map((item, idx) => mapStorefrontCategory(item, idx));
+      const mapped = sortCategoriesInStorefrontOrder(
+        data.map((item, idx) => mapStorefrontCategory(item, idx))
+      );
       setLocal(LOCAL_STORAGE_KEYS.CATEGORIES, mapped);
       return mapped;
     }
@@ -598,12 +614,14 @@ export async function fetchStorefrontCategories(): Promise<Category[]> {
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((item, idx) => mapStorefrontCategory(item, idx));
+        return sortCategoriesInStorefrontOrder(
+          parsed.map((item, idx) => mapStorefrontCategory(item, idx))
+        );
       }
     }
   } catch {}
 
-  return CATEGORIES;
+  return sortCategoriesInStorefrontOrder(CATEGORIES);
 }
 
 export const fetchCategories = fetchStorefrontCategories;

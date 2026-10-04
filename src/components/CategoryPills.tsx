@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { CATEGORIES } from '../data/mockData';
+import { CATEGORIES, sortCategoriesInStorefrontOrder } from '../data/mockData';
 import { Category } from '../types';
 import { Sparkles, Heart } from 'lucide-react';
 
@@ -16,7 +16,10 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
   onSelectCategory,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const displayCategories = categories && categories.length > 0 ? categories : CATEGORIES;
+  const displayCategories = useMemo(() => {
+    const base = categories && categories.length > 0 ? categories : CATEGORIES;
+    return sortCategoriesInStorefrontOrder(base);
+  }, [categories]);
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-3">

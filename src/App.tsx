@@ -31,7 +31,7 @@ import { StudentEntrepreneurshipBanner } from './components/StudentEntrepreneurs
 import { CampusLocationModal } from './components/CampusLocationModal';
 import { CampusPrintModal } from './components/CampusPrintModal';
 import { CampusPrintWidget } from './components/CampusPrintWidget';
-import { CAMPUS_ZONES, CATEGORIES, PRODUCTS } from './data/mockData';
+import { CAMPUS_ZONES, CATEGORIES, PRODUCTS, sortCategoriesInStorefrontOrder } from './data/mockData';
 import { Product, Category, CartItem, CampusZone } from './types';
 import { fetchProducts, supabase, mapStorefrontCategory } from './lib/supabase';
 import { detectNearestCampusZone, isInsideDeliveryZone } from './utils/geolocation';
@@ -154,16 +154,19 @@ function CustomerStorefront() {
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((item, idx) => mapStorefrontCategory(item, idx));
+          return sortCategoriesInStorefrontOrder(
+            parsed.map((item, idx) => mapStorefrontCategory(item, idx))
+          );
         }
       }
     } catch {}
-    return CATEGORIES;
+    return sortCategoriesInStorefrontOrder(CATEGORIES);
   });
 
   // Calculate live item counts per category dynamically from current active products
   const categoriesWithLiveCounts = useMemo(() => {
-    return categories.map((cat) => {
+    const sorted = sortCategoriesInStorefrontOrder(categories);
+    return sorted.map((cat) => {
       const count = products.filter((p) => {
         const pCat = (p.category || '').toLowerCase().trim();
         const cId = cat.id.toLowerCase().trim();
@@ -291,7 +294,9 @@ function CustomerStorefront() {
         .select('*');
 
       if (!error && Array.isArray(data) && data.length > 0) {
-        const mapped = data.map((item, idx) => mapStorefrontCategory(item, idx));
+        const mapped = sortCategoriesInStorefrontOrder(
+          data.map((item, idx) => mapStorefrontCategory(item, idx))
+        );
         setCategoriesState(mapped);
         try {
           localStorage.setItem('infinity_cached_categories', JSON.stringify(data));

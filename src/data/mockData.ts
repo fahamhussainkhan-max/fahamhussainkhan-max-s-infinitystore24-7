@@ -238,7 +238,17 @@ export const CATEGORY_SPRITES: Record<string, { backgroundPosition: string; back
   },
 };
 
+// High-definition category themed imagery (crisp, uncropped, clean aspect ratio)
+export const CATEGORY_DEFAULT_IMAGES: Record<string, string> = {
+  stationery: 'https://images.unsplash.com/photo-1585776245991-cf89dd7fc73a?auto=format&fit=crop&w=600&q=80',
+  drinks: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80',
+  electronics: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=600&q=80',
+  snacks: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80',
+  'womens-care': 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=600&q=80',
+};
+
 export const CATEGORIES: Category[] = [
+  // 1. Stationery & Study Supplies
   {
     id: 'stationery',
     name: 'Stationery & Study Supplies',
@@ -246,12 +256,13 @@ export const CATEGORIES: Category[] = [
     accentColor: '#30D158',
     bgGradient: 'from-emerald-500/10 via-teal-500/10 to-green-500/10 border-emerald-200/80',
     textColor: 'text-emerald-800',
-    image: CATEGORY_BANNER_IMAGE,
+    image: CATEGORY_DEFAULT_IMAGES.stationery,
     spritePosition: CATEGORY_SPRITES.stationery.backgroundPosition,
     spriteSize: CATEGORY_SPRITES.stationery.backgroundSize,
     description: 'Spiral registers, exam pens, scientific calculators & sticky pads',
     itemCount: 10,
   },
+  // 2. Drinks & Beverages
   {
     id: 'drinks',
     name: 'Drinks & Beverages',
@@ -259,25 +270,13 @@ export const CATEGORIES: Category[] = [
     accentColor: '#0A84FF',
     bgGradient: 'from-blue-500/10 via-cyan-500/10 to-sky-500/10 border-blue-200/80',
     textColor: 'text-blue-700',
-    image: CATEGORY_BANNER_IMAGE,
+    image: CATEGORY_DEFAULT_IMAGES.drinks,
     spritePosition: CATEGORY_SPRITES.drinks.backgroundPosition,
     spriteSize: CATEGORY_SPRITES.drinks.backgroundSize,
     description: 'Chilled sodas, energy drinks, cold brew & iced refreshments',
     itemCount: 8,
   },
-  {
-    id: 'snacks',
-    name: 'Snacks & Munchies',
-    emoji: '🍫',
-    accentColor: '#FFD60A',
-    bgGradient: 'from-yellow-500/10 via-amber-500/10 to-orange-500/10 border-yellow-300/80',
-    textColor: 'text-amber-800',
-    image: CATEGORY_BANNER_IMAGE,
-    spritePosition: CATEGORY_SPRITES.snacks.backgroundPosition,
-    spriteSize: CATEGORY_SPRITES.snacks.backgroundSize,
-    description: 'Chips, 2-minute noodles, cookies, chocolates & midnight snacks',
-    itemCount: 11,
-  },
+  // 3. Daily Essentials & Tech
   {
     id: 'electronics',
     name: 'Daily Essentials & Tech',
@@ -285,12 +284,27 @@ export const CATEGORIES: Category[] = [
     accentColor: '#BF5AF2',
     bgGradient: 'from-purple-500/10 via-indigo-500/10 to-violet-500/10 border-purple-200/80',
     textColor: 'text-purple-800',
-    image: CATEGORY_BANNER_IMAGE,
+    image: CATEGORY_DEFAULT_IMAGES.electronics,
     spritePosition: CATEGORY_SPRITES.electronics.backgroundPosition,
     spriteSize: CATEGORY_SPRITES.electronics.backgroundSize,
     description: 'Extension boards, charging cables, adapters & hostel personal utilities',
     itemCount: 5,
   },
+  // 4. Snacks & Munchies
+  {
+    id: 'snacks',
+    name: 'Snacks & Munchies',
+    emoji: '🍫',
+    accentColor: '#FFD60A',
+    bgGradient: 'from-yellow-500/10 via-amber-500/10 to-orange-500/10 border-yellow-300/80',
+    textColor: 'text-amber-800',
+    image: CATEGORY_DEFAULT_IMAGES.snacks,
+    spritePosition: CATEGORY_SPRITES.snacks.backgroundPosition,
+    spriteSize: CATEGORY_SPRITES.snacks.backgroundSize,
+    description: 'Chips, 2-minute noodles, cookies, chocolates & midnight snacks',
+    itemCount: 11,
+  },
+  // 5. Women's Care
   {
     id: 'womens-care',
     slug: 'womens-care',
@@ -299,13 +313,57 @@ export const CATEGORIES: Category[] = [
     accentColor: '#FF2D55',
     bgGradient: 'from-pink-500/10 via-rose-500/10 to-purple-500/10 border-pink-200/80',
     textColor: 'text-pink-700',
-    image: CATEGORY_BANNER_IMAGE,
+    image: CATEGORY_DEFAULT_IMAGES['womens-care'],
     spritePosition: CATEGORY_SPRITES['womens-care'].backgroundPosition,
     spriteSize: CATEGORY_SPRITES['womens-care'].backgroundSize,
     description: 'Intimate hygiene, gentle skincare, comforting wellness & daily essentials',
     itemCount: 6,
   },
 ];
+
+/**
+ * Ensures categories are strictly ordered according to the storefront sequence:
+ * 1. Stationery & Study Supplies
+ * 2. Drinks & Beverages
+ * 3. Daily Essentials & Tech
+ * 4. Snacks & Munchies
+ * 5. Women's Care
+ */
+export function sortCategoriesInStorefrontOrder(cats: Category[]): Category[] {
+  const getRank = (c: Category): number => {
+    const id = (c.id || '').toLowerCase().trim();
+    const slug = (c.slug || '').toLowerCase().trim();
+    const name = (c.name || '').toLowerCase().trim();
+
+    if (id === 'stationery' || slug === 'stationery' || name.includes('stationery') || name.includes('study')) return 1;
+    if (id === 'drinks' || slug === 'drinks' || name.includes('drink') || name.includes('beverage')) return 2;
+    if (
+      id === 'electronics' ||
+      id === 'tech' ||
+      id === 'daily-essentials' ||
+      slug === 'electronics' ||
+      name.includes('tech') ||
+      name.includes('daily') ||
+      name.includes('essential')
+    ) {
+      return 3;
+    }
+    if (id === 'snacks' || slug === 'snacks' || name.includes('snack') || name.includes('munch')) return 4;
+    if (
+      id === 'womens-care' ||
+      id === 'women' ||
+      id === 'womenscare' ||
+      slug === 'womens-care' ||
+      name.includes('women') ||
+      name.includes('hygiene')
+    ) {
+      return 5;
+    }
+    return 99;
+  };
+
+  return [...cats].sort((a, b) => getRank(a) - getRank(b));
+}
 
 export const PRODUCTS: Product[] = [
   // Stationery & Study Supplies
