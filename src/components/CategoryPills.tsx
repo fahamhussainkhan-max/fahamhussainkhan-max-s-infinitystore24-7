@@ -1,18 +1,22 @@
 import React, { useRef } from 'react';
 import { motion } from 'motion/react';
 import { CATEGORIES } from '../data/mockData';
+import { Category } from '../types';
 import { Sparkles, Heart } from 'lucide-react';
 
 interface CategoryPillsProps {
+  categories?: Category[];
   selectedCategory: string | null;
   onSelectCategory: (categoryId: string | null) => void;
 }
 
 export const CategoryPills: React.FC<CategoryPillsProps> = ({
+  categories,
   selectedCategory,
   onSelectCategory,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const displayCategories = categories && categories.length > 0 ? categories : CATEGORIES;
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-3">
@@ -45,7 +49,7 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
         </motion.button>
 
         {/* Categories Pills */}
-        {CATEGORIES.map((cat, idx) => {
+        {displayCategories.map((cat, idx) => {
           const isSelected =
             selectedCategory === cat.id ||
             selectedCategory === cat.slug ||

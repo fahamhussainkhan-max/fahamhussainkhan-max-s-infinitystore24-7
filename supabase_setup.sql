@@ -39,15 +39,25 @@ create policy "Customers can view their orders" on orders
   using (true);
 
 -- 2. Enable full replica identity for realtime update tracking (ensures old/new payloads in Realtime)
-alter table orders replica identity full;
+alter table if exists orders replica identity full;
+alter table if exists products replica identity full;
+alter table if exists categories replica identity full;
 
--- 3. Add orders table to realtime publication
+-- 3. Add orders, products, and categories tables to realtime publication
 do $$
 begin
-  if not exists (
-    select 1 from pg_publication_tables 
-    where pubname = 'supabase_realtime' and tablename = 'orders'
-  ) then
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'orders') and
+     not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'orders') then
     alter publication supabase_realtime add table orders;
+  end if;
+
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'products') and
+     not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'products') then
+    alter publication supabase_realtime add table products;
+  end if;
+
+  if exists (select 1 from pg_tables where schemaname = 'public' and tablename = 'categories') and
+     not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'categories') then
+    alter publication supabase_realtime add table categories;
   end if;
 end $$;

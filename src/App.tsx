@@ -32,8 +32,8 @@ import { CampusLocationModal } from './components/CampusLocationModal';
 import { CampusPrintModal } from './components/CampusPrintModal';
 import { CampusPrintWidget } from './components/CampusPrintWidget';
 import { CAMPUS_ZONES, CATEGORIES, PRODUCTS } from './data/mockData';
-import { Product, CartItem, CampusZone } from './types';
-import { fetchProducts, supabase } from './lib/supabase';
+import { Product, Category, CartItem, CampusZone } from './types';
+import { fetchProducts, supabase, mapStorefrontCategory } from './lib/supabase';
 import { detectNearestCampusZone, isInsideDeliveryZone } from './utils/geolocation';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -132,7 +132,7 @@ function CustomerStorefront() {
     });
   };
 
-  // 1. LIVE CATALOG: State for live Supabase products with graceful instant fallback
+  // 1. LIVE PRODUCTS: State for live Supabase products with graceful instant fallback
   const [products, setProductsState] = useState<Product[]>(() => {
     try {
       const cached = localStorage.getItem('infinity_cached_products');
@@ -146,6 +146,37 @@ function CustomerStorefront() {
     return deduplicateProducts(PRODUCTS);
   });
   const productsList = products; // Alias for seamless backward compatibility across all child components
+
+  // 2. LIVE CATEGORIES: State for live Supabase categories with graceful instant fallback to CATEGORIES
+  const [categories, setCategoriesState] = useState<Category[]>(() => {
+    try {
+      const cached = localStorage.getItem('infinity_cached_categories');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item, idx) => mapStorefrontCategory(item, idx));
+        }
+      }
+    } catch {}
+    return CATEGORIES;
+  });
+
+  // Calculate live item counts per category dynamically from current active products
+  const categoriesWithLiveCounts = useMemo(() => {
+    return categories.map((cat) => {
+      const count = products.filter((p) => {
+        const pCat = (p.category || '').toLowerCase().trim();
+        const cId = cat.id.toLowerCase().trim();
+        const cSlug = (cat.slug || '').toLowerCase().trim();
+        const cName = (cat.name || '').toLowerCase().trim();
+        return pCat === cId || (cSlug && pCat === cSlug) || pCat === cName;
+      }).length;
+      return {
+        ...cat,
+        itemCount: count > 0 ? count : (cat.itemCount || 0),
+      };
+    });
+  }, [categories, products]);
 
   // Transform raw Supabase rows so all UI properties (image, category, price, discount, stock, etc.) are populated
   function mapStorefrontProduct(item: any, fallbackIndex: number = 0): Product {
@@ -188,7 +219,7 @@ function CustomerStorefront() {
     return {
       ...item,
       id: safeId,
-      name: item.name || 'Campus Item',
+      name: item.name || item.title || 'Campus Item',
       category,
       price,
       originalPrice,
@@ -219,24 +250,31 @@ function CustomerStorefront() {
   // 1. LIVE CATALOG: fetchStorefrontProducts directly from Supabase
   async function fetchStorefrontProducts() {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.warn('Storefront products fetch notice, keeping active catalog:', error.message || error);
-        setProductsState((prev) => (prev && prev.length > 0 ? prev : PRODUCTS));
-        return;
+        console.warn('Storefront products fetch notice, trying without is_active filter:', error.message || error);
+        const fallback = await supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!fallback.error && Array.isArray(fallback.data) && fallback.data.length > 0) {
+          data = fallback.data;
+          error = null;
+        }
       }
 
-      if (data && data.length > 0) {
+      if (!error && Array.isArray(data) && data.length > 0) {
         setProducts(data);
         try {
           localStorage.setItem('infinity_cached_products', JSON.stringify(data));
         } catch {}
-      } else {
+      } else if (!data || data.length === 0) {
+        // Fallback to cached or mock products only if Supabase returns nothing
         setProductsState((prev) => (prev && prev.length > 0 ? prev : PRODUCTS));
       }
     } catch (err: any) {
@@ -245,23 +283,133 @@ function CustomerStorefront() {
     }
   }
 
-  // 2. INSTANT REALTIME UPDATES: Subscribe to 'products' table changes
+  // 2. LIVE CATEGORIES: fetchStorefrontCategories directly from Supabase
+  async function fetchStorefrontCategories() {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*');
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const mapped = data.map((item, idx) => mapStorefrontCategory(item, idx));
+        setCategoriesState(mapped);
+        try {
+          localStorage.setItem('infinity_cached_categories', JSON.stringify(data));
+        } catch {}
+      } else if (error) {
+        console.warn('Storefront categories fetch notice, keeping active catalog:', error.message || error);
+      }
+    } catch (err: any) {
+      console.warn('Network issue fetching storefront categories, using fallback:', err?.message || err);
+    }
+  }
+
+  // 3. INSTANT REALTIME UPDATES: Subscribe to 'products' and 'categories' table changes
   useEffect(() => {
+    // Initial fetch on mount
+    fetchStorefrontCategories();
     fetchStorefrontProducts();
 
-    const channel = supabase
-      .channel('public:products:storefront-live')
+    // Realtime listener for 'products' table (INSERT, UPDATE, DELETE)
+    const productsChannel = supabase
+      .channel('public:products:storefront-realtime')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'products' },
-        () => {
+        { event: 'INSERT', schema: 'public', table: 'products' },
+        (payload: any) => {
+          if (payload?.new) {
+            const mapped = mapStorefrontProduct(payload.new);
+            if (mapped.isActive !== false) {
+              setProductsState((prev) => {
+                const filtered = prev.filter((p) => p.id !== mapped.id);
+                return [mapped, ...filtered];
+              });
+            }
+          }
+          fetchStorefrontProducts();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'products' },
+        (payload: any) => {
+          if (payload?.new) {
+            const mapped = mapStorefrontProduct(payload.new);
+            setProductsState((prev) => {
+              if (mapped.isActive === false) {
+                return prev.filter((p) => p.id !== mapped.id);
+              }
+              const exists = prev.some((p) => p.id === mapped.id);
+              if (exists) {
+                return prev.map((p) => (p.id === mapped.id ? mapped : p));
+              }
+              return [mapped, ...prev];
+            });
+          }
+          fetchStorefrontProducts();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'products' },
+        (payload: any) => {
+          if (payload?.old?.id) {
+            const delId = String(payload.old.id);
+            setProductsState((prev) => prev.filter((p) => p.id !== delId));
+          }
           fetchStorefrontProducts();
         }
       )
       .subscribe();
 
+    // Realtime listener for 'categories' table (INSERT, UPDATE, DELETE)
+    const categoriesChannel = supabase
+      .channel('public:categories:storefront-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'categories' },
+        (payload: any) => {
+          if (payload?.new) {
+            const mapped = mapStorefrontCategory(payload.new);
+            setCategoriesState((prev) => {
+              const filtered = prev.filter((c) => c.id !== mapped.id);
+              return [...filtered, mapped];
+            });
+          }
+          fetchStorefrontCategories();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'categories' },
+        (payload: any) => {
+          if (payload?.new) {
+            const mapped = mapStorefrontCategory(payload.new);
+            setCategoriesState((prev) =>
+              prev.map((c) => (c.id === mapped.id || c.slug === mapped.id ? mapped : c))
+            );
+          }
+          fetchStorefrontCategories();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'categories' },
+        (payload: any) => {
+          if (payload?.old?.id) {
+            const delId = String(payload.old.id).toLowerCase();
+            setCategoriesState((prev) =>
+              prev.filter((c) => c.id.toLowerCase() !== delId && (c.slug || '').toLowerCase() !== delId)
+            );
+          }
+          fetchStorefrontCategories();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(productsChannel);
+      supabase.removeChannel(categoriesChannel);
     };
   }, []);
 
@@ -768,6 +916,13 @@ function CustomerStorefront() {
 
   const activeCategoryObj = useMemo(
     () =>
+      categoriesWithLiveCounts.find((c) => {
+        if (!selectedCategory) return false;
+        if (c.id === selectedCategory || c.name === selectedCategory || c.slug === selectedCategory) return true;
+        const cNorm = c.id.toLowerCase().replace(/['\s_-]/g, '');
+        const selNorm = selectedCategory.toLowerCase().replace(/['\s_-]/g, '');
+        return cNorm === selNorm;
+      }) ||
       CATEGORIES.find((c) => {
         if (!selectedCategory) return false;
         if (c.id === selectedCategory || c.name === selectedCategory || c.slug === selectedCategory) return true;
@@ -775,7 +930,7 @@ function CustomerStorefront() {
         const selNorm = selectedCategory.toLowerCase().replace(/['\s_-]/g, '');
         return cNorm === selNorm;
       }),
-    [selectedCategory]
+    [selectedCategory, categoriesWithLiveCounts]
   );
 
   return (
@@ -996,6 +1151,7 @@ function CustomerStorefront() {
 
               {/* 4. Smooth Animated Category Pill Filters */}
               <CategoryPills
+                categories={categoriesWithLiveCounts}
                 selectedCategory={selectedCategory}
                 onSelectCategory={setSelectedCategory}
               />
@@ -1056,6 +1212,7 @@ function CustomerStorefront() {
           ) : (
             <>
               <CategoryGrid
+                categories={categoriesWithLiveCounts}
                 selectedCategory={selectedCategory}
                 onSelectCategory={setSelectedCategory}
               />

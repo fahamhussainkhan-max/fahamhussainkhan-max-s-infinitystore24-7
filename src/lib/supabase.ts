@@ -7,8 +7,10 @@ import {
   InventoryTransaction,
   OrderStatus,
   DeliveryAddress,
+  Product,
+  Category,
 } from '../types';
-import { PRODUCTS } from '../data/mockData';
+import { PRODUCTS, CATEGORIES, CATEGORY_BANNER_IMAGE, CATEGORY_SPRITES } from '../data/mockData';
 
 const DEFAULT_SUPABASE_URL = 'https://egdbegaujzrzsbbstzsr.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
@@ -110,6 +112,7 @@ export const isSupabaseConfigured = Boolean(
 const LOCAL_STORAGE_KEYS = {
   ORDERS: 'infinity_admin_orders',
   PRODUCTS: 'infinity_admin_products',
+  CATEGORIES: 'infinity_cached_categories',
   PROFILES: 'infinity_admin_profiles',
   ORDER_HISTORY: 'infinity_admin_order_history',
   INVENTORY_TX: 'infinity_admin_inventory_tx',
@@ -511,6 +514,304 @@ export async function fetchProducts(onlyActive = true): Promise<AdminProduct[]> 
   }
 
   return getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, DEFAULT_ADMIN_PRODUCTS);
+}
+
+/**
+ * Maps raw Supabase category records into typed Category with resilient defaults
+ */
+export function mapStorefrontCategory(item: any, fallbackIndex: number = 0): Category {
+  const rawId = item.id || item.slug || `cat-${fallbackIndex}`;
+  const safeId = String(rawId).toLowerCase().trim();
+
+  // Find matching default mock category for rich fallback visual styling
+  const mockMatch = CATEGORIES.find((c) => {
+    if (c.id.toLowerCase() === safeId || (c.slug && c.slug.toLowerCase() === safeId)) return true;
+    const cNorm = c.id.toLowerCase().replace(/['\s_-]/g, '');
+    const itemNorm = (item.name || item.title || safeId).toLowerCase().replace(/['\s_-]/g, '');
+    return cNorm === itemNorm || itemNorm.includes(cNorm) || cNorm.includes(itemNorm);
+  });
+
+  const name = item.name || item.title || mockMatch?.name || 'Campus Category';
+  const emoji = item.emoji || mockMatch?.emoji || '📦';
+  const accentColor = item.accent_color || item.accentColor || mockMatch?.accentColor || '#0A84FF';
+  const bgGradient =
+    item.bg_gradient ||
+    item.bgGradient ||
+    mockMatch?.bgGradient ||
+    'from-blue-500/10 via-cyan-500/10 to-sky-500/10 border-blue-200/80';
+  const textColor = item.text_color || item.textColor || mockMatch?.textColor || 'text-blue-800';
+  const image = item.image_url || item.image || mockMatch?.image || CATEGORY_BANNER_IMAGE;
+  const description = item.description || mockMatch?.description || '';
+  const itemCount = Number(item.item_count ?? item.itemCount ?? (mockMatch?.itemCount ?? 10));
+
+  const spritePos =
+    item.sprite_position ||
+    item.spritePosition ||
+    mockMatch?.spritePosition ||
+    CATEGORY_SPRITES[safeId]?.backgroundPosition;
+  const spriteSize =
+    item.sprite_size ||
+    item.spriteSize ||
+    mockMatch?.spriteSize ||
+    CATEGORY_SPRITES[safeId]?.backgroundSize;
+
+  return {
+    ...item,
+    id: safeId,
+    name,
+    emoji,
+    accentColor,
+    bgGradient,
+    textColor,
+    image,
+    description,
+    itemCount,
+    slug: item.slug || safeId,
+    spritePosition: spritePos,
+    spriteSize: spriteSize,
+  };
+}
+
+/**
+ * Fetches categories from Supabase with graceful fallback to cached or mockData CATEGORIES
+ */
+export async function fetchStorefrontCategories(): Promise<Category[]> {
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*');
+
+    if (error) {
+      console.warn('[Supabase] Categories query notice:', error.message);
+    } else if (Array.isArray(data) && data.length > 0) {
+      const mapped = data.map((item, idx) => mapStorefrontCategory(item, idx));
+      setLocal(LOCAL_STORAGE_KEYS.CATEGORIES, mapped);
+      return mapped;
+    }
+  } catch (err: any) {
+    console.warn('[Supabase] Categories fetch error, using fallback:', err?.message || err);
+  }
+
+  // Graceful fallback to cached categories or mockData CATEGORIES
+  try {
+    const cached = localStorage.getItem(LOCAL_STORAGE_KEYS.CATEGORIES);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((item, idx) => mapStorefrontCategory(item, idx));
+      }
+    }
+  } catch {}
+
+  return CATEGORIES;
+}
+
+export const fetchCategories = fetchStorefrontCategories;
+
+/**
+ * Maps raw Supabase product rows into customer-ready Product objects
+ */
+export function mapStorefrontProduct(item: any, fallbackIndex: number = 0): Product {
+  const rawCat = (item.category || '').toLowerCase().trim();
+  let category = item.category || rawCat;
+  if (rawCat === 'beverages' || rawCat === 'drink' || rawCat === 'drinks') category = 'drinks';
+  else if (rawCat === 'food' || rawCat === 'munchies' || rawCat === 'snacks') category = 'snacks';
+  else if (rawCat === 'study' || rawCat === 'pens' || rawCat === 'stationery') category = 'stationery';
+  else if (rawCat === 'tech' || rawCat === 'gadgets' || rawCat === 'electronics') category = 'electronics';
+  else if (
+    rawCat === 'womens-care' ||
+    rawCat === "women's care" ||
+    rawCat === 'womenscare' ||
+    rawCat === 'women' ||
+    rawCat.includes('women') ||
+    rawCat === 'sanitary'
+  ) {
+    category = 'womens-care';
+  }
+  if (!category) category = 'snacks';
+
+  const stock = Number(item.stock ?? item.stock_quantity ?? item.stock_count ?? 10);
+  const price = Number(item.price || 0);
+  const originalPrice = item.original_price
+    ? Number(item.original_price)
+    : item.originalPrice
+    ? Number(item.originalPrice)
+    : undefined;
+  const discount =
+    originalPrice && originalPrice > price
+      ? `${Math.round(((originalPrice - price) / originalPrice) * 100)}% OFF`
+      : undefined;
+  const image =
+    item.image_url ||
+    item.image ||
+    'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+
+  const safeId = item?.id ? String(item.id) : (item?.slug ? String(item.slug) : `product-${fallbackIndex}`);
+
+  return {
+    ...item,
+    id: safeId,
+    name: item.name || item.title || 'Campus Item',
+    category,
+    price,
+    originalPrice,
+    discount,
+    rating: item.rating || 4.8,
+    reviewsCount: item.reviewsCount || 118,
+    image,
+    image_url: image,
+    inStock: item.in_stock !== undefined ? Boolean(item.in_stock && stock > 0) : stock > 0,
+    isActive: item.is_active !== undefined ? item.is_active : true,
+    stockCount: stock,
+    stock: stock,
+    isPopular: item.is_popular !== undefined ? item.is_popular : true,
+    isLateNight: Boolean(item.is_late_night),
+    isFlashDeal: Boolean(discount) || Boolean(item.is_flash_deal),
+    unit: item.unit || '1 pc',
+    description: item.description || '',
+    tags: item.tags || [category],
+  };
+}
+
+/**
+ * Fetches active storefront products with live Supabase priority and cached fallback
+ */
+export async function fetchStorefrontProducts(): Promise<Product[]> {
+  try {
+    let { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('[Supabase] Products query with is_active notice, trying all products:', error.message);
+      const fallback = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!fallback.error && Array.isArray(fallback.data) && fallback.data.length > 0) {
+        data = fallback.data;
+        error = null;
+      }
+    }
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const mapped = data.map((item, idx) => mapStorefrontProduct(item, idx));
+      setLocal(LOCAL_STORAGE_KEYS.PRODUCTS, mapped);
+      return mapped;
+    }
+  } catch (err: any) {
+    console.warn('[Supabase] Storefront products fetch error, using fallback:', err?.message || err);
+  }
+
+  try {
+    const cached = localStorage.getItem(LOCAL_STORAGE_KEYS.PRODUCTS);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((item, idx) => mapStorefrontProduct(item, idx));
+      }
+    }
+  } catch {}
+
+  return PRODUCTS;
+}
+
+/**
+ * Realtime subscription for 'categories' table
+ */
+export function subscribeToCategoriesRealtime(
+  onInsert?: (cat: Category) => void,
+  onUpdate?: (cat: Category) => void,
+  onDelete?: (id: string) => void,
+  onChange?: () => void
+) {
+  const channel = supabase
+    .channel('public:categories:realtime-global')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'categories' },
+      (payload) => {
+        if (payload.new && onInsert) {
+          onInsert(mapStorefrontCategory(payload.new));
+        }
+        onChange?.();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'categories' },
+      (payload) => {
+        if (payload.new && onUpdate) {
+          onUpdate(mapStorefrontCategory(payload.new));
+        }
+        onChange?.();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'categories' },
+      (payload) => {
+        if (payload.old?.id && onDelete) {
+          onDelete(String(payload.old.id));
+        }
+        onChange?.();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Realtime subscription for 'products' table
+ */
+export function subscribeToProductsRealtime(
+  onInsert?: (product: Product) => void,
+  onUpdate?: (product: Product) => void,
+  onDelete?: (id: string) => void,
+  onChange?: () => void
+) {
+  const channel = supabase
+    .channel('public:products:realtime-global')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'products' },
+      (payload) => {
+        if (payload.new && onInsert) {
+          onInsert(mapStorefrontProduct(payload.new));
+        }
+        onChange?.();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'products' },
+      (payload) => {
+        if (payload.new && onUpdate) {
+          onUpdate(mapStorefrontProduct(payload.new));
+        }
+        onChange?.();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'products' },
+      (payload) => {
+        if (payload.old?.id && onDelete) {
+          onDelete(String(payload.old.id));
+        }
+        onChange?.();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 export async function createProduct(product: Omit<AdminProduct, 'id' | 'created_at'>): Promise<AdminProduct> {

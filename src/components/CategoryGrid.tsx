@@ -5,15 +5,18 @@ import { CATEGORIES } from '../data/mockData';
 import { Category } from '../types';
 
 interface CategoryGridProps {
+  categories?: Category[];
   selectedCategory: string | null;
   onSelectCategory: (categoryId: string | null) => void;
 }
 
 export const CategoryGrid: React.FC<CategoryGridProps> = ({
+  categories,
   selectedCategory,
   onSelectCategory,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const displayCategories = categories && categories.length > 0 ? categories : CATEGORIES;
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -69,11 +72,13 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
         ref={scrollRef}
         className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-3 pt-1 snap-x snap-mandatory select-none overscroll-x-contain touch-pan-x"
       >
-        {CATEGORIES.map((cat, idx) => {
+        {displayCategories.map((cat, idx) => {
           const isSelected =
             selectedCategory === cat.id ||
             selectedCategory === cat.slug ||
             selectedCategory === cat.name;
+
+          const hasCustomImage = Boolean(cat.image && !cat.image.includes('categories-banner.png'));
 
           return (
             <motion.div
@@ -83,7 +88,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
               whileTap={{ scale: 0.97 }}
               transition={{ duration: 0.22, ease: 'easeOut' }}
               className={`group flex-shrink-0 w-36 xs:w-44 sm:w-auto snap-start cursor-pointer rounded-2xl sm:rounded-3xl p-3 sm:p-4 border transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
-                cat.bgGradient
+                cat.bgGradient || 'from-blue-500/10 via-cyan-500/10 to-sky-500/10 border-blue-200/80'
               } ${
                 isSelected
                   ? 'ring-2 ring-black shadow-xl scale-[1.02] bg-white'
@@ -94,7 +99,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
               <div
                 className="absolute inset-0 opacity-15 group-hover:opacity-25 transition-opacity pointer-events-none"
                 style={{
-                  background: `radial-gradient(circle at top right, ${cat.accentColor}, transparent 70%)`,
+                  background: `radial-gradient(circle at top right, ${cat.accentColor || '#0A84FF'}, transparent 70%)`,
                 }}
               />
 
@@ -102,7 +107,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
               <div className="flex items-center justify-between z-10 mb-1.5">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xl sm:text-2xl filter drop-shadow-sm group-hover:scale-110 transition-transform">
-                    {cat.emoji}
+                    {cat.emoji || '📦'}
                   </span>
                   {cat.id === 'womens-care' && (
                     <Sparkles className="w-4 h-4 text-rose-500 fill-rose-500/20 shrink-0" />
@@ -113,28 +118,30 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                 </span>
               </div>
 
-              {/* Category Banner Sprite Tile: aspect-[4/3], rounded-2xl, subtle hover scale */}
+              {/* Category Banner Tile: aspect-[4/3], rounded-2xl, subtle hover scale */}
               <div className="relative w-full aspect-[4/3] my-2 rounded-2xl overflow-hidden shadow-sm bg-gray-100 border border-black/5 group/sprite">
                 <div
                   className="w-full h-full rounded-2xl transition-transform duration-500 ease-out group-hover:scale-105"
                   style={{
-                    backgroundImage: "url('/categories-banner.png')",
-                    backgroundPosition:
-                      cat.spritePosition ||
-                      (cat.id === 'stationery'
-                        ? '0% 0%'
-                        : cat.id === 'drinks'
-                        ? '50% 0%'
-                        : cat.id === 'snacks'
-                        ? '100% 0%'
-                        : cat.id === 'electronics'
-                        ? '0% 100%'
-                        : '100% 100%'),
-                    backgroundSize:
-                      cat.spriteSize ||
-                      (cat.id === 'electronics' || cat.id === 'womens-care'
-                        ? '220% 200%'
-                        : '300% 200%'),
+                    backgroundImage: hasCustomImage ? `url('${cat.image}')` : "url('/categories-banner.png')",
+                    backgroundPosition: hasCustomImage
+                      ? (cat.spritePosition || 'center')
+                      : (cat.spritePosition ||
+                        (cat.id === 'stationery'
+                          ? '0% 0%'
+                          : cat.id === 'drinks'
+                          ? '50% 0%'
+                          : cat.id === 'snacks'
+                          ? '100% 0%'
+                          : cat.id === 'electronics'
+                          ? '0% 100%'
+                          : '100% 100%')),
+                    backgroundSize: hasCustomImage
+                      ? (cat.spriteSize || 'cover')
+                      : (cat.spriteSize ||
+                        (cat.id === 'electronics' || cat.id === 'womens-care'
+                          ? '220% 200%'
+                          : '300% 200%')),
                     backgroundRepeat: 'no-repeat',
                   }}
                 />
