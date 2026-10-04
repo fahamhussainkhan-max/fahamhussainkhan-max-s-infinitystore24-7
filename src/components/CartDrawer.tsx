@@ -128,9 +128,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden select-none">
+        <div key="cart-drawer-container" className="fixed inset-0 z-50 overflow-hidden select-none">
           {/* Backdrop */}
           <motion.div
+            key="cart-drawer-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -338,9 +339,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                   {/* Cart items */}
                   <div className="space-y-3">
-                    {cartItems.map((item) => (
+                    {cartItems.map((item, idx) => (
                       <div
-                        key={item.product.id}
+                        key={item.product?.id ? `${item.product.id}-${idx}` : `cart-item-${idx}`}
                         className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-gray-50/80 border border-gray-100"
                       >
                         <img

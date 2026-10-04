@@ -196,9 +196,9 @@ export const DeliveryStatusCard: React.FC<DeliveryStatusCardProps> = ({
                           zone.isCustom
                         );
                       })
-                      .map((zone) => (
+                      .map((zone, idx) => (
                       <button
-                        key={zone.id}
+                        key={`${zone.id}-${idx}`}
                         type="button"
                         onClick={() => {
                           onSelectZone(zone);

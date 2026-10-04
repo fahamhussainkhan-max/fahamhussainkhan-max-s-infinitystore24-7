@@ -51,9 +51,9 @@ export const CampusFavourites: React.FC<CampusFavouritesProps> = ({
 
       {/* Clean 2-column layout on mobile devices (@media max-width: 640px) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 xs:gap-3.5 sm:gap-6 w-full">
-        {popularProducts.map((prod) => (
+        {popularProducts.map((prod, idx) => (
           <ProductCard
-            key={prod.id}
+            key={prod.id ? `${prod.id}-${idx}` : `fav-prod-${idx}`}
             product={prod}
             quantityInCart={cartQuantities[prod.id] || 0}
             onAddToCart={onAddToCart}

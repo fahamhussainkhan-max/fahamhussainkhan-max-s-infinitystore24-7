@@ -324,7 +324,7 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
                 const StepIcon = step.icon;
 
                 return (
-                  <div key={step.id} className="flex items-start gap-3.5 sm:gap-4 group">
+                  <div key={`${step.id}-${idx}`} className="flex items-start gap-3.5 sm:gap-4 group">
                     {/* Node Icon */}
                     <div className="relative shrink-0">
                       <div

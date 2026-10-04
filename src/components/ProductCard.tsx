@@ -226,6 +226,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <AnimatePresence>
             {justAdded && (
               <motion.div
+                key="just-added-badge"
                 initial={{ scale: 0.4, opacity: 0, y: 15 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.8, opacity: 0, y: -15 }}

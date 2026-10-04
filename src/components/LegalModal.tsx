@@ -34,8 +34,12 @@ export const LegalModal: React.FC<LegalModalProps> = ({ isOpen, type, onClose })
 
   return (
     <AnimatePresence>
-      <div
+      <motion.div
+        key={`legal-modal-backdrop-${type}`}
         id="legal-modal-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         onClick={onClose}
         className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto select-none"
       >
@@ -271,7 +275,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ isOpen, type, onClose })
             </button>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
     </AnimatePresence>
   );
 };

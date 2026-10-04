@@ -168,8 +168,12 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div
+      <motion.div
+        key="campus-location-modal-backdrop"
         id="campus-location-modal-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         onClick={(e) => {
           if (e.target === e.currentTarget) {
             onClose();
@@ -241,7 +245,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                 { id: 'ccct-boys-hostel', label: 'CCCT — Mokugo Boys Hostel', fallback: 'Mokugo Boys Hostel' },
                 { id: 'ccct-girls-hostel', label: 'CCCT — Girls Hostel', fallback: 'Girls Hostel' },
                 { id: 'sist-campus-hub', label: 'SIST Campus Hub', fallback: 'Campus Hub' },
-              ].map((item) => {
+              ].map((item, idx) => {
                 const zone = allZones.find((z) => z.id === item.id) || {
                   id: item.id,
                   name: item.label,
@@ -256,7 +260,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
 
                 return (
                   <button
-                    key={zone.id}
+                    key={`preset-${item.id}-${idx}`}
                     type="button"
                     onClick={() => handlePresetSelect(zone as CampusZone)}
                     className={`p-2.5 rounded-xl border text-left transition-all duration-150 flex items-center gap-2 cursor-pointer ${
@@ -330,13 +334,13 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                   z.id.startsWith('pg')
                 );
               })
-              .map((zone) => {
+              .map((zone, idx) => {
                 const isSelected =
                   selectedZone.id === zone.id && !selectedZone.isCustom && !isOutsideBoundary;
 
                 return (
                   <button
-                    key={zone.id}
+                    key={`zone-${zone.id}-${idx}`}
                     type="button"
                     onClick={() => handlePresetSelect(zone)}
                     className={`w-full text-left p-3.5 rounded-2xl border transition-all duration-150 flex items-center justify-between cursor-pointer ${
@@ -504,7 +508,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
             <span>Delivery within 30 - 45 mins to verified CCCT & SIST campus spots</span>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
     </AnimatePresence>
   );
 };

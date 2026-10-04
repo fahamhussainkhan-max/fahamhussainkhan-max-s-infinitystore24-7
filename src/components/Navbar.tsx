@@ -426,6 +426,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
+            key="navbar-mobile-menu"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}

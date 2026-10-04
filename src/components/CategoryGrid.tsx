@@ -69,7 +69,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
         ref={scrollRef}
         className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-3 pt-1 snap-x snap-mandatory select-none overscroll-x-contain touch-pan-x"
       >
-        {CATEGORIES.map((cat) => {
+        {CATEGORIES.map((cat, idx) => {
           const isSelected =
             selectedCategory === cat.id ||
             selectedCategory === cat.slug ||
@@ -77,7 +77,7 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
 
           return (
             <motion.div
-              key={cat.id}
+              key={`cat-grid-${cat.id}-${idx}`}
               onClick={() => onSelectCategory(isSelected ? null : cat.id)}
               whileHover={{ y: -6, scale: 1.02 }}
               whileTap={{ scale: 0.97 }}

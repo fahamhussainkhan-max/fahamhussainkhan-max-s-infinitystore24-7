@@ -343,9 +343,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 No orders registered yet. Click "Seed Supabase Data" to load sample campus records.
               </div>
             ) : (
-              metrics.recentOrders.slice(0, 5).map((order) => (
+              metrics.recentOrders.slice(0, 5).map((order, idx) => (
                 <div
-                  key={order.id}
+                  key={order.id ? `${order.id}-${idx}` : `admin-ord-${idx}`}
                   className="p-3 rounded-xl bg-gray-50/80 border border-gray-200/70 text-xs hover:border-gray-300 transition-colors"
                 >
                   <div className="flex items-center justify-between font-bold text-gray-900 mb-1">

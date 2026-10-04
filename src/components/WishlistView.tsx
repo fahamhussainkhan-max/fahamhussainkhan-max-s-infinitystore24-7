@@ -87,11 +87,11 @@ export const WishlistView: React.FC<WishlistViewProps> = ({
       {/* Main List / Grid */}
       {wishlistedProducts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-          {wishlistedProducts.map((product) => {
+          {wishlistedProducts.map((product, idx) => {
             const inCart = (cartQuantities[product.id] || 0) > 0;
             return (
               <div
-                key={product.id}
+                key={product.id ? `${product.id}-${idx}` : `wishlist-item-${idx}`}
                 className="bg-white rounded-3xl p-4 border border-gray-200 shadow-2xs hover:border-gray-300 transition-all flex items-center gap-3.5 justify-between group"
               >
                 <div className="flex items-center gap-3.5 min-w-0">

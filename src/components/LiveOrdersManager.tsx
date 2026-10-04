@@ -721,13 +721,13 @@ export const LiveOrdersManager: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredOrders.map((order) => {
+          {filteredOrders.map((order, idx) => {
             const zoneInfo = getDeliveryZoneBadge(order.delivery_zone);
             const cleanPhone = String(order.customer_phone || '').replace(/[^0-9]/g, '');
 
             return (
               <div
-                key={order.id}
+                key={order.id ? `${order.id}-${idx}` : `live-ord-${idx}`}
                 className={`bg-white rounded-3xl p-5 border transition-all flex flex-col justify-between ${getCardBorder(
                   order.status
                 )}`}

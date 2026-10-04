@@ -125,7 +125,7 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs select-none">
+        <div key="customer-orders-modal-container" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs select-none">
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -270,11 +270,11 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
                         </div>
                       ) : (
                         <div className="space-y-3.5">
-                          {filteredOrders.map((order) => {
+                          {filteredOrders.map((order, idx) => {
                             const step = getStatusStep(order.status);
                             return (
                               <div
-                                key={order.id}
+                                key={order.id ? `${order.id}-${idx}` : `order-${idx}`}
                                 onClick={() => setSelectedOrderForTracking(order)}
                                 role="button"
                                 tabIndex={0}

@@ -466,8 +466,8 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                         <optgroup label="── CCCT ──" className="font-bold text-gray-900 bg-gray-50">
                           {allZones
                             .filter((z) => z.campusGroup === 'CCCT' || z.campusGroup === 'CCCT Campus' || z.id.startsWith('ccct'))
-                            .map((zone) => (
-                              <option key={zone.id} value={zone.name}>
+                            .map((zone, idx) => (
+                              <option key={`ccct-${zone.id}-${idx}`} value={zone.name}>
                                 {zone.name}
                               </option>
                             ))}
@@ -475,8 +475,8 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                         <optgroup label="── SIST ──" className="font-bold text-gray-900 bg-gray-50">
                           {allZones
                             .filter((z) => z.campusGroup === 'SIST' || z.campusGroup === 'SIST Campus' || z.id.startsWith('sist') || z.id.startsWith('ccst'))
-                            .map((zone) => (
-                              <option key={zone.id} value={zone.name}>
+                            .map((zone, idx) => (
+                              <option key={`sist-${zone.id}-${idx}`} value={zone.name}>
                                 {zone.name}
                               </option>
                             ))}
@@ -495,8 +495,8 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                                   z.id.startsWith('ccst')
                                 )
                             )
-                            .map((zone) => (
-                              <option key={zone.id} value={zone.name}>
+                            .map((zone, idx) => (
+                              <option key={`pg-${zone.id}-${idx}`} value={zone.name}>
                                 {zone.name}
                               </option>
                             ))}
@@ -577,9 +577,9 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
             </div>
           ) : orders.length > 0 ? (
             <div className="space-y-3">
-              {orders.map((order) => (
+              {orders.map((order, orderIdx) => (
                 <div
-                  key={order.id}
+                  key={order.id ? `${order.id}-${orderIdx}` : `order-${orderIdx}`}
                   className="bg-white rounded-3xl p-5 border border-gray-200 shadow-2xs hover:border-gray-300 transition-all space-y-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-100">

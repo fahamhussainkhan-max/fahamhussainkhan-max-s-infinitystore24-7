@@ -45,7 +45,7 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
         </motion.button>
 
         {/* Categories Pills */}
-        {CATEGORIES.map((cat) => {
+        {CATEGORIES.map((cat, idx) => {
           const isSelected =
             selectedCategory === cat.id ||
             selectedCategory === cat.slug ||
@@ -53,7 +53,7 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
 
           return (
             <motion.button
-              key={cat.id}
+              key={`cat-pill-${cat.id}-${idx}`}
               type="button"
               onClick={() => onSelectCategory(isSelected ? null : cat.id)}
               whileHover={{ y: -2, scale: 1.04 }}

@@ -22,7 +22,16 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [legalType, setLegalType] = useState<LegalModalType>(null);
 
-  if (!isOpen) return null;
+  // Auto-dismiss modal immediately as soon as user is authenticated
+  React.useEffect(() => {
+    if (user && isOpen) {
+      console.log('[GoogleSignInModal] User is authenticated, auto-dismissing modal');
+      onClose();
+      if (onSuccess) onSuccess();
+    }
+  }, [user, isOpen, onClose, onSuccess]);
+
+  if (!isOpen || (user && !isSubmitting)) return null;
 
   const handleGoogleLogin = async () => {
     setAuthError(null);
@@ -31,7 +40,10 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
       await signInWithGoogle();
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      setAuthError(err?.message || 'Unable to open Google Sign-In. Please check pop-up permissions.');
+      console.error('[GoogleSignInModal] Google Sign-In error:', err);
+      setAuthError(
+        err?.message || 'Unable to open Google Sign-In. Please check network and browser pop-up permissions.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -44,25 +56,32 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
       await fastCampusLogin(demo);
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      setAuthError(err?.message || 'Login failed.');
+      console.error('[GoogleSignInModal] Fast login error:', err);
+      setAuthError(err?.message || 'Login failed. Please retry.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <AnimatePresence>
-      <div
-        id="google-signin-modal-backdrop"
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto select-none"
-      >
+    <>
+      <AnimatePresence>
         <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 10 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 10 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-gray-100 relative my-auto max-h-[92vh] overflow-y-auto"
+          key="google-signin-modal-backdrop"
+          id="google-signin-modal-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto select-none"
         >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-gray-100 relative my-auto max-h-[92vh] overflow-y-auto"
+          >
           {/* Close button - only shown if user is already logged in and just re-authenticating */}
           {!isMandatory && user && (
             <button
@@ -200,15 +219,17 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
               Privacy Policy
             </button>
           </div>
+          </motion.div>
         </motion.div>
-      </div>
+      </AnimatePresence>
 
       {/* Privacy Policy / Terms of Service Modal */}
       <LegalModal
+        key="google-signin-legal-modal"
         isOpen={Boolean(legalType)}
         type={legalType}
         onClose={() => setLegalType(null)}
       />
-    </AnimatePresence>
+    </>
   );
 };

@@ -306,13 +306,13 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
             No campus orders found matching your criteria.
           </div>
         ) : (
-          filteredOrders.map((order) => {
+          filteredOrders.map((order, idx) => {
             const next = getNextStatus(order.status);
             const isUpdating = updatingId === order.id;
 
             return (
               <div
-                key={order.id}
+                key={order.id ? `${order.id}-${idx}` : `admin-ord-${idx}`}
                 className="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs hover:border-gray-300 transition-all"
               >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-gray-100">

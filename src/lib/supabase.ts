@@ -1074,15 +1074,39 @@ export async function syncUserProfileToSupabase(
     };
 
     // 1. Persist to Supabase profiles table
-    const { error } = await supabase
-      .from('profiles')
-      .upsert([profilePayload], { onConflict: 'id' });
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert([profilePayload], { onConflict: 'id' });
 
-    if (error) {
-      console.warn('[Supabase] Profile sync warning:', error.message);
+      if (error) {
+        console.warn('[Supabase] Profile sync warning (profiles):', error.message);
+      } else {
+        console.log('[Supabase] Successfully synchronized user profile to profiles table');
+      }
+    } catch (e: any) {
+      console.warn('[Supabase] Profiles table upsert exception:', e?.message || e);
     }
 
-    // 2. Also keep local storage cache in sync for immediate offline and fast-render resilience
+    // 2. Also attempt users table if defined in schema
+    try {
+      await supabase.from('users').upsert(
+        [
+          {
+            id: userId,
+            full_name: fullName,
+            email: email,
+            avatar_url: avatarUrl,
+            phone: phone || '',
+            role: 'student',
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        { onConflict: 'id' }
+      );
+    } catch {}
+
+    // 3. Keep local storage cache in sync for instant offline and fast-render resilience
     try {
       const existing = getLocal<UserProfile[]>(LOCAL_STORAGE_KEYS.PROFILES, DEFAULT_PROFILES);
       const idx = existing.findIndex((p) => p.id === userId);

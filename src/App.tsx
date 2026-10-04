@@ -119,7 +119,18 @@ export default function App() {
 }
 
 function CustomerStorefront() {
-  const { user, isLoginModalOpen, closeLoginModal } = useAuth();
+  const { user, isLoginModalOpen, closeLoginModal, isLoading } = useAuth();
+
+  // Helper to ensure product IDs are always unique and clean
+  const deduplicateProducts = (list: Product[]): Product[] => {
+    const seen = new Set<string>();
+    return list.filter((p, idx) => {
+      const id = p.id || `item-${idx}`;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  };
 
   // 1. LIVE CATALOG: State for live Supabase products with graceful instant fallback
   const [products, setProductsState] = useState<Product[]>(() => {
@@ -128,16 +139,16 @@ function CustomerStorefront() {
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(mapStorefrontProduct);
+          return deduplicateProducts(parsed.map((item, idx) => mapStorefrontProduct(item, idx)));
         }
       }
     } catch {}
-    return PRODUCTS;
+    return deduplicateProducts(PRODUCTS);
   });
   const productsList = products; // Alias for seamless backward compatibility across all child components
 
   // Transform raw Supabase rows so all UI properties (image, category, price, discount, stock, etc.) are populated
-  function mapStorefrontProduct(item: any): Product {
+  function mapStorefrontProduct(item: any, fallbackIndex: number = 0): Product {
     const rawCat = (item.category || '').toLowerCase().trim();
     let category = item.category || rawCat;
     if (rawCat === 'beverages' || rawCat === 'drink' || rawCat === 'drinks') category = 'drinks';
@@ -172,9 +183,11 @@ function CustomerStorefront() {
       item.image ||
       'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
 
+    const safeId = item?.id ? String(item.id) : (item?.slug ? String(item.slug) : `product-${fallbackIndex}`);
+
     return {
       ...item,
-      id: String(item.id),
+      id: safeId,
       name: item.name || 'Campus Item',
       category,
       price,
@@ -199,7 +212,8 @@ function CustomerStorefront() {
 
   const setProducts = (rawOrMapped: any[]) => {
     if (!Array.isArray(rawOrMapped)) return;
-    setProductsState(rawOrMapped.map(mapStorefrontProduct));
+    const mapped = rawOrMapped.map((item, idx) => mapStorefrontProduct(item, idx));
+    setProductsState(deduplicateProducts(mapped));
   };
 
   // 1. LIVE CATALOG: fetchStorefrontProducts directly from Supabase
@@ -742,6 +756,7 @@ function CustomerStorefront() {
       <AnimatePresence>
         {isOutsideBoundary && (
           <motion.div
+            key="outside-boundary-banner"
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
@@ -861,9 +876,9 @@ function CustomerStorefront() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 sm:gap-5">
-                  {searchResults.map((p) => (
+                  {searchResults.map((p, idx) => (
                     <ProductCard
-                      key={p.id}
+                      key={p.id ? `${p.id}-${idx}` : `search-prod-${idx}`}
                       product={p}
                       quantityInCart={cartQuantities[p.id] || 0}
                       onAddToCart={handleAddToCart}
@@ -944,9 +959,9 @@ function CustomerStorefront() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 sm:gap-5">
-                  {categoryProducts.map((p) => (
+                  {categoryProducts.map((p, idx) => (
                     <ProductCard
-                      key={p.id}
+                      key={p.id ? `${p.id}-${idx}` : `cat-prod-${idx}`}
                       product={p}
                       quantityInCart={cartQuantities[p.id] || 0}
                       onAddToCart={handleAddToCart}
@@ -1048,9 +1063,9 @@ function CustomerStorefront() {
         }}
       />
 
-      {/* Google Sign-In Modal (Mandatory on initial load) */}
+      {/* Google Sign-In Modal */}
       <GoogleSignInModal
-        isOpen={!user || isLoginModalOpen}
+        isOpen={Boolean(!isLoading && (!user || isLoginModalOpen))}
         onClose={closeLoginModal}
         isMandatory={!user}
       />
@@ -1059,6 +1074,7 @@ function CustomerStorefront() {
       <AnimatePresence>
         {toastMessage && (
           <motion.div
+            key="floating-toast-notification"
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}

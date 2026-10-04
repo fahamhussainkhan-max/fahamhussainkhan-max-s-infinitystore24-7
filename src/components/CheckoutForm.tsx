@@ -87,23 +87,8 @@ export default function CheckoutForm({
   initialArea,
   isStoreOpen = true,
 }: CheckoutFormProps) {
-  const { user, isAuthenticated, openLoginModal, signOut } = useAuth();
+  const { user } = useAuth();
   const [storeOpen, setStoreOpen] = useState(isStoreOpen);
-
-  // Standard Supabase Google OAuth sign in with window.location.origin
-  const handleGoogleSignIn = async () => {
-    try {
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
-    } catch (err: any) {
-      console.warn('OAuth redirect notice:', err?.message || err);
-      openLoginModal();
-    }
-  };
 
   useEffect(() => {
     setStoreOpen(isStoreOpen);
@@ -784,24 +769,24 @@ Please confirm and prepare my order!`;
             className="w-full px-4 py-3 sm:py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white font-medium cursor-pointer"
           >
             <optgroup label="── CCCT ──" className="font-bold text-neutral-900 bg-neutral-50">
-              {LOCATION_SECTIONS.CCCT.map((opt) => (
-                <option key={opt} value={opt}>
+              {LOCATION_SECTIONS.CCCT.map((opt, idx) => (
+                <option key={`ccct-${opt}-${idx}`} value={opt}>
                   {opt}
                 </option>
               ))}
             </optgroup>
 
             <optgroup label="── SIST ──" className="font-bold text-neutral-900 bg-neutral-50">
-              {LOCATION_SECTIONS.SIST.map((opt) => (
-                <option key={opt} value={opt}>
+              {LOCATION_SECTIONS.SIST.map((opt, idx) => (
+                <option key={`sist-${opt}-${idx}`} value={opt}>
                   {opt}
                 </option>
               ))}
             </optgroup>
 
             <optgroup label="── Hostels / Custom PGs ──" className="font-bold text-neutral-900 bg-neutral-50">
-              {LOCATION_SECTIONS['Hostels / Custom PGs'].map((opt) => (
-                <option key={opt} value={opt}>
+              {LOCATION_SECTIONS['Hostels / Custom PGs'].map((opt, idx) => (
+                <option key={`pg-${opt}-${idx}`} value={opt}>
                   {opt}
                 </option>
               ))}
