@@ -113,15 +113,32 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
                 </span>
               </div>
 
-              {/* Category Image with rounded-2xl, object-cover, and subtle drop-shadow */}
-              <div className="relative w-full h-24 xs:h-28 sm:h-32 my-2 rounded-2xl overflow-hidden shadow-md bg-gray-100 border border-black/5">
-                <img
-                  src={cat.image}
-                  alt={cat.name}
-                  className="w-full h-full object-cover rounded-2xl transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
+              {/* Category Banner Sprite Tile: aspect-[4/3], rounded-2xl, subtle hover scale */}
+              <div className="relative w-full aspect-[4/3] my-2 rounded-2xl overflow-hidden shadow-sm bg-gray-100 border border-black/5 group/sprite">
+                <div
+                  className="w-full h-full rounded-2xl transition-transform duration-500 ease-out group-hover:scale-105"
+                  style={{
+                    backgroundImage: "url('/categories-banner.png')",
+                    backgroundPosition:
+                      cat.spritePosition ||
+                      (cat.id === 'stationery'
+                        ? '0% 0%'
+                        : cat.id === 'drinks'
+                        ? '50% 0%'
+                        : cat.id === 'snacks'
+                        ? '100% 0%'
+                        : cat.id === 'electronics'
+                        ? '0% 100%'
+                        : '100% 100%'),
+                    backgroundSize:
+                      cat.spriteSize ||
+                      (cat.id === 'electronics' || cat.id === 'womens-care'
+                        ? '220% 200%'
+                        : '300% 200%'),
+                    backgroundRepeat: 'no-repeat',
+                  }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none" />
               </div>
 
               {/* Title & Arrow */}

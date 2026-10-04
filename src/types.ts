@@ -33,6 +33,8 @@ export interface Category {
   description: string;
   itemCount: number;
   slug?: string;
+  spritePosition?: string;
+  spriteSize?: string;
 }
 
 export interface CartItem {

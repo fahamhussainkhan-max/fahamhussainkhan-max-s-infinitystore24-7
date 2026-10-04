@@ -206,12 +206,36 @@ export const CAMPUS_ZONES: CampusZone[] = [
   },
 ];
 
-export const CATEGORY_IMAGES = {
-  stationery: "https://images.unsplash.com/photo-1516962215378-7fa2e137ae93?auto=format&fit=crop&w=600&q=80",
-  drinks: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80",
-  snacks: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80",
-  techEssentials: "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=600&q=80",
-  womensCare: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=600&q=80",
+// Branded Visual Collage Asset for Category Cards
+export const CATEGORY_BANNER_IMAGE = '/categories-banner.png';
+
+// CSS Sprite Coordinates for each category section from /categories-banner.png:
+// - Stationery & Study Supplies: Top-left desk station section
+// - Drinks & Beverages: Top-center chilled drinks section
+// - Snacks & Munchies: Top-right packaged snacks section
+// - Daily Essentials & Tech: Bottom-left tech & grooming section
+// - Human Care / Women's Care: Bottom-right self-care & wellness section
+export const CATEGORY_SPRITES: Record<string, { backgroundPosition: string; backgroundSize: string }> = {
+  stationery: {
+    backgroundPosition: '0% 0%',
+    backgroundSize: '300% 200%',
+  },
+  drinks: {
+    backgroundPosition: '50% 0%',
+    backgroundSize: '300% 200%',
+  },
+  snacks: {
+    backgroundPosition: '100% 0%',
+    backgroundSize: '300% 200%',
+  },
+  electronics: {
+    backgroundPosition: '0% 100%',
+    backgroundSize: '220% 200%',
+  },
+  'womens-care': {
+    backgroundPosition: '100% 100%',
+    backgroundSize: '220% 200%',
+  },
 };
 
 export const CATEGORIES: Category[] = [
@@ -222,7 +246,9 @@ export const CATEGORIES: Category[] = [
     accentColor: '#30D158',
     bgGradient: 'from-emerald-500/10 via-teal-500/10 to-green-500/10 border-emerald-200/80',
     textColor: 'text-emerald-800',
-    image: CATEGORY_IMAGES.stationery,
+    image: CATEGORY_BANNER_IMAGE,
+    spritePosition: CATEGORY_SPRITES.stationery.backgroundPosition,
+    spriteSize: CATEGORY_SPRITES.stationery.backgroundSize,
     description: 'Spiral registers, exam pens, scientific calculators & sticky pads',
     itemCount: 10,
   },
@@ -233,7 +259,9 @@ export const CATEGORIES: Category[] = [
     accentColor: '#0A84FF',
     bgGradient: 'from-blue-500/10 via-cyan-500/10 to-sky-500/10 border-blue-200/80',
     textColor: 'text-blue-700',
-    image: CATEGORY_IMAGES.drinks,
+    image: CATEGORY_BANNER_IMAGE,
+    spritePosition: CATEGORY_SPRITES.drinks.backgroundPosition,
+    spriteSize: CATEGORY_SPRITES.drinks.backgroundSize,
     description: 'Chilled sodas, energy drinks, cold brew & iced refreshments',
     itemCount: 8,
   },
@@ -244,7 +272,9 @@ export const CATEGORIES: Category[] = [
     accentColor: '#FFD60A',
     bgGradient: 'from-yellow-500/10 via-amber-500/10 to-orange-500/10 border-yellow-300/80',
     textColor: 'text-amber-800',
-    image: CATEGORY_IMAGES.snacks,
+    image: CATEGORY_BANNER_IMAGE,
+    spritePosition: CATEGORY_SPRITES.snacks.backgroundPosition,
+    spriteSize: CATEGORY_SPRITES.snacks.backgroundSize,
     description: 'Chips, 2-minute noodles, cookies, chocolates & midnight snacks',
     itemCount: 11,
   },
@@ -255,7 +285,9 @@ export const CATEGORIES: Category[] = [
     accentColor: '#BF5AF2',
     bgGradient: 'from-purple-500/10 via-indigo-500/10 to-violet-500/10 border-purple-200/80',
     textColor: 'text-purple-800',
-    image: CATEGORY_IMAGES.techEssentials,
+    image: CATEGORY_BANNER_IMAGE,
+    spritePosition: CATEGORY_SPRITES.electronics.backgroundPosition,
+    spriteSize: CATEGORY_SPRITES.electronics.backgroundSize,
     description: 'Extension boards, charging cables, adapters & hostel personal utilities',
     itemCount: 5,
   },
@@ -267,7 +299,9 @@ export const CATEGORIES: Category[] = [
     accentColor: '#FF2D55',
     bgGradient: 'from-pink-500/10 via-rose-500/10 to-purple-500/10 border-pink-200/80',
     textColor: 'text-pink-700',
-    image: CATEGORY_IMAGES.womensCare,
+    image: CATEGORY_BANNER_IMAGE,
+    spritePosition: CATEGORY_SPRITES['womens-care'].backgroundPosition,
+    spriteSize: CATEGORY_SPRITES['womens-care'].backgroundSize,
     description: 'Intimate hygiene, gentle skincare, comforting wellness & daily essentials',
     itemCount: 6,
   },
@@ -811,7 +845,7 @@ export const PRODUCTS: Product[] = [
     discount: '14% OFF',
     rating: 4.95,
     reviewsCount: 164,
-    image: CATEGORY_IMAGES.womensCare,
+    image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=600&q=80',
     inStock: true,
     stockCount: 50,
     isPopular: true,
