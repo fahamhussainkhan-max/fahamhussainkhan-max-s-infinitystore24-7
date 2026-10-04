@@ -164,19 +164,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const isIframe = typeof window !== 'undefined' && window.self !== window.top;
-      const redirectOrigin =
-        typeof window !== 'undefined' && window.location.origin
-          ? window.location.origin
-          : 'https://infinitystore-xi.vercel.app';
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectOrigin,
-          queryParams: {
-            prompt: 'select_account',
-            access_type: 'offline',
-          },
+          redirectTo: window.location.origin,
           skipBrowserRedirect: isIframe,
         },
       });

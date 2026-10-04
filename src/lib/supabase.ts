@@ -41,8 +41,8 @@ function resolveSupabaseKey(): string {
 }
 
 // Centralized Supabase credentials and initialized client
-export const SUPABASE_URL = resolveSupabaseUrl();
-export const SUPABASE_ANON_KEY = resolveSupabaseKey();
+export const SUPABASE_URL = resolveSupabaseUrl() || DEFAULT_SUPABASE_URL;
+export const SUPABASE_ANON_KEY = resolveSupabaseKey() || DEFAULT_SUPABASE_KEY;
 
 function createResilientSupabaseClient(): SupabaseClient<any, 'public', any> {
   try {
@@ -53,7 +53,7 @@ function createResilientSupabaseClient(): SupabaseClient<any, 'public', any> {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
-          detectSessionInUrl: false,
+          detectSessionInUrl: true,
         },
         realtime: {
           params: {

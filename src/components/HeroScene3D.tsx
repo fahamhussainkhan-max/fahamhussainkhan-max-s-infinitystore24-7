@@ -4,13 +4,14 @@ import { Zap, ShoppingBag, Ruler } from 'lucide-react';
 import bundledHeroImg from '../assets/images/ccct_sist_campus_hero_1790791913273.jpg';
 import { HERO_CAMPUS_ILLUSTRATION_BASE64 } from './heroAssetBase64';
 
-// Multi-tier fallback sources: Inline Base64 Data URL is primary for 100% production reliability
+// Multi-tier fallback sources: high-availability CDN + local bundle + base64 data URL
 const HERO_IMAGE_SOURCES = [
+  'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80',
+  bundledHeroImg,
   HERO_CAMPUS_ILLUSTRATION_BASE64,
   '/assets/hero-banner.png',
-  bundledHeroImg,
   '/assets/hero-banner.jpg',
-  'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80',
 ];
 
 export const HeroScene3D: React.FC = () => {
@@ -89,7 +90,7 @@ export const HeroScene3D: React.FC = () => {
             y: [-6, 6, -6],
           }}
           transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute inset-x-2 sm:inset-x-0 -top-2 bottom-6 rounded-3xl overflow-hidden border border-white/60 shadow-xl bg-white/40 backdrop-blur-xs z-0"
+          className="absolute inset-x-2 sm:inset-x-0 -top-2 bottom-6 rounded-3xl overflow-hidden border border-white/60 shadow-xl bg-gradient-to-br from-[#0A84FF]/30 via-[#111111]/90 to-[#181818] backdrop-blur-xs z-0"
           style={{
             transform: 'translateZ(-50px)',
           }}
@@ -112,7 +113,7 @@ export const HeroScene3D: React.FC = () => {
                 CCCT & SIST Campus Express
               </h4>
               <p className="text-white/70 text-[11px] max-w-xs mt-1 font-medium">
-                Hyperlocal Delivery to Chisopani & SIST Hostels in 30 - 45 mins
+                Hyperlocal Delivery to Chisopani & SIST Hostels in 45 mins - 1 hr
               </p>
             </div>
           )}
@@ -136,7 +137,7 @@ export const HeroScene3D: React.FC = () => {
             rotateZ: [-1.5, 1.5, -1.5],
           }}
           transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-          className="relative z-20 w-52 h-64 sm:w-60 sm:h-72 rounded-3xl bg-gradient-to-br from-[#111111] via-[#1a1a1a] to-[#252525] p-5 shadow-2xl border border-white/15 flex flex-col justify-between overflow-hidden"
+          className="relative z-20 w-48 h-60 xs:w-52 xs:h-64 sm:w-60 sm:h-72 rounded-3xl bg-gradient-to-br from-[#111111] via-[#1a1a1a] to-[#252525] p-4 sm:p-5 shadow-2xl border border-white/15 flex flex-col justify-between overflow-hidden"
           style={{
             boxShadow: '0 28px 60px -15px rgba(0,0,0,0.55), 0 0 40px rgba(10, 132, 255, 0.2)',
           }}
@@ -179,17 +180,17 @@ export const HeroScene3D: React.FC = () => {
                 />
               </svg>
             </div>
-            <div className="text-white font-extrabold text-lg sm:text-xl tracking-tight font-display">
+            <div className="text-white font-extrabold text-base sm:text-xl tracking-tight font-display">
               INFINITY STORE
             </div>
-            <div className="text-white/70 text-xs font-medium tracking-wide">
-              CAMPUS 30 - 45 MIN EXPRESS
+            <div className="text-white/70 text-[10.5px] sm:text-xs font-medium tracking-wide">
+              CAMPUS 45 MIN - 1 HR EXPRESS
             </div>
           </div>
 
-          {/* Card 3: 30 - 45 mins Campus Delivery - Room & Gate */}
-          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10.5px] text-white/90 z-10">
-            <span className="font-bold truncate pr-1">30 - 45 mins Campus Delivery - Room & Gate</span>
+          {/* Card 3: 45 mins - 1 hr Campus Delivery - Room & Gate */}
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] sm:text-[10.5px] text-white/90 z-10">
+            <span className="font-bold truncate pr-1">45 mins - 1 hr Campus Delivery</span>
             <span className="text-[#30D158] font-bold shrink-0">● Active</span>
           </div>
         </motion.div>
@@ -202,7 +203,7 @@ export const HeroScene3D: React.FC = () => {
             rotateX: [6, 12, 6],
           }}
           transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
-          className="absolute -bottom-2 -left-6 sm:-left-10 z-30 w-36 h-32 sm:w-44 sm:h-36 rounded-2xl bg-gradient-to-br from-[#d4a373] to-[#b07d4f] shadow-xl border border-[#c49261] p-3 text-[#583e26] overflow-hidden"
+          className="absolute -bottom-2 -left-3 xs:-left-6 sm:-left-10 z-30 w-32 h-28 xs:w-36 xs:h-32 sm:w-44 sm:h-36 rounded-2xl bg-gradient-to-br from-[#d4a373] to-[#b07d4f] shadow-xl border border-[#c49261] p-3 text-[#583e26] overflow-hidden"
           style={{
             boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)',
           }}
@@ -233,7 +234,7 @@ export const HeroScene3D: React.FC = () => {
             rotateZ: [-12, -6, -12],
           }}
           transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
-          className="absolute top-4 -right-4 sm:-right-8 z-25 w-24 h-40 sm:w-28 sm:h-44 rounded-3xl bg-gradient-to-b from-[#0A84FF] via-[#0052cc] to-[#002b80] p-2.5 shadow-2xl border-t border-cyan-300 text-white flex flex-col justify-between overflow-hidden"
+          className="absolute top-4 -right-2 xs:-right-4 sm:-right-8 z-25 w-20 h-36 xs:w-24 xs:h-40 sm:w-28 sm:h-44 rounded-3xl bg-gradient-to-b from-[#0A84FF] via-[#0052cc] to-[#002b80] p-2 sm:p-2.5 shadow-2xl border-t border-cyan-300 text-white flex flex-col justify-between overflow-hidden"
           style={{
             boxShadow: '0 20px 42px -8px rgba(10, 132, 255, 0.55), 0 0 25px rgba(0, 212, 255, 0.35)',
           }}
@@ -265,7 +266,7 @@ export const HeroScene3D: React.FC = () => {
             rotateZ: [14, 18, 14],
           }}
           transition={{ duration: 5.8, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }}
-          className="absolute -top-4 -left-8 sm:-left-12 z-15 w-36 h-44 sm:w-40 sm:h-48 rounded-2xl bg-gradient-to-br from-[#10B981] via-[#059669] to-[#047857] p-3.5 shadow-2xl border-l-[6px] border-emerald-950 text-white flex flex-col justify-between"
+          className="absolute -top-4 -left-3 xs:-left-8 sm:-left-12 z-15 w-32 h-40 xs:w-36 xs:h-44 sm:w-40 sm:h-48 rounded-2xl bg-gradient-to-br from-[#10B981] via-[#059669] to-[#047857] p-3 sm:p-3.5 shadow-2xl border-l-[6px] border-emerald-950 text-white flex flex-col justify-between"
           style={{
             boxShadow: '0 18px 40px -10px rgba(16, 185, 129, 0.45)',
           }}
@@ -312,7 +313,7 @@ export const HeroScene3D: React.FC = () => {
             rotateZ: [-18, -12, -18],
           }}
           transition={{ duration: 6.2, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-          className="absolute -bottom-6 -right-6 sm:-right-10 z-30 w-28 h-28 sm:w-32 sm:h-32 pointer-events-none"
+          className="absolute -bottom-6 -right-3 xs:-right-6 sm:-right-10 z-30 w-24 h-24 xs:w-28 xs:h-28 sm:w-32 sm:h-32 pointer-events-none"
         >
           <div className="relative w-full h-full flex items-center justify-center">
             {/* Headphone headband */}

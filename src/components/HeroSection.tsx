@@ -120,11 +120,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </motion.div>
           </div>
 
-          {/* Right 3D Scene */}
+          {/* Right 3D Scene with Responsive Scaling Wrapper for Mobile */}
           <div className="lg:col-span-6 flex items-center justify-center w-full max-w-full overflow-hidden mt-1 lg:mt-0">
-            <div className="w-full max-w-[360px] sm:max-w-[460px] md:max-w-none mx-auto overflow-hidden">
-              <div className="transform scale-[0.78] sm:scale-90 md:scale-100 origin-top -my-6 md:my-0">
-                <HeroScene3D />
+            {/* Scaling wrapper for mobile to fit cleanly within smaller screens without card overlap */}
+            <div className="w-full flex items-center justify-center overflow-hidden py-1">
+              <div className="w-full max-w-[350px] xs:max-w-[420px] sm:max-w-[480px] md:max-w-none flex items-center justify-center">
+                <div className="w-full transform scale-80 xs:scale-85 sm:scale-95 md:scale-100 origin-center transition-transform duration-300">
+                  <HeroScene3D />
+                </div>
               </div>
             </div>
           </div>

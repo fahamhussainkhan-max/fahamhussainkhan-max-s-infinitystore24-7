@@ -89,6 +89,21 @@ export default function CheckoutForm({
   const { user, isAuthenticated, openLoginModal, signOut } = useAuth();
   const [storeOpen, setStoreOpen] = useState(isStoreOpen);
 
+  // Standard Supabase Google OAuth sign in with window.location.origin
+  const handleGoogleSignIn = async () => {
+    try {
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+    } catch (err: any) {
+      console.warn('OAuth redirect notice:', err?.message || err);
+      openLoginModal();
+    }
+  };
+
   useEffect(() => {
     setStoreOpen(isStoreOpen);
   }, [isStoreOpen]);
@@ -384,7 +399,7 @@ export default function CheckoutForm({
 
     // 2. Require Google Authentication before placing order
     if (!isAuthenticated) {
-      openLoginModal();
+      handleGoogleSignIn();
       return;
     }
 
@@ -536,7 +551,7 @@ Delivery: ₹15 (10% OFF Discount - was ₹25)
 Packaging & Handling: ${isFreeHandlingQualified ? 'FREE (₹0 - Promo Waived)' : '₹9'}
 *Total Due (Cash on Delivery): ₹${totalAmount}*
 ================================
-🚀 Delivery timeframe: Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)
+🚀 Delivery timeframe: Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
 Please confirm and prepare my order!`;
 
         const waUrl = `https://wa.me/${adminWhatsApp}?text=${encodeURIComponent(waOrderMessage)}`;
@@ -618,7 +633,7 @@ Please confirm and prepare my order!`;
           <div>
             <h2 className="text-xl font-bold text-neutral-900 font-display">Delivery Details</h2>
             <p className="text-xs text-neutral-500">
-              Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)
+              Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
             </p>
           </div>
         </div>
@@ -719,7 +734,7 @@ Please confirm and prepare my order!`;
             <button
               type="button"
               id="checkout-google-signin-btn"
-              onClick={openLoginModal}
+              onClick={handleGoogleSignIn}
               className="px-4 py-2 bg-white hover:bg-neutral-50 text-neutral-800 font-bold text-xs rounded-xl border border-neutral-300 shadow-xs transition cursor-pointer flex items-center justify-center gap-2 shrink-0 active:scale-95"
             >
               <span>Sign in with Google</span>
@@ -853,7 +868,7 @@ Please confirm and prepare my order!`;
           </div>
 
           <p className="text-[11px] text-neutral-500 leading-relaxed">
-            Delivery timeframe: <strong>Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)</strong>. Verify your location to proceed.
+            Delivery timeframe: <strong>Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)</strong>. Verify your location to proceed.
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -1093,7 +1108,7 @@ Please confirm and prepare my order!`;
           {!isAuthenticated ? (
             <button
               type="button"
-              onClick={openLoginModal}
+              onClick={handleGoogleSignIn}
               className="w-full py-4 bg-white hover:bg-neutral-50 text-neutral-800 font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-md border-2 border-neutral-200 hover:border-neutral-300 transition duration-200 cursor-pointer active:scale-98"
             >
               <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
