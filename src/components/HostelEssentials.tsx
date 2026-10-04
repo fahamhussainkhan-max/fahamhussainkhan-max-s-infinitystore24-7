@@ -53,9 +53,9 @@ export const HostelEssentials: React.FC<HostelEssentialsProps> = ({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6">
-        {techAndStudyItems.slice(0, 8).map((prod) => (
+        {techAndStudyItems.slice(0, 8).map((prod, idx) => (
           <ProductCard
-            key={prod.id}
+            key={prod.id ? `${prod.id}-${idx}` : `hostel-prod-${idx}`}
             product={prod}
             quantityInCart={cartQuantities[prod.id] || 0}
             onAddToCart={onAddToCart}

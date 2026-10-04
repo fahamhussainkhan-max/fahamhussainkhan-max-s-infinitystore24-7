@@ -1063,11 +1063,11 @@ function CustomerStorefront() {
         }}
       />
 
-      {/* Google Sign-In Modal */}
+      {/* Google Sign-In Modal (Optional - opened only on explicit user request) */}
       <GoogleSignInModal
-        isOpen={Boolean(!isLoading && (!user || isLoginModalOpen))}
+        isOpen={isLoginModalOpen}
         onClose={closeLoginModal}
-        isMandatory={!user}
+        isMandatory={false}
       />
 
       {/* Floating Toast Notification */}

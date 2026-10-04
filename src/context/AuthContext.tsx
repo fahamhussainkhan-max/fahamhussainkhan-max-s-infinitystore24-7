@@ -156,11 +156,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch {}
           }
 
-          // If genuinely unauthenticated and no callback params pending, allow sign-in gate to open
+          // If genuinely unauthenticated and no callback params pending, do not block user
           if (!code && !hash.includes('access_token')) {
             setUser(null);
             localStorage.removeItem('infinity_auth_user');
-            setIsLoginModalOpen(true);
+            setIsLoginModalOpen(false);
           }
         }
       } catch (err) {

@@ -82,9 +82,9 @@ export const LateNightCravings: React.FC<LateNightCravingsProps> = ({
 
         {/* Product Cards Grid with dark variant */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6">
-          {lateNightItems.map((prod) => (
+          {lateNightItems.map((prod, idx) => (
             <ProductCard
-              key={prod.id}
+              key={prod.id ? `${prod.id}-${idx}` : `craving-prod-${idx}`}
               product={prod}
               quantityInCart={cartQuantities[prod.id] || 0}
               onAddToCart={onAddToCart}
