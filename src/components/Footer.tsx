@@ -1,11 +1,13 @@
-import React from 'react';
-import { Heart, Shield, Clock, Phone, MapPin, Package, Code, UserCheck, Mail, Headphones } from 'lucide-react';
+import React, { useState } from 'react';
+import { Heart, Shield, Clock, Phone, MapPin, Package, Code, UserCheck, Mail, Headphones, FileText } from 'lucide-react';
+import { LegalModal, LegalModalType } from './LegalModal';
 
 interface FooterProps {
   onOpenCustomerOrders?: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
+  const [legalModalType, setLegalModalType] = useState<LegalModalType>(null);
   return (
     <footer className="w-full bg-[#111111] text-white border-t border-gray-800 py-12 sm:py-16 mt-16 select-none">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -76,6 +78,26 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
                   </button>
                 </li>
               )}
+              <li className="pt-2 border-t border-gray-800">
+                <button
+                  type="button"
+                  id="nav-col-privacy-btn"
+                  onClick={() => setLegalModalType('privacy')}
+                  className="hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer text-gray-400 text-xs"
+                >
+                  <Shield className="w-3.5 h-3.5 text-[#0A84FF]" /> Privacy Policy
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  id="nav-col-terms-btn"
+                  onClick={() => setLegalModalType('terms')}
+                  className="hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer text-gray-400 text-xs"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#30D158]" /> Terms of Service
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -121,6 +143,34 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
             </div>
             <div className="text-[11px] text-gray-500">
               Campus Hub Operating Hours: 24/7 (Priority Delivery Active During Exam Cycles). Student Support Helpline: Available via in-app dispatch.
+            </div>
+            {/* Subtle legal text links */}
+            <div className="pt-1.5 flex flex-wrap items-center justify-center md:justify-start gap-x-3 gap-y-1 text-[11.5px] text-gray-400">
+              <button
+                type="button"
+                id="footer-bottom-privacy-btn"
+                onClick={() => setLegalModalType('privacy')}
+                className="hover:text-white transition-colors cursor-pointer hover:underline text-gray-400"
+              >
+                Privacy Policy
+              </button>
+              <span className="text-gray-600">•</span>
+              <button
+                type="button"
+                id="footer-bottom-terms-btn"
+                onClick={() => setLegalModalType('terms')}
+                className="hover:text-white transition-colors cursor-pointer hover:underline text-gray-400"
+              >
+                Terms of Service
+              </button>
+              <span className="text-gray-600">•</span>
+              <a
+                href="mailto:infinitys486@gmail.com"
+                className="hover:text-white transition-colors hover:underline text-gray-400 inline-flex items-center gap-1"
+              >
+                <Mail className="w-3 h-3 text-[#0A84FF]" />
+                Support: infinitys486@gmail.com
+              </a>
             </div>
           </div>
 
@@ -176,6 +226,13 @@ export const Footer: React.FC<FooterProps> = ({ onOpenCustomerOrders }) => {
           </div>
         </div>
       </div>
+
+      {/* Privacy Policy & Terms of Service Modal */}
+      <LegalModal
+        isOpen={Boolean(legalModalType)}
+        type={legalModalType}
+        onClose={() => setLegalModalType(null)}
+      />
     </footer>
   );
 };

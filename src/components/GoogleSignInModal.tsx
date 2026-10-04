@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ShieldCheck, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { LegalModal, LegalModalType } from './LegalModal';
 
 interface GoogleSignInModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
   const { signInWithGoogle, isLoading, user } = useAuth();
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [legalType, setLegalType] = useState<LegalModalType>(null);
 
   if (!isOpen) return null;
 
@@ -144,8 +146,35 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             <span>Production-grade Google OAuth • Powered by Supabase</span>
           </div>
+
+          {/* Legal note in Google Sign-In */}
+          <div className="mt-2.5 text-center text-[10.5px] text-gray-400">
+            By signing in, you agree to our{' '}
+            <button
+              type="button"
+              onClick={() => setLegalType('terms')}
+              className="text-gray-500 hover:text-gray-900 underline cursor-pointer"
+            >
+              Terms of Service
+            </button>{' '}
+            &{' '}
+            <button
+              type="button"
+              onClick={() => setLegalType('privacy')}
+              className="text-gray-500 hover:text-gray-900 underline cursor-pointer"
+            >
+              Privacy Policy
+            </button>
+          </div>
         </motion.div>
       </div>
+
+      {/* Privacy Policy / Terms of Service Modal */}
+      <LegalModal
+        isOpen={Boolean(legalType)}
+        type={legalType}
+        onClose={() => setLegalType(null)}
+      />
     </AnimatePresence>
   );
 };

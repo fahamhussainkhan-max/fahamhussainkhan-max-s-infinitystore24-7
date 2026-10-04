@@ -987,16 +987,16 @@ function CustomerStorefront() {
           )}
         </>
       )}
+    </>
+  )}
 
-          {/* Footer */}
-          <Footer
-            onOpenCustomerOrders={() => {
-              setCurrentTab('profile');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          />
-        </>
-      )}
+  {/* Footer (Available across all views with Privacy Policy & Terms of Service) */}
+  <Footer
+    onOpenCustomerOrders={() => {
+      setCurrentTab('profile');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }}
+  />
 
       {/* Cart Drawer */}
       <CartDrawer
