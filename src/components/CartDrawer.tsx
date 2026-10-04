@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Zap, CheckCircle2, Bike, MapPin, Sparkles } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Zap, CheckCircle2, Bike, MapPin, Sparkles, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CartItem, CampusZone } from '../types';
 import { recordCampusOrder } from '../lib/supabase';
@@ -54,11 +54,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const isFreeDeliveryQualified = subtotal >= 200;
   const baseDeliveryFee = getBaseDeliveryFee(selectedZone);
   const deliveryFee = calculateDeliveryFee(selectedZone, subtotal);
-  const isFreeHandlingQualified = appliedPromo === 'SHADOW';
+  const isFreeHandlingQualified = appliedPromo === 'SHADOW' || subtotal >= 200;
   const handlingFee = isFreeHandlingQualified ? 0 : PACKAGING_HANDLING_FEE;
   const deliveryCharge = deliveryFee;
   const totalAmount = subtotal > 0 ? subtotal + deliveryFee + handlingFee : 0;
   const grandTotal = totalAmount;
+
+  // Real-time stock verification for cart items
+  const outOfStockItems = cartItems.filter(
+    (item) =>
+      item.product?.inStock === false ||
+      (typeof item.product?.stockCount === 'number' && item.product.stockCount <= 0)
+  );
+  const hasOutOfStockItems = outOfStockItems.length > 0;
 
   const handleApplyPromo = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -354,6 +362,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate">
                             {item.product.name}
                           </h4>
+                          {(item.product?.inStock === false ||
+                            (typeof item.product?.stockCount === 'number' && item.product.stockCount <= 0)) && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded-md mt-0.5">
+                              ⚠️ Out of Stock
+                            </span>
+                          )}
                           <div className="text-[11px] text-gray-500 mt-0.5">
                             ₹{item.product.price} • {item.product.unit}
                           </div>
@@ -515,8 +529,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Packaging & Handling Fee</span>
+                    <div className="flex justify-between items-center text-gray-600">
+                      <span className="flex items-center gap-1.5">
+                        <span>Packaging & Handling Fee</span>
+                        {subtotal >= 200 && (
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-extrabold uppercase">
+                            FREE (Orders above ₹200)
+                          </span>
+                        )}
+                      </span>
                       <span className="font-bold flex items-center gap-1.5">
                         {isFreeHandlingQualified ? (
                           <>
@@ -528,6 +549,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         )}
                       </span>
                     </div>
+
+                    {subtotal < 200 && subtotal > 0 && (
+                      <div className="p-2 rounded-xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-900 flex items-center gap-1.5 font-medium">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>
+                          Add items worth <strong>₹{200 - subtotal}</strong> more to unlock <strong>FREE Packaging & Handling!</strong>
+                        </span>
+                      </div>
+                    )}
 
                     <div className="flex justify-between text-sm sm:text-base font-black text-gray-900 pt-2 border-t border-gray-200">
                       <span>To Pay</span>
@@ -565,6 +595,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </button>
                       )}
                     </div>
+                  ) : hasOutOfStockItems ? (
+                    <div className="w-full space-y-2">
+                      <div className="w-full p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex items-center gap-2 text-xs">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span className="font-semibold">Some items in your cart are currently out of stock. Please remove them to proceed.</span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full py-4 bg-neutral-300 text-neutral-500 font-extrabold rounded-2xl shadow-none flex items-center justify-center gap-2 px-6 cursor-not-allowed text-xs sm:text-sm"
+                      >
+                        <span>Remove Out-of-Stock Items to Checkout</span>
+                      </button>
+                    </div>
                   ) : (
                     <button
                       type="button"
@@ -573,7 +617,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     >
                       <div className="text-left">
                         <div className="text-[10px] text-red-100 font-medium uppercase tracking-wider">
-                          Delivery within 30 - 45 mins (CCCT, SIST, Hostels & PGs)
+                          Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
                         </div>
                         <div className="text-base font-black">₹{grandTotal}</div>
                       </div>

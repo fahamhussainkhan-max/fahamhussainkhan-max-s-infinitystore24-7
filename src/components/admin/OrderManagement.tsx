@@ -339,6 +339,49 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
 
                   {/* Actions & Next Status Progression */}
                   <div className="flex items-center gap-2 flex-wrap">
+                    {/* Runner Status Switching: [Received] -> [Dispatched] -> [Delivered] */}
+                    <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl border border-gray-200">
+                      <button
+                        type="button"
+                        disabled={isUpdating}
+                        onClick={() => handleQuickAdvance(order, 'Confirmed')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                          order.status === 'Confirmed' || order.status === 'Pending'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'hover:bg-white text-gray-700 hover:text-blue-700'
+                        }`}
+                        title="Mark as Received"
+                      >
+                        Received
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isUpdating}
+                        onClick={() => handleQuickAdvance(order, 'Out for Delivery')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                          order.status === 'Out for Delivery'
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'hover:bg-white text-gray-700 hover:text-amber-700'
+                        }`}
+                        title="Mark as Dispatched (Runner on way)"
+                      >
+                        Dispatched
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isUpdating}
+                        onClick={() => handleQuickAdvance(order, 'Delivered')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                          order.status === 'Delivered'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'hover:bg-white text-gray-700 hover:text-emerald-700'
+                        }`}
+                        title="Mark as Delivered"
+                      >
+                        Delivered
+                      </button>
+                    </div>
+
                     {/* View Status Audit History */}
                     <button
                       type="button"
@@ -390,39 +433,49 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 text-xs">
                   {/* order.delivery_address direct JSON object format me milta hai */}
                   <div>
-                    <p className="font-semibold text-neutral-900">{order.delivery_address?.fullName}</p>
-                    <p className="text-neutral-600">📞 {order.delivery_address?.phone}</p>
+                    <p className="font-semibold text-neutral-900">{order.delivery_address?.fullName || order.customer_name}</p>
+                    <p className="text-neutral-600">📞 {order.delivery_address?.phone || order.customer_phone}</p>
                     <p className="text-neutral-700 mt-1">
-                      📍 {order.delivery_address?.area}, {order.delivery_address?.roomNo}
+                      📍 {order.delivery_address?.area || order.delivery_zone}, {order.delivery_address?.roomNo || order.room_details}
                     </p>
                     {order.delivery_address?.notes && (
                       <p className="text-xs text-neutral-500 mt-1 italic">Note: "{order.delivery_address?.notes}"</p>
                     )}
                   </div>
 
-                  {/* Items list */}
+                  {/* Items list with resilient metadata fallback */}
                   <div className="md:col-span-2 flex flex-col justify-between">
                     <div className="space-y-1">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                        Order Items ({order.items.length})
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {order.items.map((item, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200/80 text-[11px] font-medium text-gray-800"
-                          >
-                            <span className="font-bold text-[#0A84FF]">{item.quantity}x</span>
-                            <span>{item.name}</span>
-                            <span className="text-gray-400 font-mono">₹{item.price * item.quantity}</span>
-                          </span>
-                        ))}
-                      </div>
+                      {(() => {
+                        const displayItems =
+                          order.items && order.items.length > 0
+                            ? order.items
+                            : (order as any).metadata?.items || (order as any).items_summary || [];
+                        return (
+                          <>
+                            <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                              Order Items ({displayItems.length})
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {displayItems.map((item: any, idx: number) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200/80 text-[11px] font-medium text-gray-800"
+                                >
+                                  <span className="font-bold text-[#0A84FF]">{item.quantity}x</span>
+                                  <span>{item.name || item.title}</span>
+                                  <span className="text-gray-400 font-mono">₹{(item.price || item.unit_price || 0) * (item.quantity || 1)}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-gray-100 mt-2">
                       <span className="text-[11px] text-gray-500 font-medium">
-                        Payment: <strong className="text-gray-800">{order.payment_method || 'UPI'}</strong>
+                        Payment: <strong className="text-gray-800">{order.payment_method || 'COD'}</strong>
                       </span>
                       <div className="text-sm font-black text-gray-900 font-display">
                         Total: ₹{order.total_amount}

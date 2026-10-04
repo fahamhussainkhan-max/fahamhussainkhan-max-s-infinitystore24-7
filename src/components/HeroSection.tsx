@@ -125,7 +125,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             {/* Scaling wrapper for mobile to fit cleanly within smaller screens without card overlap */}
             <div className="w-full flex items-center justify-center overflow-hidden py-1">
               <div className="w-full max-w-[350px] xs:max-w-[420px] sm:max-w-[480px] md:max-w-none flex items-center justify-center">
-                <div className="w-full transform scale-80 xs:scale-85 sm:scale-95 md:scale-100 origin-center transition-transform duration-300">
+                <div className="w-full transform scale-[0.85] xs:scale-[0.90] sm:scale-95 md:scale-100 origin-center transition-transform duration-300">
                   <HeroScene3D />
                 </div>
               </div>

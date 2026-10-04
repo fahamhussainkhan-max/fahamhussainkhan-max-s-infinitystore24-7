@@ -424,10 +424,18 @@ function CustomerStorefront() {
       triggerToast('⚠️ Store is currently closed for orders.');
       return;
     }
+    if (product.inStock === false || (typeof product.stockCount === 'number' && product.stockCount <= 0)) {
+      triggerToast(`⚠️ "${product.name}" is currently out of stock.`);
+      return;
+    }
     setCartItems((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       const initialQty = product.minQuantity && product.minQuantity > 1 ? product.minQuantity : 1;
       if (existing) {
+        if (typeof product.stockCount === 'number' && existing.quantity >= product.stockCount) {
+          triggerToast(`⚠️ Maximum available stock (${product.stockCount}) reached.`);
+          return prev;
+        }
         return prev.map((item) =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -442,6 +450,18 @@ function CustomerStorefront() {
     if (quantity > current && !isStoreOpen) {
       triggerToast('⚠️ Store is currently closed for orders.');
       return;
+    }
+    const targetItem = cartItems.find((i) => i.product.id === productId);
+    if (quantity > current && targetItem?.product) {
+      const p = targetItem.product;
+      if (p.inStock === false || (typeof p.stockCount === 'number' && p.stockCount <= 0)) {
+        triggerToast(`⚠️ "${p.name}" is currently out of stock.`);
+        return;
+      }
+      if (typeof p.stockCount === 'number' && quantity > p.stockCount) {
+        triggerToast(`⚠️ Maximum available stock (${p.stockCount}) reached.`);
+        return;
+      }
     }
     setCartItems((prev) => {
       if (quantity <= 0) {

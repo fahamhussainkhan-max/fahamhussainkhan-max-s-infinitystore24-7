@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import {
   ShieldCheck,
@@ -57,13 +57,10 @@ const LOCATION_SECTIONS = {
     'SIST — Main Security Gate',
   ],
   'Hostels / Custom PGs': [
-    'Campus Boys Hostel (Hostel Area)',
-    'Campus Girls Hostel (Hostel Area)',
-    'Central Academic Quad & Study Hall',
-    'Makaju PG / Chisopani Corridor',
-    'Happy PG / Chisopani Road',
-    'Chisopani Outer Residencies',
-    'Custom PG / Other Specific Location',
+    'Makaju Boys Hostel',
+    'Happy Hostel',
+    'Anshuman PG',
+    'Custom PG / Building Name',
   ],
 };
 
@@ -108,6 +105,7 @@ export default function CheckoutForm({
 
   const [isVerifiedStudent, setIsVerifiedStudent] = useState<boolean>(checkIsVerifiedStudent);
   const [isEditingDetails, setIsEditingDetails] = useState<boolean>(false);
+  const isSubmittingRef = useRef<boolean>(false);
 
   useEffect(() => {
     setStoreOpen(isStoreOpen);
@@ -225,6 +223,7 @@ export default function CheckoutForm({
 
   // Custom PG specific fields
   const isCustomOption =
+    formData.area === 'Custom PG / Building Name' ||
     formData.area === 'Custom PG / Other Specific Location' ||
     (!Object.values(LOCATION_SECTIONS).flat().includes(formData.area) && Boolean(formData.area));
 
@@ -269,14 +268,13 @@ export default function CheckoutForm({
           0
         );
 
-  // 3. Pricing & Delivery Display:
-  // - Show delivery fee strikethrough: 'Rs. 25' struck out to 'Rs. 15' with a highlighted '10% OFF' discount badge.
-  // - Handling Fee: Rs. 9 (waived with promo code 'SHADOW')
+  // 3. Pricing & Delivery Display & Dynamic Free Handling (above Rs. 200)
   const originalDeliveryFee = 25;
   const deliveryCharge = 15; // Discounted flat rate
-  const isFreeHandlingQualified = isSecretPromoApplied;
+  const subtotalAmount = Number(productPrice);
+  const isFreeHandlingQualified = isSecretPromoApplied || subtotalAmount >= 200;
   const handlingFee = isFreeHandlingQualified ? 0 : PACKAGING_HANDLING_FEE;
-  const totalAmount = Number(productPrice) + Number(deliveryCharge) + Number(handlingFee);
+  const totalAmount = subtotalAmount + Number(deliveryCharge) + Number(handlingFee);
 
   const handleApplyPromoCode = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -372,6 +370,12 @@ export default function CheckoutForm({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+    if (name === 'phone') {
+      const digits = value.replace(/\D/g, '').slice(0, 10);
+      setFormData((prev) => ({ ...prev, phone: digits }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
 
     if (name === 'area') {
@@ -382,12 +386,20 @@ export default function CheckoutForm({
       } else {
         setActiveSection('Hostels / Custom PGs');
       }
+      if (value === 'Custom PG / Building Name' && !customPgName) {
+        setCustomPgName('');
+      }
     }
   };
 
-  // Handle final order submission
+  // Handle final order submission with double-click & duplicate protection
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. Immediate Double-Click & In-Flight Lock
+    if (isSubmittingRef.current || loading) {
+      return;
+    }
 
     if (!storeOpen) {
       setErrorMsg('Store is currently closed for deliveries. Please check back soon.');
@@ -399,29 +411,49 @@ export default function CheckoutForm({
       return;
     }
 
-    if (!formData.fullName.trim()) {
-      setErrorMsg('Please enter your Full Name.');
+    // 2. Real-time Out-of-Stock Protection
+    const outOfStockItem = cartItems.find(
+      (item) =>
+        item.product?.inStock === false ||
+        (typeof item.product?.stockCount === 'number' && item.product.stockCount <= 0)
+    );
+    if (outOfStockItem) {
+      setErrorMsg(
+        `Cannot place order: "${outOfStockItem.product?.name || 'An item'}" is currently out of stock. Please remove it from your cart to proceed.`
+      );
       return;
     }
 
+    // 3. Name Sanitization (minimum 2 chars) - Mandatory
+    const trimmedName = formData.fullName.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      setErrorMsg('Please enter your complete Full Name (minimum 2 characters).');
+      return;
+    }
+
+    // 4. Strict 10-digit Indian Mobile Validation (^[6-9]\d{9}$) - Mandatory
     const rawDigits = formData.phone.replace(/\D/g, '');
     const cleanPhone = rawDigits.length > 10 ? rawDigits.slice(-10) : rawDigits;
-    if (cleanPhone.length !== 10) {
-      setErrorMsg('Please enter a valid 10-digit mobile number (compulsory for delivery runner).');
+    const indianPhoneRegex = /^[6-9]\d{9}$/;
+    if (!indianPhoneRegex.test(cleanPhone)) {
+      setErrorMsg('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
       return;
     }
 
-    if (isCustomOption && !customPgName.trim()) {
-      setErrorMsg('Please enter your Custom PG / Building Name.');
-      return;
+    // 5. Custom PG / Building Sanitization (if selected)
+    if (isCustomOption) {
+      const trimmedCustom = customPgName.trim();
+      if (!trimmedCustom || trimmedCustom.length < 2) {
+        setErrorMsg('Please enter your Custom PG / Building Name or landmark (minimum 2 characters).');
+        return;
+      }
     }
 
-    if (!formData.roomNo.trim()) {
-      setErrorMsg('Please enter your Room / Flat / Floor Number so the runner can reach you.');
-      return;
-    }
+    // 6. Room / Flat / Floor Number (Strictly Optional: never block checkout if empty)
+    const trimmedRoom = formData.roomNo.trim();
+    const roomDetails = trimmedRoom || 'Campus Drop / Handover';
 
-    // Campus delivery location verification check
+    // Campus delivery location verification check - Mandatory
     if (!isLocationVerified) {
       if (!isOutsideBoundary && formData.area && !formData.area.includes('Outside')) {
         setLocationVerification({
@@ -434,14 +466,15 @@ export default function CheckoutForm({
       }
     }
 
+    // Lock in-flight submission immediately to prevent duplicate orders
+    isSubmittingRef.current = true;
     setLoading(true);
     setErrorMsg('');
 
     const selectedLocation = isCustomOption
       ? customPgName.trim() || formData.area
       : formData.area;
-    const roomDetails = formData.roomNo.trim();
-    const deliveryLocation = `${selectedLocation} - Room: ${roomDetails || 'N/A'}`;
+    const deliveryLocation = `${selectedLocation} - Room: ${roomDetails}`;
 
     // Check verification status BEFORE saving: repeat orders are already verified
     const wasAlreadyVerified = checkIsVerifiedStudent();
@@ -452,17 +485,48 @@ export default function CheckoutForm({
       const currentHandlingFee = Number(handlingFee);
 
       const checkoutDetails = {
-        name: formData.fullName.trim() || 'Campus Student',
+        name: trimmedName,
         email: (formData.email || '').trim() || `${cleanPhone}@campus.infinity.store`,
         phone: cleanPhone,
         location: deliveryLocation,
-        notes: formData.notes || '',
+        notes: (formData.notes || '').trim(),
         paymentMethod: 'COD',
       };
 
       const isValidUUID = (str: any) =>
         typeof str === 'string' &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+      // Clean structured JSON metadata for runner admin dispatch
+      const itemsSummaryJSON = cartItems.map((item: any) => {
+        const itemPrice = item.price !== undefined ? Number(item.price) : Number(item.product?.price || 0);
+        const itemQty = Number(item.quantity || 1);
+        const itemName = item.name || item.title || item.product?.name || 'Campus Item';
+        const itemImage = item.image_url || item.image || item.product?.image || item.product?.image_url || '';
+        const rawId = item.id || item.product?.id;
+        return {
+          id: rawId,
+          name: itemName,
+          title: itemName,
+          quantity: itemQty,
+          unit_price: itemPrice,
+          price: itemPrice,
+          subtotal: itemPrice * itemQty,
+          image: itemImage,
+          image_url: itemImage,
+        };
+      });
+
+      const orderMetadata = {
+        items: itemsSummaryJSON,
+        delivery_location: selectedLocation,
+        hostel_room: roomDetails,
+        timestamp: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        payment_method: 'COD',
+        source: 'campus_web_storefront',
+        total_items: cartItems.reduce((acc, i) => acc + (i.quantity || 1), 0),
+      };
 
       // 1. Insert main order directly into Supabase (0.0s artificial delay)
       const orderPayload: Record<string, any> = {
@@ -473,6 +537,8 @@ export default function CheckoutForm({
         customer_phone: checkoutDetails.phone,
         delivery_location: checkoutDetails.location,
         delivery_address: checkoutDetails.location,
+        delivery_zone: selectedLocation,
+        room_details: roomDetails,
         delivery_note: checkoutDetails.notes,
         delivery_fee: currentDeliveryFee,
         handling_fee: currentHandlingFee,
@@ -484,6 +550,9 @@ export default function CheckoutForm({
         status: orderStatus,
         gps_verified: true,
         gps_status: locationVerification.status,
+        metadata: orderMetadata,
+        items_summary: itemsSummaryJSON,
+        items: itemsSummaryJSON,
       };
 
       let orderData: any = null;
@@ -501,12 +570,15 @@ export default function CheckoutForm({
           customer_phone: checkoutDetails.phone,
           delivery_location: checkoutDetails.location,
           delivery_address: checkoutDetails.location,
+          delivery_zone: selectedLocation,
+          room_details: roomDetails,
           total_amount: totalAmount,
           total: totalAmount,
           subtotal: Number(productPrice),
           payment_method: 'COD',
           payment_status: 'unpaid',
           status: orderStatus,
+          metadata: orderMetadata,
         };
         const { data: retryData, error: retryErr } = await supabase
           .from('orders')
@@ -524,7 +596,7 @@ export default function CheckoutForm({
         orderData = data;
       }
 
-      // 2. Insert items with product image and price
+      // 2. Insert items with product image and price into order_items table
       if (orderData && cartItems.length > 0) {
         const itemsPayload = cartItems.map((item: any) => {
           const itemPrice = item.price !== undefined ? Number(item.price) : Number(item.product?.price || 0);
@@ -578,11 +650,32 @@ export default function CheckoutForm({
 
       const finalOrderId = orderData?.id || `INF-${Date.now()}`;
 
-      // 4. WhatsApp verification routing:
+      // 4. Save to local orders cache for instant tracking resilience
+      try {
+        const existingOrders = JSON.parse(localStorage.getItem('infinity_orders') || '[]');
+        const localOrderRecord = {
+          id: finalOrderId,
+          order_number: finalOrderId,
+          customer_name: checkoutDetails.name,
+          customer_phone: cleanPhone,
+          delivery_zone: selectedLocation,
+          room_details: roomDetails,
+          items: itemsSummaryJSON,
+          total_amount: totalAmount,
+          status: orderStatus,
+          payment_method: 'COD',
+          created_at: new Date().toISOString(),
+        };
+        localStorage.setItem('infinity_orders', JSON.stringify([localOrderRecord, ...existingOrders.filter((o: any) => o.id !== finalOrderId)]));
+      } catch (cacheErr) {
+        console.warn('Order cache error:', cacheErr);
+      }
+
+      // 5. WhatsApp verification routing:
       // If ALREADY VERIFIED in localStorage:
       //   Save directly to Supabase with status 'Confirmed' (0.0s delay, NO WhatsApp redirect needed for repeat orders).
       // If FIRST-TIME USER (Not Verified):
-      //   Open WhatsApp to https://wa.me/919332727610 with pre-filled message
+      //   Open WhatsApp to https://wa.me/919332727610 with pre-filled formatted receipt
       if (!wasAlreadyVerified) {
         try {
           const itemSummary = cartItems
@@ -596,12 +689,18 @@ export default function CheckoutForm({
           const waOrderMessage = 
 `🛍️ *NEW CAMPUS ORDER: #${finalOrderId}*
 *Name:* ${checkoutDetails.name}
-*Phone:* ${cleanPhone}
-*Delivery:* ${selectedLocation}, Room: ${roomDetails || 'Campus Spot'}
+*Phone:* +91 ${cleanPhone}
+*Delivery Location:* ${selectedLocation}
+*Room / Hostel:* ${roomDetails}
 *Items:* ${itemSummary}
-*Total Amount:* ₹${totalAmount} (COD)
-
-Please confirm and dispatch my order!`;
+================================
+Subtotal: ₹${subtotalAmount}
+Runner Delivery Fee: ₹${deliveryCharge} (10% OFF Flat Rate)
+Packaging & Handling Fee: ${isFreeHandlingQualified ? 'FREE (₹0 - Orders above ₹200)' : '₹9'}
+*Total Amount Due:* ₹${totalAmount} (Cash on Delivery)
+================================
+${checkoutDetails.notes ? `*Delivery Note:* ${checkoutDetails.notes}\n` : ''}
+Please verify my campus order and dispatch runner!`;
 
           const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(waOrderMessage)}`;
           const opened = window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -613,7 +712,7 @@ Please confirm and dispatch my order!`;
         }
       }
 
-      // 5. Complete checkout: immediate success transition & cart clear
+      // 6. Complete checkout: immediate success transition & cart clear
       if (onOrderSuccess) {
         onOrderSuccess(finalOrderId, {
           fullName: checkoutDetails.name,
@@ -629,6 +728,7 @@ Please confirm and dispatch my order!`;
       const displayMsg = 'Failed to place order: ' + (err?.message || 'Check connection');
       setErrorMsg(displayMsg);
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   };
@@ -742,24 +842,27 @@ Please confirm and dispatch my order!`;
         {/* 10-digit Phone Number (Strictly required for campus delivery runners) */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs sm:text-sm font-bold text-neutral-700">
+            <label htmlFor="checkout-phone-input" className="block text-xs sm:text-sm font-bold text-neutral-700">
               Contact Phone Number <span className="text-red-500">*</span>
             </label>
             <span className="text-[10px] text-neutral-400 font-bold">10 Digits Required</span>
           </div>
-          <div className="relative">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
+          <div className="relative flex items-center">
+            <span className="absolute left-3.5 text-xs font-bold text-neutral-400 pointer-events-none select-none z-10">
               +91
             </span>
             <input
+              id="checkout-phone-input"
               type="tel"
               name="phone"
               required
+              inputMode="numeric"
               maxLength={10}
+              autoComplete="tel"
               value={formData.phone}
               onChange={handleChange}
-              placeholder="10-digit mobile number for delivery agent"
-              className="w-full pl-11 pr-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white font-medium"
+              placeholder="9876543210"
+              className="w-full pl-11 pr-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white font-medium text-neutral-900 cursor-text pointer-events-auto relative z-0"
             />
           </div>
           <p className="text-[11px] text-neutral-400 mt-1">
@@ -932,22 +1035,21 @@ Please confirm and dispatch my order!`;
           </div>
         )}
 
-        {/* Room / Flat / Floor Number */}
+        {/* Room / Flat / Floor Number (Strictly Optional) */}
         <div>
           <label className="block text-xs sm:text-sm font-bold text-neutral-700 mb-1">
-            Room / Flat / Floor Number <span className="text-red-500">*</span>
+            Room / Flat / Floor Number (Optional)
           </label>
           <input
             type="text"
             name="roomNo"
-            required
             value={formData.roomNo}
             onChange={handleChange}
-            placeholder="e.g. Room 302, 3rd Floor / Flat 4B / Desk 12"
+            placeholder="e.g. Room 302, 3rd Floor / Desk 12 (Optional)"
             className="w-full px-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white"
           />
           <p className="text-[11px] text-neutral-400 mt-1">
-            Required so our student delivery runner can hand over directly to your doorstep.
+            Optional: leave blank if meeting runner at security gate or campus entrance.
           </p>
         </div>
 
@@ -987,7 +1089,7 @@ Please confirm and dispatch my order!`;
           <div className="space-y-1.5 text-xs text-neutral-600">
             <div className="flex justify-between">
               <span>Item Subtotal</span>
-              <span className="font-semibold text-neutral-900">₹{productPrice}</span>
+              <span className="font-semibold text-neutral-900">₹{subtotalAmount}</span>
             </div>
 
             {/* Delivery fee with Rs 25 strikethrough, followed by Rs 15, and 10% OFF discount badge */}
@@ -1005,7 +1107,14 @@ Please confirm and dispatch my order!`;
             </div>
 
             <div className="flex justify-between items-center text-neutral-600">
-              <span>Packaging & Handling Fee</span>
+              <span className="flex items-center gap-1.5">
+                <span>Packaging & Handling Fee</span>
+                {subtotalAmount >= 200 && (
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-extrabold uppercase">
+                    FREE (Orders above ₹200)
+                  </span>
+                )}
+              </span>
               <span className="font-bold flex items-center gap-1.5">
                 {isFreeHandlingQualified ? (
                   <>
@@ -1017,6 +1126,15 @@ Please confirm and dispatch my order!`;
                 )}
               </span>
             </div>
+
+            {subtotalAmount < 200 && subtotalAmount > 0 && (
+              <div className="p-2 rounded-xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-900 flex items-center gap-1.5 font-medium">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>
+                  Add items worth <strong>₹{200 - subtotalAmount}</strong> more to unlock <strong>FREE Packaging & Handling!</strong>
+                </span>
+              </div>
+            )}
 
             <div className="flex justify-between items-center text-sm font-black text-neutral-900 pt-2 border-t border-neutral-200">
               <span>Total to Pay (COD)</span>
@@ -1092,16 +1210,16 @@ Please confirm and dispatch my order!`;
               type="submit"
               id="place-order-instantly-btn"
               disabled={!storeOpen || loading}
-              className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg transition duration-200 text-sm sm:text-base cursor-pointer active:scale-98 min-h-[48px] ${
+              className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg transition duration-200 text-sm sm:text-base min-h-[48px] ${
                 !storeOpen || loading
                   ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25 cursor-pointer active:scale-98'
               }`}
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Placing Order Instantly...</span>
+                  <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                  <span>Securing Order...</span>
                 </>
               ) : !storeOpen ? (
                 <span>Store Closed for Deliveries</span>
@@ -1114,23 +1232,23 @@ Please confirm and dispatch my order!`;
               type="submit"
               id="verify-whatsapp-order-btn"
               disabled={!storeOpen || loading}
-              className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg transition duration-200 text-sm sm:text-base cursor-pointer active:scale-98 min-h-[48px] ${
+              className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg transition duration-200 text-sm sm:text-base min-h-[48px] ${
                 !storeOpen || loading
                   ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
-                  : 'bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-emerald-500/25'
+                  : 'bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-emerald-500/25 cursor-pointer active:scale-98'
               }`}
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Saving & Opening WhatsApp...</span>
+                  <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                  <span>Securing Order...</span>
                 </>
               ) : !storeOpen ? (
                 <span>Store Closed for Deliveries</span>
               ) : (
                 <>
                   <MessageCircle className="w-5 h-5 shrink-0" />
-                  <span>Verify & Place Order via WhatsApp • ₹{totalAmount}</span>
+                  <span>Confirm Order via WhatsApp • ₹{totalAmount}</span>
                 </>
               )}
             </button>
