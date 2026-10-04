@@ -119,7 +119,7 @@ export default function App() {
 }
 
 function CustomerStorefront() {
-  const { isLoginModalOpen, closeLoginModal } = useAuth();
+  const { user, isLoginModalOpen, closeLoginModal } = useAuth();
 
   // 1. LIVE CATALOG: State for live Supabase products with graceful instant fallback
   const [products, setProductsState] = useState<Product[]>(() => {
@@ -1048,10 +1048,11 @@ function CustomerStorefront() {
         }}
       />
 
-      {/* Google Sign-In Modal */}
+      {/* Google Sign-In Modal (Mandatory on initial load) */}
       <GoogleSignInModal
-        isOpen={isLoginModalOpen}
+        isOpen={!user || isLoginModalOpen}
         onClose={closeLoginModal}
+        isMandatory={!user}
       />
 
       {/* Floating Toast Notification */}

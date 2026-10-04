@@ -8,14 +8,16 @@ interface GoogleSignInModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  isMandatory?: boolean;
 }
 
 export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  isMandatory = false,
 }) => {
-  const { signInWithGoogle, isLoading, user } = useAuth();
+  const { signInWithGoogle, fastCampusLogin, isLoading, user } = useAuth();
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [legalType, setLegalType] = useState<LegalModalType>(null);
@@ -35,6 +37,19 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
     }
   };
 
+  const handleDemoLogin = async (demo: { fullName: string; email: string }) => {
+    setAuthError(null);
+    setIsSubmitting(true);
+    try {
+      await fastCampusLogin(demo);
+      if (onSuccess) onSuccess();
+    } catch (err: any) {
+      setAuthError(err?.message || 'Login failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       <div
@@ -46,23 +61,25 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 10 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 relative my-auto"
+          className="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-gray-100 relative my-auto max-h-[92vh] overflow-y-auto"
         >
-          {/* Close button */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {/* Close button - only shown if user is already logged in and just re-authenticating */}
+          {!isMandatory && user && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Official Google Branding Header */}
-          <div className="text-center pt-2 pb-4">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-white shadow-md border border-gray-100 flex items-center justify-center mb-3">
+          <div className="text-center pt-1 pb-3 sm:pb-4">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-2xl bg-white shadow-md border border-gray-100 flex items-center justify-center mb-2.5">
               {/* Official Google 'G' Logo SVG */}
-              <svg className="w-9 h-9" viewBox="0 0 48 48">
+              <svg className="w-8 h-8 sm:w-9 sm:h-9" viewBox="0 0 48 48">
                 <path
                   fill="#EA4335"
                   d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
@@ -82,11 +99,15 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
               </svg>
             </div>
 
+            <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full border border-blue-200 mb-2 inline-block">
+              {isMandatory ? 'Mandatory Student Sign-In' : 'Campus Express Authentication'}
+            </span>
+
             <h3 className="text-xl font-extrabold text-gray-900 font-display">
               Sign in with Google
             </h3>
             <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto leading-relaxed">
-              Verify your identity with your official Google Account to auto-fill delivery details and place campus orders.
+              Please sign in with your Google account to access InfinityStore, auto-fill your delivery info, and place campus orders.
             </p>
           </div>
 
@@ -139,6 +160,19 @@ export const GoogleSignInModal: React.FC<GoogleSignInModalProps> = ({
             <p className="text-[11px] text-center text-gray-400">
               Triggers the official Google account chooser to select your verified student account.
             </p>
+
+            {/* 1-Click Fast Student Demo Sign-In (For testing environments) */}
+            <div className="pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                id="demo-student-fast-login-btn"
+                onClick={() => handleDemoLogin({ fullName: 'Rahul Sharma', email: 'rahul.ccct@gmail.com' })}
+                disabled={isSubmitting || isLoading}
+                className="w-full py-2.5 px-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                <span>⚡ 1-Click Student Fast Login (Demo)</span>
+              </button>
+            </div>
           </div>
 
           {/* Secure badge */}

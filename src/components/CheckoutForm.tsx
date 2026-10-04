@@ -4,6 +4,7 @@ import {
   ShieldCheck,
   Truck,
   ArrowLeft,
+  ArrowRight,
   AlertTriangle,
   MapPin,
   Navigation,
@@ -397,16 +398,17 @@ export default function CheckoutForm({
       return;
     }
 
-    // 2. Require Google Authentication before placing order
-    if (!isAuthenticated) {
-      handleGoogleSignIn();
-      return;
-    }
-
-    // 3. Location verification requirement
+    // 2. Campus delivery location verification check
     if (!isLocationVerified) {
-      setErrorMsg('Please verify your location to confirm you are within campus delivery parameters.');
-      return;
+      if (!isOutsideBoundary && formData.area && !formData.area.includes('Outside')) {
+        setLocationVerification({
+          status: 'inside',
+          message: `✓ Verified: On-Campus Spot confirmed (${formData.area}).`,
+        });
+      } else {
+        setErrorMsg('Please confirm your campus delivery location to continue.');
+        return;
+      }
     }
 
     const rawDigits = formData.phone.replace(/\D/g, '');
@@ -617,30 +619,30 @@ Please confirm and prepare my order!`;
   };
 
   return (
-    <div className="max-w-lg mx-auto bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-neutral-100 relative">
+    <div className="max-w-lg mx-auto bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-neutral-100 relative">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {onCancel && (
             <button
               type="button"
               onClick={onCancel}
-              className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors mr-1 cursor-pointer"
+              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors mr-0.5 cursor-pointer shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
               aria-label="Back to Cart"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
-          <div>
-            <h2 className="text-xl font-bold text-neutral-900 font-display">Delivery Details</h2>
-            <p className="text-xs text-neutral-500">
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-xl font-black text-neutral-900 font-display truncate">Delivery Details</h2>
+            <p className="text-[11px] sm:text-xs text-neutral-500 truncate">
               Delivery within 45 mins - 1 hr (CCCT, SIST, Hostels & PGs)
             </p>
           </div>
         </div>
 
-        <div className="text-right">
-          <span className="text-xs text-neutral-400 block">Total Due (COD)</span>
-          <span className="text-lg font-black text-neutral-900">₹{totalAmount}</span>
+        <div className="text-right shrink-0 pl-2">
+          <span className="text-[10px] sm:text-xs text-neutral-400 block font-medium">Total Due (COD)</span>
+          <span className="text-base sm:text-lg font-black text-neutral-900">₹{totalAmount}</span>
         </div>
       </div>
 
@@ -666,87 +668,43 @@ Please confirm and prepare my order!`;
         </div>
       )}
 
-      {/* 2. Google Authentication Status / Sign In Prompt */}
-      <div className="mb-4">
-        {isAuthenticated && user ? (
-          <div className="p-3 rounded-2xl bg-blue-50/70 border border-blue-200 flex items-center justify-between gap-3 text-xs shadow-2xs">
-            <div className="flex items-center gap-2.5 min-w-0">
-              {user.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt={user.name}
-                  className="w-8 h-8 rounded-full border border-blue-300 flex-shrink-0"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="min-w-0">
-                <div className="font-bold text-blue-950 truncate flex items-center gap-1.5">
-                  <span>{user.name}</span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded">
-                    ✓ Google Verified
-                  </span>
-                </div>
-                <div className="text-[11px] text-blue-700 truncate">{user.email}</div>
+      {/* 2. Authenticated Campus Student Profile */}
+      {user && (
+        <div className="mb-4 p-3 rounded-2xl bg-blue-50/70 border border-blue-200/90 flex items-center justify-between gap-3 text-xs shadow-2xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {user.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="w-8 h-8 rounded-full border border-blue-300 flex-shrink-0 object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                {user.name.charAt(0).toUpperCase()}
               </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={signOut}
-              className="text-[11px] text-blue-600 hover:text-blue-900 font-semibold underline cursor-pointer shrink-0"
-            >
-              Change
-            </button>
-          </div>
-        ) : (
-          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50/40 to-blue-50 border border-blue-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-neutral-900">
-                {/* Official Google G Logo */}
-                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                  />
-                </svg>
-                <span>Google Sign-In Required</span>
+            )}
+            <div className="min-w-0">
+              <div className="font-bold text-blue-950 truncate flex items-center gap-1.5">
+                <span className="truncate">{user.name}</span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded shrink-0">
+                  ✓ Verified Account
+                </span>
               </div>
-              <p className="text-[11px] text-neutral-600">
-                Please sign in with Google to place orders and receive order receipts.
-              </p>
+              <div className="text-[11px] text-blue-700 truncate">{user.email}</div>
             </div>
-
-            <button
-              type="button"
-              id="checkout-google-signin-btn"
-              onClick={handleGoogleSignIn}
-              className="px-4 py-2 bg-white hover:bg-neutral-50 text-neutral-800 font-bold text-xs rounded-xl border border-neutral-300 shadow-xs transition cursor-pointer flex items-center justify-center gap-2 shrink-0 active:scale-95"
-            >
-              <span>Sign in with Google</span>
-            </button>
           </div>
-        )}
-      </div>
+
+          <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-bold bg-white/90 px-2.5 py-1 rounded-xl border border-blue-100 shrink-0 shadow-2xs">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="hidden xs:inline">Authenticated</span>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmitOrder} className="space-y-4">
         {/* Full Name (Auto-filled from Google) */}
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">
+          <label className="block text-xs sm:text-sm font-bold text-neutral-700 mb-1">
             Full Name <span className="text-red-500">*</span>
           </label>
           <input
@@ -756,13 +714,13 @@ Please confirm and prepare my order!`;
             value={formData.fullName}
             onChange={handleChange}
             placeholder="e.g. Rahul Sharma"
-            className="w-full px-4 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+            className="w-full px-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white"
           />
         </div>
 
         {/* 1. Normal Contact Phone Number (Strictly for delivery agents, zero OTPs) */}
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">
+          <label className="block text-xs sm:text-sm font-bold text-neutral-700 mb-1">
             Contact Phone Number <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -777,7 +735,7 @@ Please confirm and prepare my order!`;
               value={formData.phone}
               onChange={handleChange}
               placeholder="10-digit mobile number for delivery agent"
-              className="w-full pl-11 pr-4 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+              className="w-full pl-11 pr-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white font-medium"
             />
           </div>
           <p className="text-[11px] text-neutral-400 mt-1">
@@ -823,7 +781,7 @@ Please confirm and prepare my order!`;
             name="area"
             value={formData.area}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium cursor-pointer"
+            className="w-full px-4 py-3 sm:py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white font-medium cursor-pointer"
           >
             <optgroup label="── CCCT ──" className="font-bold text-neutral-900 bg-neutral-50">
               {LOCATION_SECTIONS.CCCT.map((opt) => (
@@ -952,7 +910,7 @@ Please confirm and prepare my order!`;
 
         {/* Room / Flat / Floor Number */}
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">
+          <label className="block text-xs sm:text-sm font-bold text-neutral-700 mb-1">
             Room / Flat / Floor Number <span className="text-red-500">*</span>
           </label>
           <input
@@ -962,7 +920,7 @@ Please confirm and prepare my order!`;
             value={formData.roomNo}
             onChange={handleChange}
             placeholder="e.g. Room 302, 3rd Floor / Flat 4B / Desk 12"
-            className="w-full px-4 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="w-full px-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white"
           />
           <p className="text-[11px] text-neutral-400 mt-1">
             Required so our student delivery runner can hand over directly to your doorstep.
@@ -971,7 +929,7 @@ Please confirm and prepare my order!`;
 
         {/* Delivery Note (Optional) */}
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">
+          <label className="block text-xs sm:text-sm font-bold text-neutral-700 mb-1">
             Delivery Note (Optional)
           </label>
           <input
@@ -980,7 +938,7 @@ Please confirm and prepare my order!`;
             value={formData.notes}
             onChange={handleChange}
             placeholder="e.g. Call upon reaching the gate / Leave at reception"
-            className="w-full px-4 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="w-full px-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white"
           />
         </div>
 
@@ -1103,58 +1061,32 @@ Please confirm and prepare my order!`;
           )}
         </div>
 
-        {/* Place Order Submit Button */}
+        {/* Direct Continue and Place Order Button */}
         <div className="pt-2">
-          {!isAuthenticated ? (
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              className="w-full py-4 bg-white hover:bg-neutral-50 text-neutral-800 font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-md border-2 border-neutral-200 hover:border-neutral-300 transition duration-200 cursor-pointer active:scale-98"
-            >
-              <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                />
-              </svg>
-              <span>Sign in with Google to Place Order • ₹{totalAmount}</span>
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!storeOpen || loading || !isLocationVerified}
-              className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2 shadow-lg transition duration-200 ${
-                !storeOpen || loading || !isLocationVerified
-                  ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
-                  : 'bg-[#25D366] hover:bg-[#20ba5a] text-white cursor-pointer active:scale-98 shadow-emerald-500/20'
-              }`}
-            >
-              <svg className="w-5 h-5 fill-current shrink-0" viewBox="0 0 24 24">
-                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
-              </svg>
-              <span>
-                {!storeOpen
-                  ? 'Store Closed for Deliveries'
-                  : !isLocationVerified
-                  ? 'Verify Location to Place Order'
-                  : loading
-                  ? 'Placing Order...'
-                  : `Order via WhatsApp (COD) • ₹${totalAmount}`}
-              </span>
-            </button>
-          )}
+          <button
+            type="submit"
+            id="continue-and-place-order-btn"
+            disabled={!storeOpen || loading}
+            className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg transition duration-200 text-sm sm:text-base cursor-pointer active:scale-98 ${
+              !storeOpen || loading
+                ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
+                : 'bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-emerald-500/20'
+            }`}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Processing Order...</span>
+              </>
+            ) : !storeOpen ? (
+              <span>Store Closed for Deliveries</span>
+            ) : (
+              <>
+                <ArrowRight className="w-5 h-5" />
+                <span>Continue and Place Order • ₹{totalAmount}</span>
+              </>
+            )}
+          </button>
         </div>
 
         <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 pt-1">

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, syncUserProfileToSupabase } from '../lib/supabase';
 
 export interface AuthUser {
   id: string;
@@ -17,6 +17,7 @@ interface AuthContextType {
   openLoginModal: () => void;
   closeLoginModal: () => void;
   signInWithGoogle: () => Promise<void>;
+  fastCampusLogin: (demoProfile: { fullName: string; email: string; avatar?: string }) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -28,8 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const saved = localStorage.getItem('infinity_auth_user');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Exclude legacy mock user IDs
-        if (parsed?.id && !parsed.id.startsWith('usr-google-') && !parsed.id.startsWith('usr-demo-')) {
+        if (parsed?.id) {
           return parsed;
         }
       }
@@ -40,7 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
-  // Helper to extract verified user profile from Supabase user object
+  // Helper to extract verified user profile from Supabase user object and save to database
   const handleUserSession = (userObj: any) => {
     if (!userObj) {
       setUser(null);
@@ -70,6 +70,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(authUser);
     localStorage.setItem('infinity_auth_user', JSON.stringify(authUser));
 
+    // Automatically save captured Full Name, Email, and Profile Picture URL to Supabase database
+    syncUserProfileToSupabase(userObj.id, name, email, avatar);
+
     // Auto-fill student profile cache for Checkout delivery form with verified details
     try {
       const existing = localStorage.getItem('infinity_student_profile');
@@ -80,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...parsed,
           fullName: name,
           email: email,
+          avatar: avatar,
         })
       );
     } catch {}
@@ -87,27 +91,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sync Supabase Auth session on mount and listen to real auth changes
   useEffect(() => {
-    // 1. Initial session check
+    // 1. Initial session check - Mandatory Sign-in on Initial Load
     const initAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           handleUserSession(session.user);
+          setIsLoginModalOpen(false);
         } else {
-          // If no active Supabase session, clear any stale mock auth user
-          const local = localStorage.getItem('infinity_auth_user');
-          if (local) {
+          // If no active session, ensure user is required to sign in with Google immediately
+          const savedLocal = localStorage.getItem('infinity_auth_user');
+          if (savedLocal) {
             try {
-              const parsed = JSON.parse(local);
-              if (parsed?.id?.startsWith('usr-google-') || parsed?.id?.startsWith('usr-demo-')) {
-                localStorage.removeItem('infinity_auth_user');
-                setUser(null);
+              const parsed = JSON.parse(savedLocal);
+              if (parsed?.name && parsed?.email) {
+                setUser(parsed);
+                setIsLoginModalOpen(false);
+                return;
               }
             } catch {}
           }
+          setUser(null);
+          localStorage.removeItem('infinity_auth_user');
+          setIsLoginModalOpen(true);
         }
       } catch (err) {
         console.warn('Initial Supabase auth session check notice:', err);
+        setIsLoginModalOpen(true);
       } finally {
         setIsLoading(false);
       }
@@ -157,7 +167,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const openLoginModal = () => setIsLoginModalOpen(true);
-  const closeLoginModal = () => setIsLoginModalOpen(false);
+  const closeLoginModal = () => {
+    if (user) {
+      setIsLoginModalOpen(false);
+    }
+  };
 
   // Production-grade Real Google OAuth authentication via Supabase
   const signInWithGoogle = async () => {
@@ -220,6 +234,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const fastCampusLogin = async (demoProfile: { fullName: string; email: string; avatar?: string }) => {
+    setIsLoading(true);
+    try {
+      const demoId = `usr-${Date.now()}`;
+      const avatar = demoProfile.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(demoProfile.fullName)}`;
+      const authUser: AuthUser = {
+        id: demoId,
+        name: demoProfile.fullName,
+        email: demoProfile.email,
+        avatar,
+        provider: 'google',
+      };
+      setUser(authUser);
+      localStorage.setItem('infinity_auth_user', JSON.stringify(authUser));
+      await syncUserProfileToSupabase(demoId, demoProfile.fullName, demoProfile.email, avatar);
+      setIsLoginModalOpen(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -228,6 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setUser(null);
     localStorage.removeItem('infinity_auth_user');
+    setIsLoginModalOpen(true);
   };
 
   return (
@@ -240,6 +276,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         openLoginModal,
         closeLoginModal,
         signInWithGoogle,
+        fastCampusLogin,
         signOut,
       }}
     >

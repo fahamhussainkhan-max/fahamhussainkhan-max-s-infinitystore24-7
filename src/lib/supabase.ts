@@ -1051,6 +1051,64 @@ export async function fetchProfiles(): Promise<UserProfile[]> {
   return getLocal<UserProfile[]>(LOCAL_STORAGE_KEYS.PROFILES, DEFAULT_PROFILES);
 }
 
+/**
+ * Automatically saves verified Google OAuth user information to Supabase database.
+ * Captures Full Name, Email, and Profile Picture URL.
+ */
+export async function syncUserProfileToSupabase(
+  userId: string,
+  fullName: string,
+  email: string,
+  avatarUrl: string,
+  phone?: string
+): Promise<boolean> {
+  try {
+    const profilePayload = {
+      id: userId,
+      full_name: fullName,
+      email: email,
+      avatar_url: avatarUrl,
+      phone: phone || '',
+      role: 'student',
+      updated_at: new Date().toISOString(),
+    };
+
+    // 1. Persist to Supabase profiles table
+    const { error } = await supabase
+      .from('profiles')
+      .upsert([profilePayload], { onConflict: 'id' });
+
+    if (error) {
+      console.warn('[Supabase] Profile sync warning:', error.message);
+    }
+
+    // 2. Also keep local storage cache in sync for immediate offline and fast-render resilience
+    try {
+      const existing = getLocal<UserProfile[]>(LOCAL_STORAGE_KEYS.PROFILES, DEFAULT_PROFILES);
+      const idx = existing.findIndex((p) => p.id === userId);
+      const userProfileObj: UserProfile = {
+        id: userId,
+        full_name: fullName,
+        email: email,
+        phone: phone || '',
+        role: 'student',
+        created_at: new Date().toISOString(),
+      };
+      if (idx >= 0) {
+        existing[idx] = { ...existing[idx], ...userProfileObj };
+      } else {
+        existing.unshift(userProfileObj);
+      }
+      setLocal(LOCAL_STORAGE_KEYS.PROFILES, existing);
+    } catch {}
+
+    return true;
+  } catch (err) {
+    console.warn('[Supabase] Profile sync exception:', err);
+    return false;
+  }
+}
+
 /* ============================================================
    5. SEED INITIAL SUPABASE DATA (1-CLICK HELPER)
    ============================================================ */
