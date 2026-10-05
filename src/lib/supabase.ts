@@ -364,8 +364,29 @@ function getLocal<T>(key: string, fallback: T): T {
 function setLocal<T>(key: string, data: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(data));
-  } catch (e) {
-    console.error('Failed to set local storage:', e);
+  } catch (e: any) {
+    console.warn(`[LocalStorage] Failed to set ${key} (Quota check):`, e?.name || e);
+    // QuotaExceededError handling: prune orders to last 5 lightweight records and clear stale caches
+    if (e?.name === 'QuotaExceededError' || e?.code === 22 || e?.code === 1014) {
+      try {
+        if (key === LOCAL_STORAGE_KEYS.ORDERS && Array.isArray(data)) {
+          const trimmed = data.slice(0, 5).map((o: any) => ({
+            id: o.id || o.order_number,
+            order_number: o.order_number || o.id,
+            status: o.status || 'Pending',
+            total_amount: o.total_amount || o.total,
+            created_at: o.created_at,
+          }));
+          localStorage.setItem(key, JSON.stringify(trimmed));
+          return;
+        }
+        localStorage.removeItem(LOCAL_STORAGE_KEYS.ORDER_HISTORY);
+        localStorage.removeItem(LOCAL_STORAGE_KEYS.INVENTORY_TX);
+        localStorage.setItem(key, JSON.stringify(data));
+      } catch (pruneErr) {
+        console.warn(`[LocalStorage] Eviction recovery notice for ${key}`);
+      }
+    }
   }
 }
 

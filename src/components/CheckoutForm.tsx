@@ -482,7 +482,6 @@ export default function CheckoutForm({
 
       const checkoutDetails = {
         name: trimmedName,
-        email: (formData.email || '').trim() || `${cleanPhone}@campus.infinity.store`,
         phone: cleanPhone,
         location: deliveryLocation,
         notes: (formData.notes || '').trim(),
@@ -493,12 +492,14 @@ export default function CheckoutForm({
         typeof str === 'string' &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
-      // Clean structured JSON metadata for runner admin dispatch
+      // Clean structured JSON metadata for runner admin dispatch (strip heavy base64 strings)
       const itemsSummaryJSON = cartItems.map((item: any) => {
         const itemPrice = item.price !== undefined ? Number(item.price) : Number(item.product?.price || 0);
         const itemQty = Number(item.quantity || 1);
         const itemName = item.name || item.title || item.product?.name || 'Campus Item';
-        const itemImage = item.image_url || item.image || item.product?.image || item.product?.image_url || '';
+        const rawImg = item.image_url || item.image || item.product?.image || item.product?.image_url || '';
+        // Guard: Never propagate large base64 data into payloads or storage
+        const itemImage = typeof rawImg === 'string' && rawImg.startsWith('data:') ? '' : rawImg;
         const rawId = item.id || item.product?.id;
         return {
           id: rawId,
@@ -526,12 +527,10 @@ export default function CheckoutForm({
 
       const generatedOrderNumber = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // 1. Single Fast Call Payload: store items directly inside JSONB column 'items'
+      // 1. Single Fast Call Payload: completely email-free per request
       const orderPayload: Record<string, any> = {
         order_number: generatedOrderNumber,
         customer_name: checkoutDetails.name,
-        customer_email: checkoutDetails.email,
-        email: checkoutDetails.email,
         phone: checkoutDetails.phone,
         customer_phone: checkoutDetails.phone,
         delivery_location: checkoutDetails.location,
@@ -611,13 +610,48 @@ export default function CheckoutForm({
             hostel: selectedLocation,
             roomNo: roomDetails,
             notes: formData.notes || '',
-            email: checkoutDetails.email,
           })
         );
         setIsVerifiedStudent(true);
 
-        const existingOrders = JSON.parse(localStorage.getItem('infinity_orders') || '[]');
-        const localOrderRecord = {
+        // 4. QuotaExceededError Protection: Store ONLY the last 5 lightweight orders without heavy base64
+        let existingOrders: any[] = [];
+        try {
+          const rawStored = localStorage.getItem('infinity_orders');
+          if (rawStored) {
+            existingOrders = JSON.parse(rawStored);
+          }
+        } catch {
+          existingOrders = [];
+        }
+
+        // Clean & prune older entries to lightweight form (strip all base64 data)
+        const sanitizedExisting = (Array.isArray(existingOrders) ? existingOrders : [])
+          .filter((o: any) => o && (o.id || o.order_number) && o.id !== finalOrderId && o.order_number !== finalOrderId)
+          .slice(0, 4)
+          .map((o: any) => ({
+            id: o.id || o.order_number,
+            order_number: o.order_number || o.id,
+            customer_name: o.customer_name || '',
+            customer_phone: o.customer_phone || '',
+            delivery_zone: o.delivery_zone || '',
+            room_details: o.room_details || '',
+            total_amount: Number(o.total_amount || o.total || 0),
+            total: Number(o.total || o.total_amount || 0),
+            status: o.status || 'Pending',
+            payment_method: o.payment_method || 'COD',
+            created_at: o.created_at || new Date().toISOString(),
+            items: Array.isArray(o.items)
+              ? o.items.map((it: any) => ({
+                  id: it.id,
+                  name: it.name || it.title || 'Item',
+                  quantity: Number(it.quantity || 1),
+                  price: Number(it.price || 0),
+                }))
+              : [],
+          }));
+
+        const lightweightCurrentOrder = {
           id: finalOrderId,
           order_number: finalOrderId,
           customer_name: checkoutDetails.name,
@@ -631,26 +665,58 @@ export default function CheckoutForm({
             roomNo: roomDetails,
             notes: formData.notes || '',
           },
-          items: itemsSummaryJSON,
+          // Minimal items without images/base64 to avoid quota exhaustion
+          items: itemsSummaryJSON.map((it: any) => ({
+            id: it.id,
+            name: it.name,
+            quantity: it.quantity,
+            price: it.price,
+            subtotal: it.subtotal,
+          })),
           total_amount: totalAmount,
           total: totalAmount,
           status: orderStatus,
           payment_method: 'COD',
           created_at: new Date().toISOString(),
         };
-        localStorage.setItem(
-          'infinity_orders',
-          JSON.stringify([localOrderRecord, ...existingOrders.filter((o: any) => o.id !== finalOrderId)])
-        );
+
+        const trimmedOrdersList = [lightweightCurrentOrder, ...sanitizedExisting].slice(0, 5);
+
+        try {
+          localStorage.setItem('infinity_orders', JSON.stringify(trimmedOrdersList));
+        } catch (quotaErr) {
+          console.warn('[LocalStorage] QuotaExceededError detected, evicting heavy order data:', quotaErr);
+          // Clear any heavy non-essential caches
+          try {
+            localStorage.removeItem('infinity_admin_orders');
+            localStorage.removeItem('infinity_admin_order_history');
+          } catch {}
+
+          // Store only minimal ID and totals
+          const minimalOrdersList = trimmedOrdersList.map((o: any) => ({
+            id: o.id,
+            order_number: o.order_number,
+            total_amount: o.total_amount,
+            status: o.status,
+            created_at: o.created_at,
+          }));
+          try {
+            localStorage.setItem('infinity_orders', JSON.stringify(minimalOrdersList));
+          } catch {
+            // Ultimate fallback: keep only the single current order ID
+            try {
+              localStorage.setItem('infinity_orders', JSON.stringify([{ id: finalOrderId, total_amount: totalAmount }]));
+            } catch {}
+          }
+        }
       } catch (cacheErr) {
         console.warn('LocalStorage error:', cacheErr);
       }
 
-      // 4. Immediately trigger success callback to clear cart & show instant order confirmation
+      // 5. Immediately trigger success callback to clear cart & show instant order confirmation
       if (onOrderSuccess) {
         onOrderSuccess(finalOrderId, {
           fullName: checkoutDetails.name,
-          email: checkoutDetails.email,
           phone: cleanPhone,
           area: selectedLocation,
           roomNo: roomDetails,
