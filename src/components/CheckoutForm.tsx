@@ -526,19 +526,18 @@ export default function CheckoutForm({
 
       const generatedOrderNumber = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // 1. Supabase Orders Insert Payload matching the exact database schema:
-      // {
-      //   customer_name: string,
-      //   customer_phone: string,
-      //   items: json/array,
-      //   total_amount: number,
-      //   payment_method: string,
-      //   delivery_zone: string,
-      //   campus_location: string,
-      //   delivery_note: string,
-      //   is_whatsapp_verified: boolean
-      // }
-      // All values are strictly defined; no legacy Google OAuth, Phone OTP, email, or gps_verified fields.
+      // 1. Explicit Payload Calculation & Validation
+      const explicitSubtotal = cartItems.reduce(
+        (sum: number, item: any) =>
+          sum + (Number(item.price !== undefined ? item.price : item.product?.price || 0) * Number(item.quantity || 1)),
+        0
+      );
+      const deliveryFee = (isFreeDeliveryQualified ? 0 : 15) + (isFreeHandlingQualified ? 0 : PACKAGING_HANDLING_FEE);
+      const explicitTotal = explicitSubtotal + deliveryFee;
+
+      const subtotalVal = Number(explicitSubtotal) || 0;
+      const totalVal = Number(totalAmount || explicitTotal) || 0;
+
       const itemsPayloadJSON = itemsSummaryJSON.map((it: any) => ({
         id: String(it.id || 'item'),
         name: String(it.name || it.title || 'Campus Item'),
@@ -547,11 +546,24 @@ export default function CheckoutForm({
         subtotal: Number(it.subtotal || (Number(it.price || 0) * Number(it.quantity || 1))),
       }));
 
+      const deliveryAddress = {
+        fullName: String(checkoutDetails.name || 'Campus Student').trim(),
+        phone: String(cleanPhone || '9876543210').trim(),
+        area: String(selectedLocation || 'CCCT Campus').trim(),
+        roomNo: String(roomDetails || '').trim(),
+        notes: String(checkoutDetails.notes || '').trim(),
+      };
+
+      // Pass both numeric values in the Supabase payload:
       const orderPayload = {
+        total: totalVal || 0,
+        subtotal: subtotalVal || 0,
+        total_amount: totalVal || 0,
+        items: itemsPayloadJSON || [],
         customer_name: String(checkoutDetails.name || 'Campus Student').trim(),
         customer_phone: String(cleanPhone || '9876543210').trim(),
-        items: itemsPayloadJSON,
-        total_amount: Number(totalAmount) || 0,
+        delivery_address: deliveryAddress,
+        status: 'pending',
         payment_method: 'COD',
         delivery_zone: String(selectedLocation || 'CCCT Campus').trim(),
         campus_location: String(roomDetails ? `${selectedLocation} - Room: ${roomDetails}` : (selectedLocation || 'CCCT Campus')).trim(),
@@ -568,12 +580,16 @@ export default function CheckoutForm({
 
       if (orderErr) {
         console.warn('Orders insert notice, retrying with core schema fallback:', orderErr.message);
-        // Fallback strictly matching core schema if extended columns differ in legacy tables
+        // Fallback Payload Synchronization: make sure total, subtotal, and items are never null or omitted, always provide default numbers (0)
         const corePayload = {
+          total: totalVal || 0,
+          subtotal: subtotalVal || 0,
+          total_amount: totalVal || 0,
+          items: itemsPayloadJSON || [],
           customer_name: orderPayload.customer_name,
           customer_phone: orderPayload.customer_phone,
-          items: orderPayload.items,
-          total_amount: orderPayload.total_amount,
+          delivery_address: deliveryAddress,
+          status: 'pending',
           payment_method: orderPayload.payment_method,
           delivery_zone: orderPayload.delivery_zone,
           is_whatsapp_verified: true,

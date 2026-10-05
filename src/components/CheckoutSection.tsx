@@ -68,24 +68,40 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
     try {
       const orderNumber = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+      // 1. Explicit Payload Calculation & Validation
+      const subtotal = cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+      const deliveryFee = 15;
+      const total = Number(grandTotal || (subtotal + deliveryFee)) || 0;
+      const subtotalVal = Number(subtotal) || 0;
+      const totalVal = Number(total) || 0;
+
       const itemsJSON = cart.map(item => ({
-        id: item.id,
-        name: item.name,
-        title: item.name,
-        price: item.price,
-        unit_price: item.price,
-        quantity: item.quantity,
-        subtotal: item.price * item.quantity,
+        id: item.id || 'item',
+        name: item.name || 'Campus Item',
+        title: item.name || 'Campus Item',
+        price: Number(item.price || 0),
+        unit_price: Number(item.price || 0),
+        quantity: Number(item.quantity || 1),
+        subtotal: Number(item.price || 0) * Number(item.quantity || 1),
         image_url: item.image_url || '',
       }));
 
-      // Single fast call directly to Supabase orders table matching schema:
-      // { customer_name, customer_phone, items, total_amount, payment_method, delivery_zone, campus_location, delivery_note, is_whatsapp_verified }
+      const deliveryAddress = {
+        fullName: name.trim() || 'Campus Student',
+        phone: cleanPhone,
+        area: location.trim() || 'Campus',
+      };
+
+      // Pass both numeric values in the Supabase payload:
       const standardPayload = {
+        total: totalVal || 0,
+        subtotal: subtotalVal || 0,
+        total_amount: totalVal || 0,
+        items: itemsJSON || [],
         customer_name: name.trim() || 'Campus Student',
         customer_phone: cleanPhone,
-        items: itemsJSON,
-        total_amount: Number(grandTotal) || 0,
+        delivery_address: deliveryAddress,
+        status: 'pending',
         payment_method: 'COD',
         delivery_zone: location.trim() || 'Campus',
         campus_location: location.trim() || 'Campus',
@@ -100,13 +116,17 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         .single();
 
       if (res.error) {
-        console.warn('CheckoutSection orders insert notice, retrying with core basic schema payload:', res.error.message);
-        // Fallback strictly matching core schema: customer_name, customer_phone, items, total_amount, payment_method
+        console.warn('Orders insert notice, retrying with core schema fallback:', res.error.message);
+        // Fallback retry function: make sure total, subtotal, and items are never null or omitted, always provide default numbers (0)
         const minimalPayload = {
+          total: totalVal || 0,
+          subtotal: subtotalVal || 0,
+          total_amount: totalVal || 0,
+          items: itemsJSON || [],
           customer_name: standardPayload.customer_name,
           customer_phone: standardPayload.customer_phone,
-          items: standardPayload.items,
-          total_amount: standardPayload.total_amount,
+          delivery_address: deliveryAddress,
+          status: 'pending',
           payment_method: standardPayload.payment_method,
           is_whatsapp_verified: true,
         };
@@ -121,6 +141,44 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
       }
 
       const createdOrderId = res.data?.order_number || res.data?.id || orderNumber;
+
+      // Wrap localStorage.setItem('infinity_orders', ...) in a try-catch block and limit stored history to the 5 most recent orders
+      try {
+        let existingOrders: any[] = [];
+        try {
+          const rawStored = localStorage.getItem('infinity_orders');
+          if (rawStored) existingOrders = JSON.parse(rawStored);
+        } catch {
+          existingOrders = [];
+        }
+
+        const sanitizedExisting = (Array.isArray(existingOrders) ? existingOrders : [])
+          .filter((o: any) => o && (o.id || o.order_id) && o.id !== createdOrderId && o.order_id !== createdOrderId)
+          .slice(0, 4)
+          .map((o: any) => ({
+            id: String(o.id || o.order_id || 'INF-ORD'),
+            order_id: String(o.order_id || o.id || 'INF-ORD'),
+            timestamp: String(o.timestamp || o.created_at || new Date().toISOString()),
+            total: Number(o.total || o.total_amount || 0),
+          }));
+
+        const currentOrderSummary = {
+          id: createdOrderId,
+          order_id: createdOrderId,
+          timestamp: new Date().toISOString(),
+          total: totalVal,
+        };
+
+        const trimmedOrders = [currentOrderSummary, ...sanitizedExisting].slice(0, 5);
+        try {
+          localStorage.setItem('infinity_orders', JSON.stringify(trimmedOrders));
+        } catch (quotaErr) {
+          try {
+            localStorage.removeItem('infinity_orders');
+            localStorage.setItem('infinity_orders', JSON.stringify([currentOrderSummary]));
+          } catch {}
+        }
+      } catch {}
 
       // Optional background sync to order_items (never blocks user)
       if (res.data?.id && typeof res.data.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(res.data.id) && cart.length > 0) {

@@ -1731,18 +1731,30 @@ export async function recordCampusOrder(orderData: {
 
   // 1. Try Supabase insert
   try {
-    const itemsSubtotal = orderData.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
-    const handlingFee = orderData.handlingFee !== undefined ? orderData.handlingFee : 9;
-    const deliveryFee = orderData.deliveryFee !== undefined ? orderData.deliveryFee : 15;
+    const subtotal = orderData.items.reduce((sum, it) => sum + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
+    const handlingFee = orderData.handlingFee !== undefined ? Number(orderData.handlingFee) : 9;
+    const deliveryFee = orderData.deliveryFee !== undefined ? Number(orderData.deliveryFee) : 15;
+    const total = Number(fullOrder.total_amount || (subtotal + deliveryFee + handlingFee)) || 0;
+    const subtotalVal = Number(subtotal) || 0;
+    const totalVal = Number(total) || 0;
 
     const { data, error } = await supabase
       .from('orders')
       .insert([
         {
+          total: totalVal || 0,
+          subtotal: subtotalVal || 0,
+          total_amount: totalVal || 0,
+          items: orderData.items || [],
           customer_name: fullOrder.customer_name,
           customer_phone: fullOrder.customer_phone,
-          items: orderData.items,
-          total_amount: Number(fullOrder.total_amount || 0),
+          delivery_address: fullOrder.delivery_address || {
+            fullName: fullOrder.customer_name,
+            phone: fullOrder.customer_phone,
+            area: fullOrder.delivery_zone,
+            roomNo: fullOrder.room_details,
+          },
+          status: 'pending',
           payment_method: fullOrder.payment_method || 'COD',
           delivery_zone: fullOrder.delivery_zone || 'Campus',
           campus_location: fullOrder.room_details ? `${fullOrder.delivery_zone} - Room: ${fullOrder.room_details}` : (fullOrder.delivery_zone || 'Campus'),
@@ -1785,6 +1797,44 @@ export async function recordCampusOrder(orderData: {
   const local = getLocal<AdminOrder[]>(LOCAL_STORAGE_KEYS.ORDERS, DEFAULT_ORDERS);
   setLocal(LOCAL_STORAGE_KEYS.ORDERS, [fullOrder, ...local]);
 
+  // Wrap localStorage.setItem('infinity_orders', ...) in a try-catch block and limit stored history to the 5 most recent orders
+  try {
+    let existingOrders: any[] = [];
+    try {
+      const rawStored = localStorage.getItem('infinity_orders');
+      if (rawStored) existingOrders = JSON.parse(rawStored);
+    } catch {
+      existingOrders = [];
+    }
+
+    const sanitizedExisting = (Array.isArray(existingOrders) ? existingOrders : [])
+      .filter((o: any) => o && (o.id || o.order_id) && o.id !== orderId && o.order_id !== orderId)
+      .slice(0, 4)
+      .map((o: any) => ({
+        id: String(o.id || o.order_id || 'INF-ORD'),
+        order_id: String(o.order_id || o.id || 'INF-ORD'),
+        timestamp: String(o.timestamp || o.created_at || new Date().toISOString()),
+        total: Number(o.total || o.total_amount || 0),
+      }));
+
+    const currentOrderSummary = {
+      id: orderId,
+      order_id: orderId,
+      timestamp,
+      total: Number(fullOrder.total_amount || 0),
+    };
+
+    const trimmedOrders = [currentOrderSummary, ...sanitizedExisting].slice(0, 5);
+    try {
+      localStorage.setItem('infinity_orders', JSON.stringify(trimmedOrders));
+    } catch (quotaErr) {
+      try {
+        localStorage.removeItem('infinity_orders');
+        localStorage.setItem('infinity_orders', JSON.stringify([currentOrderSummary]));
+      } catch {}
+    }
+  } catch {}
+
   return { success: true, order: fullOrder };
 }
 
@@ -1802,18 +1852,39 @@ export async function placeFastOrder(
   const orderId = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const now = new Date().toISOString();
 
-  // 1. Insert directly into 'orders' matching the schema:
-  //    { customer_name, customer_phone, items, total_amount, payment_method, delivery_zone, campus_location, delivery_note, is_whatsapp_verified }
+  // 1. Explicit Payload Calculation & Validation
+  const subtotal = cartItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+  const deliveryFee = 15;
+  const total = Number(totalAmount || (subtotal + deliveryFee)) || 0;
+  const subtotalVal = Number(subtotal) || 0;
+  const totalVal = Number(total) || 0;
+
+  const itemsJSON = cartItems.map((it) => ({
+    id: it.id || 'item',
+    name: it.title || it.name || 'Campus Item',
+    price: Number(it.price || 0),
+    quantity: Number(it.quantity || 1),
+    subtotal: Number(it.price || 0) * Number(it.quantity || 1),
+  }));
+
+  const deliveryAddress = {
+    fullName: customerData.name || 'Campus Student',
+    phone: customerData.phone || '',
+    area: selectedZone,
+    roomNo: room,
+    notes: customerData.notes || '',
+  };
+
+  // Pass both numeric values in the Supabase payload:
   const orderPayload: any = {
+    total: totalVal || 0,
+    subtotal: subtotalVal || 0,
+    total_amount: totalVal || 0,
+    items: itemsJSON || [],
     customer_name: customerData.name || 'Campus Student',
     customer_phone: customerData.phone || '',
-    items: cartItems.map((it) => ({
-      id: it.id || 'item',
-      name: it.title || it.name || 'Campus Item',
-      price: it.price,
-      quantity: it.quantity,
-    })),
-    total_amount: totalAmount,
+    delivery_address: deliveryAddress,
+    status: 'pending',
     payment_method: 'COD',
     delivery_zone: selectedZone,
     campus_location: deliveryLocation,
@@ -1829,13 +1900,17 @@ export async function placeFastOrder(
     .single();
 
   if (orderError) {
-    console.warn('Primary orders insert error, attempting minimal schema insert:', orderError.message);
-    // Minimal fallback insert strictly matching core schema
+    console.warn('Orders insert notice, retrying with core schema fallback:', orderError.message);
+    // Fallback retry function: make sure total, subtotal, and items are never null or omitted, always provide default numbers (0)
     const minimalPayload = {
+      total: totalVal || 0,
+      subtotal: subtotalVal || 0,
+      total_amount: totalVal || 0,
+      items: itemsJSON || [],
       customer_name: customerData.name || 'Campus Student',
       customer_phone: customerData.phone || '',
-      items: orderPayload.items,
-      total_amount: totalAmount,
+      delivery_address: deliveryAddress,
+      status: 'pending',
       payment_method: 'COD',
       is_whatsapp_verified: true,
     };
@@ -1935,18 +2010,43 @@ export const handleQuickOrder = async ({
 }) => {
   const startTime = Date.now();
 
-  // 1. Minimum payload strictly matching database schema:
-  //    { customer_name, customer_phone, items, total_amount, payment_method, delivery_zone, campus_location, delivery_note, is_whatsapp_verified }
+  // 1. Explicit Payload Calculation & Validation
+  const subtotal = cartItems.reduce((sum, item: any) => {
+    const price = item.price !== undefined ? Number(item.price) : Number(item.product?.price || 0);
+    const quantity = Number(item.quantity || 1);
+    return sum + (price * quantity);
+  }, 0);
+  const deliveryFee = 15;
+  const total = Number(totalAmount || (subtotal + deliveryFee)) || 0;
+  const subtotalVal = Number(subtotal) || 0;
+  const totalVal = Number(total) || 0;
+
+  const itemsJSON = cartItems.map((item: any) => ({
+    id: item.id || item.product?.id || 'item',
+    name: item.title || item.name || item.product?.name || 'Campus Item',
+    price: item.price !== undefined ? Number(item.price) : Number(item.product?.price ?? 0),
+    quantity: Number(item.quantity || 1),
+    subtotal: (item.price !== undefined ? Number(item.price) : Number(item.product?.price ?? 0)) * Number(item.quantity || 1),
+  }));
+
+  const deliveryAddress = {
+    fullName: formData.fullName,
+    phone: formData.phone,
+    area: formData.area,
+    roomNo: formData.roomNo,
+    notes: formData.notes || '',
+  };
+
+  // Pass both numeric values in the Supabase payload:
   const orderPayload = {
+    total: totalVal || 0,
+    subtotal: subtotalVal || 0,
+    total_amount: totalVal || 0,
+    items: itemsJSON || [],
     customer_name: formData.fullName,
     customer_phone: formData.phone,
-    items: cartItems.map((item: any) => ({
-      id: item.id || item.product?.id || 'item',
-      name: item.title || item.name || item.product?.name || 'Campus Item',
-      price: item.price !== undefined ? item.price : (item.product?.price ?? 0),
-      quantity: item.quantity || 1,
-    })),
-    total_amount: totalAmount,
+    delivery_address: deliveryAddress,
+    status: 'pending',
     payment_method: 'COD',
     delivery_zone: formData.area || 'Campus',
     campus_location: formData.roomNo ? `${formData.area} - Room: ${formData.roomNo}` : (formData.area || 'Campus'),
@@ -1962,12 +2062,17 @@ export const handleQuickOrder = async ({
     .single();
 
   if (orderError) {
-    console.warn('handleQuickOrder initial insert notice, retrying with core schema payload:', orderError.message);
+    console.warn('Orders insert notice, retrying with core schema fallback:', orderError.message);
+    // Fallback retry function: make sure total, subtotal, and items are never null or omitted, always provide default numbers (0)
     const minimalPayload = {
+      total: totalVal || 0,
+      subtotal: subtotalVal || 0,
+      total_amount: totalVal || 0,
+      items: itemsJSON || [],
       customer_name: formData.fullName,
       customer_phone: formData.phone,
-      items: orderPayload.items,
-      total_amount: totalAmount,
+      delivery_address: deliveryAddress,
+      status: 'pending',
       payment_method: 'COD',
       is_whatsapp_verified: true,
     };
@@ -2035,6 +2140,44 @@ export const handleQuickOrder = async ({
     };
     const local = getLocal<AdminOrder[]>(LOCAL_STORAGE_KEYS.ORDERS, DEFAULT_ORDERS);
     setLocal(LOCAL_STORAGE_KEYS.ORDERS, [localOrder, ...local]);
+
+    // Wrap localStorage.setItem('infinity_orders', ...) in a try-catch block and limit stored history to the 5 most recent orders
+    try {
+      let existingOrders: any[] = [];
+      try {
+        const rawStored = localStorage.getItem('infinity_orders');
+        if (rawStored) existingOrders = JSON.parse(rawStored);
+      } catch {
+        existingOrders = [];
+      }
+
+      const sanitizedExisting = (Array.isArray(existingOrders) ? existingOrders : [])
+        .filter((o: any) => o && (o.id || o.order_id) && o.id !== generatedId && o.order_id !== generatedId)
+        .slice(0, 4)
+        .map((o: any) => ({
+          id: String(o.id || o.order_id || 'INF-ORD'),
+          order_id: String(o.order_id || o.id || 'INF-ORD'),
+          timestamp: String(o.timestamp || o.created_at || new Date().toISOString()),
+          total: Number(o.total || o.total_amount || 0),
+        }));
+
+      const currentOrderSummary = {
+        id: generatedId,
+        order_id: generatedId,
+        timestamp: now,
+        total: totalVal,
+      };
+
+      const trimmedOrders = [currentOrderSummary, ...sanitizedExisting].slice(0, 5);
+      try {
+        localStorage.setItem('infinity_orders', JSON.stringify(trimmedOrders));
+      } catch (quotaErr) {
+        try {
+          localStorage.removeItem('infinity_orders');
+          localStorage.setItem('infinity_orders', JSON.stringify([currentOrderSummary]));
+        } catch {}
+      }
+    } catch {}
   } catch (syncErr) {
     console.warn('Local state sync notice:', syncErr);
   }
