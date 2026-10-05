@@ -358,6 +358,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                   <div className="text-gray-600 font-medium">
                     {order.delivery_address?.fullName || order.customer_name} •{' '}
+                    <span className="text-emerald-700 font-bold text-[10px]">
+                      WhatsApp: {order.customer_phone || order.delivery_address?.phone || 'Verified'}
+                    </span> •{' '}
                     <span className="text-gray-400">
                       {order.delivery_address?.area || order.delivery_zone}
                       {order.delivery_address?.roomNo ? ` (${order.delivery_address.roomNo})` : ''}

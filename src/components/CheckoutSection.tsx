@@ -79,37 +79,56 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         image_url: item.image_url || '',
       }));
 
-      // Single fast call directly to Supabase orders table
-      const res = await supabase
-        .from('orders')
-        .insert([{
-          order_number: orderNumber,
-          customer_name: name.trim(),
+      // Single fast call directly to Supabase orders table with strictly standard fields
+      // Deprecated/non-existent columns removed: email, customer_email, gps_status, delivery_zone
+      const standardPayload = {
+        order_number: orderNumber,
+        customer_name: name.trim(),
+        customer_phone: cleanPhone,
+        delivery_address: {
+          fullName: name.trim(),
           phone: cleanPhone,
+          area: location.trim(),
+          formatted: location.trim(),
+        },
+        items: itemsJSON,
+        total_amount: grandTotal,
+        payment_method: 'COD',
+        is_whatsapp_verified: true,
+      };
+
+      let res = await supabase
+        .from('orders')
+        .insert([standardPayload])
+        .select()
+        .single();
+
+      if (res.error) {
+        console.warn('CheckoutSection orders insert notice, retrying with minimal standard payload:', res.error.message);
+        // Fallback with strictly standard fields (in case order_number is auto-generated)
+        const minimalPayload = {
+          customer_name: name.trim(),
           customer_phone: cleanPhone,
-          delivery_location: location.trim(),
           delivery_address: {
             fullName: name.trim(),
             phone: cleanPhone,
             area: location.trim(),
             formatted: location.trim(),
           },
-          delivery_fee: DELIVERY_FEE,
-          handling_fee: HANDLING_FEE,
-          subtotal: itemsTotal,
-          total: grandTotal,
+          items: itemsJSON,
           total_amount: grandTotal,
           payment_method: 'COD',
-          payment_status: 'unpaid',
-          status: 'pending',
-          verified_via: 'whatsapp',
-          verification_method: 'whatsapp',
-          whatsapp_phone: cleanPhone,
-          items: itemsJSON,
-          items_summary: itemsJSON,
-        }])
-        .select()
-        .single();
+          is_whatsapp_verified: true,
+        };
+        const retryRes = await supabase
+          .from('orders')
+          .insert([minimalPayload])
+          .select()
+          .single();
+        if (!retryRes.error) {
+          res = retryRes;
+        }
+      }
 
       const createdOrderId = res.data?.order_number || res.data?.id || orderNumber;
 

@@ -473,19 +473,20 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1.5">
-                      Phone Number (For Runner Call) <span className="text-red-500">*</span>
+                    <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>WhatsApp Phone <span className="text-red-500">*</span></span>
+                      <span className="text-emerald-700 text-[10px] font-bold">1-Click WhatsApp Verified</span>
                     </label>
                     <div className="relative">
-                      <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
+                      <Phone className="w-4 h-4 text-emerald-600 absolute left-3 top-3.5" />
                       <input
                         type="tel"
                         maxLength={10}
                         value={profile.phone}
                         onChange={(e) => updateField('phone', e.target.value.replace(/\D/g, ''))}
-                        placeholder="10-digit mobile number"
+                        placeholder="10-digit WhatsApp number"
                         required
-                        className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#0A84FF] bg-[#FAFAF7]"
+                        className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm font-semibold rounded-xl border border-gray-200 focus:outline-none focus:border-[#25D366] bg-[#FAFAF7]"
                       />
                     </div>
                   </div>

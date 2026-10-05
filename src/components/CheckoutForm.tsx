@@ -186,7 +186,6 @@ export default function CheckoutForm({
 
       return {
         fullName,
-        email: p.email || (fullName ? `${fullName.toLowerCase().replace(/\s+/g, '.')}@campus.edu` : ''),
         phone,
         area: areaToUse,
         roomNo,
@@ -195,7 +194,6 @@ export default function CheckoutForm({
     } catch {
       return {
         fullName: user?.name || '',
-        email: user?.email || '',
         phone: '',
         area: initialArea || 'CCCT — Academic Complex & Admin',
         roomNo: '',
@@ -527,55 +525,73 @@ export default function CheckoutForm({
 
       const generatedOrderNumber = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // 1. Single Fast Call Payload: completely email-free per request
+      // 1. Single Fast Call Payload: strictly standard fields
+      // Deprecated/non-existent columns removed per schema alignment: email, customer_email, gps_status, delivery_zone
       const orderPayload: Record<string, any> = {
         order_number: generatedOrderNumber,
         customer_name: checkoutDetails.name,
-        phone: checkoutDetails.phone,
-        customer_phone: checkoutDetails.phone,
-        delivery_location: checkoutDetails.location,
+        customer_phone: cleanPhone,
         delivery_address: {
           fullName: checkoutDetails.name,
-          phone: checkoutDetails.phone,
+          phone: cleanPhone,
           area: selectedLocation,
           roomNo: roomDetails,
-          notes: checkoutDetails.notes,
+          notes: checkoutDetails.notes || '',
           formatted: checkoutDetails.location,
         },
-        delivery_zone: selectedLocation,
-        room_details: roomDetails,
-        delivery_note: checkoutDetails.notes,
-        delivery_fee: currentDeliveryFee,
-        handling_fee: currentHandlingFee,
-        subtotal: Number(productPrice),
-        total: totalAmount,
+        items: itemsSummaryJSON.map((it: any) => ({
+          id: it.id,
+          name: it.name,
+          price: it.price,
+          quantity: it.quantity,
+          subtotal: it.subtotal,
+        })),
         total_amount: totalAmount,
         payment_method: 'COD',
-        payment_status: 'unpaid',
-        status: orderStatus,
-        verified_via: 'whatsapp',
-        verification_method: 'whatsapp',
-        whatsapp_phone: cleanPhone,
-        gps_verified: true,
-        gps_status: locationVerification.status || 'inside',
-        items: itemsSummaryJSON,
-        items_summary: itemsSummaryJSON,
-        metadata: {
-          ...orderMetadata,
-          verified_via: 'whatsapp',
-          customer_whatsapp: cleanPhone,
-        },
+        is_whatsapp_verified: true,
       };
 
-      // Execute single fast insert into 'orders' (0.0s delay, no retry loops)
-      const { data, error: orderErr } = await supabase
+      // Execute single fast insert into 'orders' (0.0s artificial delay, no blocking retry loops)
+      let { data, error: orderErr } = await supabase
         .from('orders')
         .insert([orderPayload])
         .select()
         .single();
 
       if (orderErr) {
-        console.warn('Orders insert notice, proceeding with resilient order sync:', orderErr.message);
+        console.warn('Orders insert notice, retrying with minimal standard payload:', orderErr.message);
+        // Fallback with strictly standard fields (in case order_number is auto-generated in Supabase)
+        const minimalStandardPayload = {
+          customer_name: checkoutDetails.name,
+          customer_phone: cleanPhone,
+          delivery_address: {
+            fullName: checkoutDetails.name,
+            phone: cleanPhone,
+            area: selectedLocation,
+            roomNo: roomDetails,
+            notes: checkoutDetails.notes || '',
+            formatted: checkoutDetails.location,
+          },
+          items: itemsSummaryJSON.map((it: any) => ({
+            id: it.id,
+            name: it.name,
+            price: it.price,
+            quantity: it.quantity,
+            subtotal: it.subtotal,
+          })),
+          total_amount: totalAmount,
+          payment_method: 'COD',
+          is_whatsapp_verified: true,
+        };
+        const retryRes = await supabase
+          .from('orders')
+          .insert([minimalStandardPayload])
+          .select()
+          .single();
+        if (!retryRes.error && retryRes.data) {
+          data = retryRes.data;
+          orderErr = null;
+        }
       }
 
       const finalOrderId = data?.order_number || data?.id || generatedOrderNumber;
@@ -614,7 +630,8 @@ export default function CheckoutForm({
         );
         setIsVerifiedStudent(true);
 
-        // 4. QuotaExceededError Protection: Store ONLY the last 5 lightweight orders without heavy base64
+        // 4. QuotaExceededError Protection: Store ONLY the last 3-5 lightweight order summaries (IDs and totals only)
+        // No large base64 images or massive payload histories
         let existingOrders: any[] = [];
         try {
           const rawStored = localStorage.getItem('infinity_orders');
@@ -625,7 +642,7 @@ export default function CheckoutForm({
           existingOrders = [];
         }
 
-        // Clean & prune older entries to lightweight form (strip all base64 data)
+        // Clean & prune older entries to lightweight summaries (IDs, totals, status only)
         const sanitizedExisting = (Array.isArray(existingOrders) ? existingOrders : [])
           .filter((o: any) => o && (o.id || o.order_number) && o.id !== finalOrderId && o.order_number !== finalOrderId)
           .slice(0, 4)
@@ -634,21 +651,9 @@ export default function CheckoutForm({
             order_number: o.order_number || o.id,
             customer_name: o.customer_name || '',
             customer_phone: o.customer_phone || '',
-            delivery_zone: o.delivery_zone || '',
-            room_details: o.room_details || '',
             total_amount: Number(o.total_amount || o.total || 0),
-            total: Number(o.total || o.total_amount || 0),
             status: o.status || 'Pending',
-            payment_method: o.payment_method || 'COD',
             created_at: o.created_at || new Date().toISOString(),
-            items: Array.isArray(o.items)
-              ? o.items.map((it: any) => ({
-                  id: it.id,
-                  name: it.name || it.title || 'Item',
-                  quantity: Number(it.quantity || 1),
-                  price: Number(it.price || 0),
-                }))
-              : [],
           }));
 
         const lightweightCurrentOrder = {
@@ -656,25 +661,7 @@ export default function CheckoutForm({
           order_number: finalOrderId,
           customer_name: checkoutDetails.name,
           customer_phone: cleanPhone,
-          delivery_zone: selectedLocation,
-          room_details: roomDetails,
-          delivery_address: {
-            fullName: checkoutDetails.name,
-            phone: cleanPhone,
-            area: selectedLocation,
-            roomNo: roomDetails,
-            notes: formData.notes || '',
-          },
-          // Minimal items without images/base64 to avoid quota exhaustion
-          items: itemsSummaryJSON.map((it: any) => ({
-            id: it.id,
-            name: it.name,
-            quantity: it.quantity,
-            price: it.price,
-            subtotal: it.subtotal,
-          })),
           total_amount: totalAmount,
-          total: totalAmount,
           status: orderStatus,
           payment_method: 'COD',
           created_at: new Date().toISOString(),
@@ -685,28 +672,17 @@ export default function CheckoutForm({
         try {
           localStorage.setItem('infinity_orders', JSON.stringify(trimmedOrdersList));
         } catch (quotaErr) {
-          console.warn('[LocalStorage] QuotaExceededError detected, evicting heavy order data:', quotaErr);
-          // Clear any heavy non-essential caches
+          console.warn('[LocalStorage] QuotaExceededError detected during checkout, clearing old infinity_orders key:', quotaErr);
+          // Automatically clear the old storage key to prevent blocking the checkout UI
           try {
-            localStorage.removeItem('infinity_admin_orders');
-            localStorage.removeItem('infinity_admin_order_history');
-          } catch {}
-
-          // Store only minimal ID and totals
-          const minimalOrdersList = trimmedOrdersList.map((o: any) => ({
-            id: o.id,
-            order_number: o.order_number,
-            total_amount: o.total_amount,
-            status: o.status,
-            created_at: o.created_at,
-          }));
-          try {
-            localStorage.setItem('infinity_orders', JSON.stringify(minimalOrdersList));
+            localStorage.removeItem('infinity_orders');
+            // Try saving only the current order summary (ID and total only)
+            localStorage.setItem(
+              'infinity_orders',
+              JSON.stringify([{ id: finalOrderId, order_number: finalOrderId, total_amount: totalAmount }])
+            );
           } catch {
-            // Ultimate fallback: keep only the single current order ID
-            try {
-              localStorage.setItem('infinity_orders', JSON.stringify([{ id: finalOrderId, total_amount: totalAmount }]));
-            } catch {}
+            // Failsafe catch to ensure UI is completely non-blocking
           }
         }
       } catch (cacheErr) {

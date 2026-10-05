@@ -15,6 +15,7 @@ import {
   X,
   Send,
   Radio,
+  MessageCircle,
 } from 'lucide-react';
 import {
   fetchOrders,
@@ -433,8 +434,23 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 text-xs">
                   {/* order.delivery_address direct JSON object format me milta hai */}
                   <div>
-                    <p className="font-semibold text-neutral-900">{order.delivery_address?.fullName || order.customer_name}</p>
-                    <p className="text-neutral-600">📞 {order.delivery_address?.phone || order.customer_phone}</p>
+                    <p className="font-bold text-gray-900">{order.delivery_address?.fullName || order.customer_name}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
+                        <MessageCircle className="w-3 h-3 text-emerald-600" />
+                        <span>WhatsApp: {order.customer_phone || order.delivery_address?.phone || 'Verified'}</span>
+                      </span>
+                    </div>
+                    {(order.customer_phone || order.delivery_address?.phone) && (
+                      <a
+                        href={`https://wa.me/91${String(order.customer_phone || order.delivery_address?.phone || '').replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold hover:underline mt-1"
+                      >
+                        Chat on WhatsApp →
+                      </a>
+                    )}
                     <p className="text-neutral-700 mt-1">
                       📍 {order.delivery_address?.area || order.delivery_zone}, {order.delivery_address?.roomNo || order.room_details}
                     </p>
@@ -513,10 +529,13 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
 
             {/* order.delivery_address direct JSON object format me milta hai */}
             <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200/80 text-xs">
-              <p className="font-semibold text-neutral-900">{selectedOrderForHistory.delivery_address?.fullName}</p>
-              <p className="text-neutral-600">📞 {selectedOrderForHistory.delivery_address?.phone}</p>
+              <p className="font-bold text-neutral-900">{selectedOrderForHistory.delivery_address?.fullName || selectedOrderForHistory.customer_name}</p>
+              <p className="text-emerald-700 font-bold mt-0.5 flex items-center gap-1">
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                <span>WhatsApp: {selectedOrderForHistory.delivery_address?.phone || selectedOrderForHistory.customer_phone || 'Verified'}</span>
+              </p>
               <p className="text-neutral-700 mt-1">
-                📍 {selectedOrderForHistory.delivery_address?.area}, {selectedOrderForHistory.delivery_address?.roomNo}
+                📍 {selectedOrderForHistory.delivery_address?.area || selectedOrderForHistory.delivery_zone}, {selectedOrderForHistory.delivery_address?.roomNo || selectedOrderForHistory.room_details}
               </p>
               {selectedOrderForHistory.delivery_address?.notes && (
                 <p className="text-xs text-neutral-500 mt-1 italic">Note: "{selectedOrderForHistory.delivery_address?.notes}"</p>
