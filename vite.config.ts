@@ -9,11 +9,60 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       {
-        name: 'admin-route-rewrite',
+        name: 'api-proxy-and-admin-rewrite',
         configureServer(server) {
-          server.middlewares.use((req, res, next) => {
+          server.middlewares.use(async (req, res, next) => {
             const url = req.url || '';
             const pathOnly = url.split('?')[0].split('#')[0];
+
+            if (pathOnly === '/api/products') {
+              res.setHeader('Content-Type', 'application/json');
+              try {
+                const targetUrl = 'https://egdbegaujzrzsbbstzsr.supabase.co/rest/v1/products?select=*&order=created_at.desc';
+                const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.startsWith('sb_publishable_')
+                  ? process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+                  : 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
+                const resp = await fetch(targetUrl, {
+                  headers: {
+                    apikey: key,
+                    Authorization: `Bearer ${key}`,
+                  },
+                });
+                const data = await resp.json();
+                res.statusCode = resp.ok ? 200 : 500;
+                res.end(JSON.stringify({ products: Array.isArray(data) ? data : [] }));
+                return;
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err?.message || 'Failed to fetch products' }));
+                return;
+              }
+            }
+
+            if (pathOnly === '/api/categories') {
+              res.setHeader('Content-Type', 'application/json');
+              try {
+                const targetUrl = 'https://egdbegaujzrzsbbstzsr.supabase.co/rest/v1/categories?select=*';
+                const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.startsWith('sb_publishable_')
+                  ? process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+                  : 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
+                const resp = await fetch(targetUrl, {
+                  headers: {
+                    apikey: key,
+                    Authorization: `Bearer ${key}`,
+                  },
+                });
+                const data = await resp.json();
+                res.statusCode = resp.ok ? 200 : 500;
+                res.end(JSON.stringify({ categories: Array.isArray(data) ? data : [] }));
+                return;
+              } catch (err: any) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err?.message || 'Failed to fetch categories' }));
+                return;
+              }
+            }
+
             if (pathOnly === '/admin' || pathOnly === '/admin/' || pathOnly.startsWith('/admin/')) {
               req.url = '/admin.html';
             }

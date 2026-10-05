@@ -19,8 +19,61 @@ import {
   sortCategoriesInStorefrontOrder,
 } from '../data/mockData';
 
-const DEFAULT_SUPABASE_URL = 'https://egdbegaujzrzsbbstzsr.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
+export const DEFAULT_SUPABASE_URL = 'https://egdbegaujzrzsbbstzsr.supabase.co';
+export const DEFAULT_SUPABASE_KEY = 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
+
+/**
+ * Detects whether an API key is a secret or service_role key.
+ * Secret keys MUST NEVER be passed to client-side/browser fetch functions.
+ */
+export function isSecretApiKey(key: string | null | undefined): boolean {
+  if (!key || typeof key !== 'string') return false;
+  const trimmed = key.trim();
+  if (trimmed.startsWith('sb_secret_')) return true;
+  if (/service[_-]?role/i.test(trimmed)) return true;
+
+  // Check if it's a JWT with role "service_role"
+  if (trimmed.startsWith('eyJ') && trimmed.includes('.')) {
+    try {
+      const parts = trimmed.split('.');
+      if (parts[1]) {
+        const payloadStr =
+          typeof atob === 'function'
+            ? atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+            : Buffer.from(parts[1], 'base64').toString('utf-8');
+        const payload = JSON.parse(payloadStr);
+        if (payload?.role === 'service_role') return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+
+/**
+ * Validates that an API key is a safe public/publishable/anon key for browser usage.
+ */
+export function isPublicApiKey(key: string | null | undefined): boolean {
+  if (!key || typeof key !== 'string') return false;
+  const trimmed = key.trim();
+  if (isSecretApiKey(trimmed)) return false;
+  if (trimmed.startsWith('sb_publishable_')) return true;
+
+  if (trimmed.startsWith('eyJ') && trimmed.includes('.')) {
+    try {
+      const parts = trimmed.split('.');
+      if (parts[1]) {
+        const payloadStr =
+          typeof atob === 'function'
+            ? atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+            : Buffer.from(parts[1], 'base64').toString('utf-8');
+        const payload = JSON.parse(payloadStr);
+        if (payload?.role === 'anon') return true;
+      }
+    } catch {}
+  }
+
+  return !trimmed.toLowerCase().includes('secret');
+}
 
 function resolveSupabaseUrl(): string {
   try {
@@ -36,28 +89,49 @@ function resolveSupabaseUrl(): string {
 }
 
 function resolveSupabaseKey(): string {
-  const envKey = (
-    (import.meta.env?.VITE_SUPABASE_ANON_KEY as string) ||
-    (import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY as string)
-  )?.trim();
-  if (envKey) return envKey;
-  // If VITE_SUPABASE_URL was set with an API key (e.g., starting with sb_ or eyJ)
   const envUrl = (import.meta.env?.VITE_SUPABASE_URL as string)?.trim();
-  if (envUrl && (envUrl.startsWith('sb_') || envUrl.startsWith('eyJ'))) {
+  const envPublishable = (import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY as string)?.trim();
+  const envAnon = (import.meta.env?.VITE_SUPABASE_ANON_KEY as string)?.trim();
+
+  // 1. If VITE_SUPABASE_URL was accidentally populated with the publishable key
+  if (envUrl && envUrl.startsWith('sb_publishable_') && !isSecretApiKey(envUrl)) {
     return envUrl;
   }
+
+  // 2. Check VITE_SUPABASE_PUBLISHABLE_KEY (if non-secret and valid public key)
+  if (envPublishable && isPublicApiKey(envPublishable)) {
+    return envPublishable;
+  }
+
+  // 3. Check VITE_SUPABASE_ANON_KEY (only if NOT a secret key)
+  if (envAnon && isPublicApiKey(envAnon)) {
+    return envAnon;
+  }
+
+  // If a secret key was passed in client environment variables, warn and never use it in browser fetch
+  if (isSecretApiKey(envAnon) || isSecretApiKey(envPublishable)) {
+    console.warn(
+      '[Supabase Security] Secret key detected in client environment variables. ' +
+      'Secret/service_role keys are forbidden in browser fetch functions. ' +
+      'Safely using verified public publishable/anon key.'
+    );
+  }
+
   return DEFAULT_SUPABASE_KEY;
 }
 
-// Centralized Supabase credentials and initialized client
+// Centralized Supabase credentials and initialized client (strictly public/anon for browser safety)
 export const SUPABASE_URL = resolveSupabaseUrl() || DEFAULT_SUPABASE_URL;
 export const SUPABASE_ANON_KEY = resolveSupabaseKey() || DEFAULT_SUPABASE_KEY;
+export const SUPABASE_PUBLISHABLE_KEY = SUPABASE_ANON_KEY;
 
 function createResilientSupabaseClient(): SupabaseClient<any, 'public', any> {
+  // Ensure client never uses a secret API key in browser
+  const safeClientKey = isSecretApiKey(SUPABASE_ANON_KEY) ? DEFAULT_SUPABASE_KEY : SUPABASE_ANON_KEY;
   try {
     return createClient<any, 'public', any>(
       SUPABASE_URL,
-      SUPABASE_ANON_KEY,
+      safeClientKey,
       {
         auth: {
           persistSession: true,
@@ -484,6 +558,50 @@ export async function fetchDashboardMetrics() {
    2. PRODUCTS CRUD WITH SUPABASE & IMAGE BUCKET
    ============================================================ */
 export async function fetchProducts(onlyActive = true): Promise<AdminProduct[]> {
+  // 1. Try secure backend endpoint /api/products if accessible
+  try {
+    const apiRes = await fetch('/api/products', { headers: { Accept: 'application/json' } });
+    if (apiRes.ok) {
+      const json = await apiRes.json();
+      const rawProducts = json.products || json.data || (Array.isArray(json) ? json : null);
+      if (Array.isArray(rawProducts) && rawProducts.length > 0) {
+        let filtered = rawProducts;
+        if (onlyActive) {
+          filtered = rawProducts.filter((p: any) => p.is_active !== false);
+        }
+        const mapped: AdminProduct[] = (filtered.length > 0 ? filtered : rawProducts).map((item) => {
+          const stock = Number(item.stock_quantity ?? item.stock_count ?? item.stockCount ?? 0);
+          const name = item.title || item.name || 'Campus Product';
+          const img = item.image_url || item.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+          return {
+            id: String(item.id),
+            name,
+            title: name,
+            category: item.category || 'snacks',
+            price: Number(item.price || 0),
+            original_price: item.original_price ? Number(item.original_price) : undefined,
+            stock_count: stock,
+            stock_quantity: stock,
+            low_stock_threshold: Number(item.low_stock_threshold ?? 10),
+            image: img,
+            image_url: img,
+            unit: item.unit || '1 pc',
+            description: item.description || '',
+            in_stock: Boolean(item.in_stock ?? (stock > 0)),
+            is_active: item.is_active !== undefined ? Boolean(item.is_active) : true,
+            is_popular: Boolean(item.is_popular),
+            is_late_night: Boolean(item.is_late_night),
+            is_flash_deal: Boolean(item.is_flash_deal),
+            created_at: item.created_at || new Date().toISOString(),
+          };
+        });
+        setLocal(LOCAL_STORAGE_KEYS.PRODUCTS, mapped);
+        return mapped;
+      }
+    }
+  } catch {}
+
+  // 2. Direct client fetch using verified public/anon key (SUPABASE_ANON_KEY)
   try {
     let query = supabase.from('products').select('*');
     if (onlyActive) {
@@ -611,6 +729,23 @@ export function mapStorefrontCategory(item: any, fallbackIndex: number = 0): Cat
  * Fetches categories from Supabase with graceful fallback to cached or mockData CATEGORIES
  */
 export async function fetchStorefrontCategories(): Promise<Category[]> {
+  // 1. Try secure backend endpoint /api/categories if accessible
+  try {
+    const apiRes = await fetch('/api/categories', { headers: { Accept: 'application/json' } });
+    if (apiRes.ok) {
+      const json = await apiRes.json();
+      const rawCategories = json.categories || json.data || (Array.isArray(json) ? json : null);
+      if (Array.isArray(rawCategories) && rawCategories.length > 0) {
+        const mapped = sortCategoriesInStorefrontOrder(
+          rawCategories.map((item, idx) => mapStorefrontCategory(item, idx))
+        );
+        setLocal(LOCAL_STORAGE_KEYS.CATEGORIES, mapped);
+        return mapped;
+      }
+    }
+  } catch {}
+
+  // 2. Direct client fetch using verified public/anon key (SUPABASE_ANON_KEY)
   try {
     const { data, error } = await supabase
       .from('categories')
@@ -716,6 +851,21 @@ export function mapStorefrontProduct(item: any, fallbackIndex: number = 0): Prod
  * Fetches active storefront products with live Supabase priority and cached fallback
  */
 export async function fetchStorefrontProducts(): Promise<Product[]> {
+  // 1. Try secure backend endpoint /api/products if accessible
+  try {
+    const apiRes = await fetch('/api/products', { headers: { Accept: 'application/json' } });
+    if (apiRes.ok) {
+      const json = await apiRes.json();
+      const rawProducts = json.products || json.data || (Array.isArray(json) ? json : null);
+      if (Array.isArray(rawProducts) && rawProducts.length > 0) {
+        const mapped = rawProducts.map((item, idx) => mapStorefrontProduct(item, idx));
+        setLocal(LOCAL_STORAGE_KEYS.PRODUCTS, mapped);
+        return mapped;
+      }
+    }
+  } catch {}
+
+  // 2. Direct client fetch using verified public/anon key (SUPABASE_ANON_KEY)
   try {
     let { data, error } = await supabase
       .from('products')
