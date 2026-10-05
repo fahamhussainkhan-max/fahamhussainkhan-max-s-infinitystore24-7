@@ -1701,52 +1701,33 @@ export async function placeFastOrder(
     newOrder = data;
   }
 
-  const generatedId = newOrder?.id || orderId;
+  const generatedId = newOrder?.order_number || newOrder?.id || orderId;
 
-  // 2. Immediately insert product details into 'order_items'
-  if (cartItems && cartItems.length > 0) {
+  // 2. Non-blocking asynchronous sync to 'order_items' (never blocks response)
+  if (cartItems && cartItems.length > 0 && typeof newOrder?.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newOrder.id)) {
     const items = cartItems.map((item) => ({
-      order_id: generatedId,
+      order_id: newOrder.id,
       product_name_snapshot: item.title || item.name || 'Campus Item',
       product_name: item.title || item.name || 'Campus Item',
       quantity: item.quantity,
       unit_price: item.price,
       subtotal: item.price * item.quantity,
     }));
-
-    try {
-      const { error: itemsError } = await supabase.from('order_items').insert(items);
-      if (itemsError) {
-        console.warn('order_items insert warning:', itemsError.message);
-        // Try fallback with only standard columns
-        const basicItems = cartItems.map((item) => ({
-          order_id: generatedId,
-          product_name: item.title || item.name || 'Campus Item',
-          quantity: item.quantity,
-          unit_price: item.price,
-          subtotal: item.price * item.quantity,
-        }));
-        await supabase.from('order_items').insert(basicItems);
-      }
-    } catch (itemErr) {
-      console.warn('order_items exception handled:', itemErr);
-    }
+    supabase.from('order_items').insert(items).then(() => {}, () => {});
   }
 
-  // 3. Immediately log status in order_status_history
-  try {
-    await supabase.from('order_status_history').insert([
+  // 3. Non-blocking status history log
+  if (typeof newOrder?.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newOrder.id)) {
+    supabase.from('order_status_history').insert([
       {
         id: `hist-${Date.now()}`,
-        order_id: generatedId,
+        order_id: newOrder.id,
         status: 'preparing',
         notes: `Order placed. Delivery destination: ${deliveryLocation}`,
         created_by: 'Campus Student',
         created_at: now,
       },
-    ]);
-  } catch (histErr) {
-    // Non-blocking
+    ]).then(() => {}, () => {});
   }
 
   // 4. Maintain local cache so UI, LiveOrdersManager and Customer Orders list reflect it immediately

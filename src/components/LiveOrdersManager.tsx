@@ -246,6 +246,35 @@ export const LiveOrdersManager: React.FC = () => {
           setTimeout(() => setActionNotice(null), 3000);
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'order_items' },
+        (payload: any) => {
+          const item = payload.new;
+          if (!item || !item.order_id) return;
+          setOrders((prev) =>
+            prev.map((o) => {
+              if (o.id !== item.order_id) return o;
+              const existingIndex = o.items.findIndex(
+                (it) => it.id === item.id || it.id === item.product_id
+              );
+              const formattedItem = {
+                id: item.id || item.product_id,
+                name: item.product_name_snapshot || item.product_name || item.name || 'Campus Item',
+                quantity: Number(item.quantity || 1),
+                price: Number(item.price_snapshot ?? item.price ?? 0),
+                image_url: item.image_url || item.image || '',
+              };
+              if (existingIndex >= 0) {
+                const updatedItems = [...o.items];
+                updatedItems[existingIndex] = formattedItem;
+                return { ...o, items: updatedItems };
+              }
+              return { ...o, items: [...o.items, formattedItem] };
+            })
+          );
+        }
+      )
       .subscribe();
 
     return () => {

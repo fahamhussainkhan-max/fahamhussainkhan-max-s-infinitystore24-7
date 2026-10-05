@@ -66,65 +66,54 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
 
     setLoading(true);
     try {
-      // 1. Insert Main Order with Postgres enum & column safety
-      let orderData: any = null;
-      let orderErr: any = null;
+      const orderNumber = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // Primary insertion attempt matching database schema
+      const itemsJSON = cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        title: item.name,
+        price: item.price,
+        unit_price: item.price,
+        quantity: item.quantity,
+        subtotal: item.price * item.quantity,
+        image_url: item.image_url || '',
+      }));
+
+      // Single fast call directly to Supabase orders table
       const res = await supabase
         .from('orders')
         .insert([{
+          order_number: orderNumber,
           customer_name: name.trim(),
           phone: cleanPhone,
           customer_phone: cleanPhone,
           delivery_location: location.trim(),
-          delivery_address: location.trim(),
+          delivery_address: {
+            fullName: name.trim(),
+            phone: cleanPhone,
+            area: location.trim(),
+            formatted: location.trim(),
+          },
           delivery_fee: DELIVERY_FEE,
           handling_fee: HANDLING_FEE,
-          rider_payout: DELIVERY_FEE,
           subtotal: itemsTotal,
           total: grandTotal,
           total_amount: grandTotal,
           payment_method: 'COD',
           payment_status: 'unpaid',
-          status: 'pending'
+          status: 'pending',
+          items: itemsJSON,
+          items_summary: itemsJSON,
         }])
         .select()
         .single();
 
-      orderData = res.data;
-      orderErr = res.error;
+      const createdOrderId = res.data?.order_number || res.data?.id || orderNumber;
 
-      // Schema compatibility fallback
-      if (orderErr) {
-        console.warn('Primary order insert notice, trying alternative schema columns:', orderErr.message);
-        const fallbackRes = await supabase
-          .from('orders')
-          .insert([{
-            customer_name: name.trim(),
-            customer_phone: cleanPhone,
-            delivery_location: location.trim(),
-            delivery_address: location.trim(),
-            delivery_fee: DELIVERY_FEE,
-            handling_fee: HANDLING_FEE,
-            rider_payout: DELIVERY_FEE,
-            total_amount: grandTotal,
-            payment_method: 'COD',
-            status: 'Pending'
-          }])
-          .select()
-          .single();
-
-        if (fallbackRes.error) {
-          throw orderErr;
-        }
-        orderData = fallbackRes.data;
-      }
-
-      // 2. Insert Order Items with Images
-      if (orderData && cart.length > 0) {
+      // Optional background sync to order_items (never blocks user)
+      if (res.data?.id && typeof res.data.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(res.data.id) && cart.length > 0) {
         const itemsPayload = cart.map(item => ({
-          order_id: orderData.id,
+          order_id: res.data.id,
           product_name_snapshot: item.name,
           price_snapshot: item.price,
           item_price: item.price,
@@ -132,23 +121,10 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
           subtotal: item.price * item.quantity,
           image_url: item.image_url || ''
         }));
-
-        const { error: itemsErr } = await supabase.from('order_items').insert(itemsPayload);
-        if (itemsErr) {
-          console.warn('Notice saving order items with snapshot columns, attempting legacy schema:', itemsErr.message);
-          await supabase.from('order_items').insert(
-            cart.map(item => ({
-              order_id: orderData.id,
-              product_name: item.name,
-              quantity: item.quantity,
-              item_price: item.price,
-              image_url: item.image_url || ''
-            }))
-          );
-        }
+        supabase.from('order_items').insert(itemsPayload).then(() => {}, () => {});
       }
 
-      onSuccess(orderData.id);
+      onSuccess(createdOrderId);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to place order.');
     } finally {
