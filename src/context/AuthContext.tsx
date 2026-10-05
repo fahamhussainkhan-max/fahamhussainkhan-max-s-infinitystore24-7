@@ -6,9 +6,10 @@ export interface AuthUser {
   email: string;
   phone?: string;
   room?: string;
+  hostel?: string;
   avatar?: string;
-  provider?: string;
-  isVerified?: boolean;
+  provider: 'whatsapp';
+  isVerified: boolean;
 }
 
 interface AuthContextType {
@@ -18,7 +19,7 @@ interface AuthContextType {
   isLoginModalOpen: boolean;
   openLoginModal: () => void;
   closeLoginModal: () => void;
-  signInWithGoogle: () => Promise<void>;
+  verifyAndLoginWithWhatsApp: (name: string, phone: string, room?: string, hostel?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => void;
 }
@@ -32,16 +33,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const phone = localStorage.getItem('infinity_user_phone') || '';
       const name = localStorage.getItem('infinity_user_name') || '';
       const room = localStorage.getItem('infinity_user_room') || '';
+      const profileStr = localStorage.getItem('infinity_student_profile');
+      const profile = profileStr ? JSON.parse(profileStr) : {};
 
       if (isVerified || (phone && name)) {
+        const cleanDigits = phone.replace(/\D/g, '');
         return {
-          id: `student-${phone.replace(/\D/g, '') || 'verified'}`,
-          name: name || 'Campus Student',
-          phone: phone,
-          room: room,
-          email: `${(name || 'student').toLowerCase().replace(/\s+/g, '.')}@campus.edu`,
+          id: `student-${cleanDigits || 'verified'}`,
+          name: name || profile.fullName || 'Campus Student',
+          phone: phone || profile.phone || '',
+          room: room || profile.roomNo || '',
+          hostel: profile.hostel || 'CCCT — Academic Complex & Admin',
+          email: `${(name || 'student').toLowerCase().replace(/\s+/g, '.')}@campus.infinity.store`,
           avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || 'Campus')}`,
-          isVerified: isVerified,
+          provider: 'whatsapp',
+          isVerified: true,
         };
       }
     } catch {}
@@ -52,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
 
-  // Sync state if localStorage changes in other tabs/windows
+  // Sync state if localStorage changes across windows/components
   const refreshUser = () => {
     setUser(getLocalStudent());
   };
@@ -66,21 +72,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const openLoginModal = () => {
-    // No-op: Login modal removed in favor of smart WhatsApp verification at checkout
+    setIsLoginModalOpen(true);
   };
 
   const closeLoginModal = () => {
     setIsLoginModalOpen(false);
   };
 
-  const signInWithGoogle = async () => {
-    // No-op: Google login eliminated per store specifications
-    console.log('[Auth] Google OAuth bypassed - using WhatsApp 1-click verification flow');
+  const verifyAndLoginWithWhatsApp = async (name: string, phone: string, room?: string, hostel?: string) => {
+    setIsLoading(true);
+    try {
+      const cleanPhone = phone.replace(/\D/g, '');
+      const trimmedName = name.trim();
+      const trimmedRoom = (room || '').trim();
+      const selectedHostel = hostel || 'CCCT — Academic Complex & Admin';
+
+      localStorage.setItem('infinity_user_name', trimmedName);
+      localStorage.setItem('infinity_user_phone', cleanPhone);
+      if (trimmedRoom) {
+        localStorage.setItem('infinity_user_room', trimmedRoom);
+      }
+      localStorage.setItem('infinity_user_verified', 'true');
+      localStorage.setItem('infinity_whatsapp_verified', 'true');
+
+      const profilePayload = {
+        fullName: trimmedName,
+        phone: cleanPhone,
+        hostel: selectedHostel,
+        roomNo: trimmedRoom,
+        verifiedVia: 'whatsapp',
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('infinity_student_profile', JSON.stringify(profilePayload));
+
+      setUser({
+        id: `student-${cleanPhone}`,
+        name: trimmedName,
+        phone: cleanPhone,
+        room: trimmedRoom,
+        hostel: selectedHostel,
+        email: `${trimmedName.toLowerCase().replace(/\s+/g, '.')}@campus.infinity.store`,
+        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(trimmedName)}`,
+        provider: 'whatsapp',
+        isVerified: true,
+      });
+      setIsLoginModalOpen(false);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const signOut = async () => {
     try {
       localStorage.removeItem('infinity_user_verified');
+      localStorage.removeItem('infinity_whatsapp_verified');
       localStorage.removeItem('infinity_user_phone');
       localStorage.removeItem('infinity_user_name');
       localStorage.removeItem('infinity_user_room');
@@ -100,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoginModalOpen,
         openLoginModal,
         closeLoginModal,
-        signInWithGoogle,
+        verifyAndLoginWithWhatsApp,
         signOut,
         refreshUser,
       }}

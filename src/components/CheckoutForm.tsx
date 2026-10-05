@@ -554,11 +554,18 @@ export default function CheckoutForm({
         payment_method: 'COD',
         payment_status: 'unpaid',
         status: orderStatus,
+        verified_via: 'whatsapp',
+        verification_method: 'whatsapp',
+        whatsapp_phone: cleanPhone,
         gps_verified: true,
         gps_status: locationVerification.status || 'inside',
         items: itemsSummaryJSON,
         items_summary: itemsSummaryJSON,
-        metadata: orderMetadata,
+        metadata: {
+          ...orderMetadata,
+          verified_via: 'whatsapp',
+          customer_whatsapp: cleanPhone,
+        },
       };
 
       // Execute single fast insert into 'orders' (0.0s delay, no retry loops)
@@ -595,6 +602,7 @@ export default function CheckoutForm({
         localStorage.setItem('infinity_user_name', checkoutDetails.name);
         localStorage.setItem('infinity_user_room', roomDetails);
         localStorage.setItem('infinity_user_verified', 'true');
+        localStorage.setItem('infinity_whatsapp_verified', 'true');
         localStorage.setItem(
           'infinity_student_profile',
           JSON.stringify({
@@ -765,13 +773,17 @@ export default function CheckoutForm({
           />
         </div>
 
-        {/* 10-digit Phone Number (Strictly required for campus delivery runners) */}
+        {/* 10-digit WhatsApp Number for order verification and runner dispatch */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label htmlFor="checkout-phone-input" className="block text-xs sm:text-sm font-bold text-neutral-700">
-              Contact Phone Number <span className="text-red-500">*</span>
+            <label htmlFor="checkout-phone-input" className="block text-xs sm:text-sm font-bold text-neutral-800 flex items-center gap-1.5">
+              <span>WhatsApp Mobile Number</span>
+              <span className="text-red-500">*</span>
             </label>
-            <span className="text-[10px] text-neutral-400 font-bold">10 Digits Required</span>
+            <span className="text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#25D366]"></span>
+              WhatsApp Verification
+            </span>
           </div>
           <div className="relative flex items-center">
             <span className="absolute left-3.5 text-xs font-bold text-neutral-400 pointer-events-none select-none z-10">
@@ -788,11 +800,11 @@ export default function CheckoutForm({
               value={formData.phone}
               onChange={handleChange}
               placeholder="9876543210"
-              className="w-full pl-11 pr-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm bg-white font-medium text-neutral-900 cursor-text pointer-events-auto relative z-0"
+              className="w-full pl-11 pr-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#25D366] text-base sm:text-sm bg-white font-medium text-neutral-900 cursor-text pointer-events-auto relative z-0"
             />
           </div>
-          <p className="text-[11px] text-neutral-400 mt-1">
-            Our campus runner will call this number when arriving at your delivery spot.
+          <p className="text-[11px] text-neutral-500 mt-1">
+            Order verification, runner dispatch alerts, and doorstep handover coordination are handled via WhatsApp.
           </p>
         </div>
 

@@ -36,6 +36,7 @@ import { Product, Category, CartItem, CampusZone } from './types';
 import { fetchProducts, supabase, mapStorefrontCategory } from './lib/supabase';
 import { detectNearestCampusZone, isInsideDeliveryZone } from './utils/geolocation';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { WhatsAppLoginModal } from './components/WhatsAppLoginModal';
 
 export type NavigationTab = 'home' | 'wishlist' | 'profile';
 
@@ -1317,6 +1318,12 @@ function CustomerStorefront() {
           setIsCustomerOrdersOpen(false);
           setCurrentTab('home');
         }}
+      />
+
+      {/* WhatsApp Student Login & Verification Modal */}
+      <WhatsAppLoginModal
+        isOpen={isLoginModalOpen}
+        onClose={closeLoginModal}
       />
 
       {/* Floating Toast Notification */}

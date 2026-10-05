@@ -112,12 +112,12 @@ export const LegalModal: React.FC<LegalModalProps> = ({ isOpen, type, onClose })
                     Information We Collect
                   </h4>
                   <p className="text-xs sm:text-sm text-gray-600 pl-8">
-                    When you sign in using Google OAuth, we collect limited personal details strictly necessary for account authentication and service functionality:
+                    When you verify using WhatsApp, we collect limited personal details strictly necessary for account verification and delivery coordination:
                   </p>
                   <ul className="list-disc list-inside space-y-1 pl-8 text-xs sm:text-sm text-gray-700 font-medium">
                     <li>Full Name</li>
-                    <li>Email Address</li>
-                    <li>Profile Picture URL</li>
+                    <li>WhatsApp Mobile Number</li>
+                    <li>Campus Hostel & Room / Delivery Spot</li>
                   </ul>
                 </div>
 
@@ -130,7 +130,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ isOpen, type, onClose })
                     How We Use Your Information
                   </h4>
                   <p className="text-xs sm:text-sm text-gray-600 pl-8">
-                    We use the collected information solely to authenticate accounts, process campus orders, enable delivery updates, and support customer queries. We never sell, rent, or trade your personal data.
+                    We use the collected information solely to verify student sessions, process campus orders, enable runner delivery updates, and support customer queries. We never sell, rent, or trade your personal data.
                   </p>
                 </div>
 
@@ -143,7 +143,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ isOpen, type, onClose })
                     Third-Party Services
                   </h4>
                   <p className="text-xs sm:text-sm text-gray-600 pl-8">
-                    We use Google OAuth for authentication and Supabase for secure database and backend infrastructure.
+                    We use WhatsApp for runner communications and order verification, and Supabase for secure database and real-time backend infrastructure.
                   </p>
                 </div>
 
@@ -205,10 +205,10 @@ export const LegalModal: React.FC<LegalModalProps> = ({ isOpen, type, onClose })
                     <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-800 text-xs font-bold flex items-center justify-center shrink-0">
                       2
                     </span>
-                    User Accounts & Google Sign-In
+                    User Accounts & WhatsApp Verification
                   </h4>
                   <p className="text-xs sm:text-sm text-gray-600 pl-8">
-                    To place orders and access campus express features, you must log in using your valid Google account. You are responsible for maintaining the security of your account.
+                    To place campus orders and access 1-click express delivery, you verify your identity using your active WhatsApp mobile number. You are responsible for ensuring accurate delivery contact details.
                   </p>
                 </div>
 

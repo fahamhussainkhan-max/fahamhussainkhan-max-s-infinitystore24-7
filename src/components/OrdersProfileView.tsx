@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Sparkles,
   ArrowLeft,
+  MessageCircle,
 } from 'lucide-react';
 import { AdminOrder, CampusZone } from '../types';
 import { fetchOrders, supabase } from '../lib/supabase';
@@ -65,7 +66,7 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
     };
   });
 
-  // When user logs in via Google OAuth, automatically fetch & sync profile from Supabase & Google
+  // When user logs in via WhatsApp verification, automatically fetch & sync profile from Supabase
   useEffect(() => {
     if (authUser) {
       setProfile((prev) => {
@@ -395,15 +396,24 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                   </button>
                 </div>
               ) : (
-                /* First-Time User Explanation */
+                /* First-Time User Explanation & WhatsApp Login CTA */
                 <div className="space-y-3">
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Verify once via WhatsApp on your first order. Your name, phone, and room details are saved locally so you enjoy instant <strong>1-click checkout</strong> on all future orders.
+                    Verify once via WhatsApp to activate your student session. Your name, WhatsApp number, and hostel room are saved permanently for instant <strong>1-click checkout</strong>.
                   </p>
 
-                  <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-900 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span className="font-semibold text-[11px]">No password or repeated login required!</span>
+                  <button
+                    type="button"
+                    onClick={openLoginModal}
+                    className="w-full py-2.5 px-3 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-black rounded-xl transition shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <MessageCircle className="w-4 h-4 fill-white text-white" />
+                    <span>Login & Verify via WhatsApp</span>
+                  </button>
+
+                  <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 text-xs text-emerald-900 flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="font-semibold text-[10.5px]">100% password-free • Instant student verification</span>
                   </div>
                 </div>
               )}
@@ -415,7 +425,7 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                 <Sparkles className="w-3 h-3 text-[#FFD60A]" /> CAMPUS EXPRESS
               </span>
               <p className="text-[11px] text-gray-600 leading-relaxed">
-                Saved details sync automatically to your Google account and Supabase database. Room and floor details are pre-filled directly at checkout.
+                Saved details sync automatically to your WhatsApp profile and campus database. Room and floor details are pre-filled directly at checkout.
               </p>
               <div className="pt-2 border-t border-gray-100 flex items-center gap-2 text-[11px] text-emerald-700 font-semibold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />

@@ -1371,8 +1371,8 @@ export async function fetchProfiles(): Promise<UserProfile[]> {
 }
 
 /**
- * Automatically saves verified Google OAuth user information to Supabase database.
- * Captures Full Name, Email, and Profile Picture URL.
+ * Automatically saves verified WhatsApp user information to Supabase database.
+ * Captures Full Name, WhatsApp phone, and generated campus identifier.
  */
 export async function syncUserProfileToSupabase(
   userId: string,

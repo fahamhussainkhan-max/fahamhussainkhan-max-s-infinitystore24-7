@@ -102,6 +102,9 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
           payment_method: 'COD',
           payment_status: 'unpaid',
           status: 'pending',
+          verified_via: 'whatsapp',
+          verification_method: 'whatsapp',
+          whatsapp_phone: cleanPhone,
           items: itemsJSON,
           items_summary: itemsJSON,
         }])
