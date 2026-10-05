@@ -525,20 +525,13 @@ export default function CheckoutForm({
 
       const generatedOrderNumber = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // 1. Single Fast Call Payload: strictly standard fields
-      // Deprecated/non-existent columns removed per schema alignment: email, customer_email, gps_status, delivery_zone
+      // 1. Single Fast Call Payload: strictly matching basic orders schema
+      // (customer_name, customer_phone, items, total_amount, payment_method, status)
+      // Completely excludes 'gps_verified', 'gps_status', 'delivery_zone', 'email', 'customer_email'
       const orderPayload: Record<string, any> = {
         order_number: generatedOrderNumber,
         customer_name: checkoutDetails.name,
         customer_phone: cleanPhone,
-        delivery_address: {
-          fullName: checkoutDetails.name,
-          phone: cleanPhone,
-          area: selectedLocation,
-          roomNo: roomDetails,
-          notes: checkoutDetails.notes || '',
-          formatted: checkoutDetails.location,
-        },
         items: itemsSummaryJSON.map((it: any) => ({
           id: it.id,
           name: it.name,
@@ -548,6 +541,15 @@ export default function CheckoutForm({
         })),
         total_amount: totalAmount,
         payment_method: 'COD',
+        status: 'pending',
+        delivery_address: {
+          fullName: checkoutDetails.name,
+          phone: cleanPhone,
+          area: selectedLocation,
+          roomNo: roomDetails,
+          notes: checkoutDetails.notes || '',
+          formatted: checkoutDetails.location,
+        },
         is_whatsapp_verified: true,
       };
 
@@ -559,19 +561,11 @@ export default function CheckoutForm({
         .single();
 
       if (orderErr) {
-        console.warn('Orders insert notice, retrying with minimal standard payload:', orderErr.message);
-        // Fallback with strictly standard fields (in case order_number is auto-generated in Supabase)
-        const minimalStandardPayload = {
+        console.warn('Orders insert notice, retrying with strictly core basic schema payload:', orderErr.message);
+        // Fallback strictly matching core schema: customer_name, customer_phone, items, total_amount, payment_method, status
+        const basicSchemaPayload = {
           customer_name: checkoutDetails.name,
           customer_phone: cleanPhone,
-          delivery_address: {
-            fullName: checkoutDetails.name,
-            phone: cleanPhone,
-            area: selectedLocation,
-            roomNo: roomDetails,
-            notes: checkoutDetails.notes || '',
-            formatted: checkoutDetails.location,
-          },
           items: itemsSummaryJSON.map((it: any) => ({
             id: it.id,
             name: it.name,
@@ -581,11 +575,11 @@ export default function CheckoutForm({
           })),
           total_amount: totalAmount,
           payment_method: 'COD',
-          is_whatsapp_verified: true,
+          status: 'pending',
         };
         const retryRes = await supabase
           .from('orders')
-          .insert([minimalStandardPayload])
+          .insert([basicSchemaPayload])
           .select()
           .single();
         if (!retryRes.error && retryRes.data) {

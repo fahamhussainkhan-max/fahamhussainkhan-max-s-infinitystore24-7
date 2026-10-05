@@ -79,21 +79,22 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         image_url: item.image_url || '',
       }));
 
-      // Single fast call directly to Supabase orders table with strictly standard fields
-      // Deprecated/non-existent columns removed: email, customer_email, gps_status, delivery_zone
+      // Single fast call directly to Supabase orders table strictly matching basic orders schema
+      // Excludes all GPS fields ('gps_verified', 'gps_status') and deprecated columns ('email', 'customer_email', 'delivery_zone')
       const standardPayload = {
         order_number: orderNumber,
         customer_name: name.trim(),
         customer_phone: cleanPhone,
+        items: itemsJSON,
+        total_amount: grandTotal,
+        payment_method: 'COD',
+        status: 'pending',
         delivery_address: {
           fullName: name.trim(),
           phone: cleanPhone,
           area: location.trim(),
           formatted: location.trim(),
         },
-        items: itemsJSON,
-        total_amount: grandTotal,
-        payment_method: 'COD',
         is_whatsapp_verified: true,
       };
 
@@ -104,21 +105,15 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         .single();
 
       if (res.error) {
-        console.warn('CheckoutSection orders insert notice, retrying with minimal standard payload:', res.error.message);
-        // Fallback with strictly standard fields (in case order_number is auto-generated)
+        console.warn('CheckoutSection orders insert notice, retrying with core basic schema payload:', res.error.message);
+        // Fallback strictly matching core schema: customer_name, customer_phone, items, total_amount, payment_method, status
         const minimalPayload = {
           customer_name: name.trim(),
           customer_phone: cleanPhone,
-          delivery_address: {
-            fullName: name.trim(),
-            phone: cleanPhone,
-            area: location.trim(),
-            formatted: location.trim(),
-          },
           items: itemsJSON,
           total_amount: grandTotal,
           payment_method: 'COD',
-          is_whatsapp_verified: true,
+          status: 'pending',
         };
         const retryRes = await supabase
           .from('orders')

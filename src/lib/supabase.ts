@@ -1508,8 +1508,12 @@ export async function seedSupabaseDemoData(): Promise<{ success: boolean; messag
       order_number: o.order_number,
       customer_name: o.customer_name,
       customer_phone: o.customer_phone,
-      delivery_zone: o.delivery_zone,
-      room_details: o.room_details,
+      delivery_address: {
+        fullName: o.customer_name,
+        phone: o.customer_phone,
+        area: o.delivery_zone,
+        roomNo: o.room_details,
+      },
       items: o.items,
       total_amount: o.total_amount,
       status: o.status,
@@ -1588,6 +1592,10 @@ export async function recordCampusOrder(orderData: {
           order_number: fullOrder.order_number || orderId,
           customer_name: fullOrder.customer_name,
           customer_phone: fullOrder.customer_phone,
+          items: orderData.items,
+          total_amount: Number(fullOrder.total_amount || 0),
+          payment_method: fullOrder.payment_method || 'COD',
+          status: 'pending',
           delivery_address: {
             fullName: fullOrder.customer_name,
             phone: fullOrder.customer_phone,
@@ -1596,9 +1604,6 @@ export async function recordCampusOrder(orderData: {
             notes: typeof fullOrder.delivery_address === 'object' ? fullOrder.delivery_address?.notes : undefined,
             formatted: `${fullOrder.delivery_zone} - Room: ${fullOrder.room_details}`,
           },
-          items: orderData.items,
-          total_amount: Number(fullOrder.total_amount || 0),
-          payment_method: fullOrder.payment_method || 'COD',
           is_whatsapp_verified: true,
         },
       ])
@@ -1677,6 +1682,7 @@ export async function placeFastOrder(
     })),
     total_amount: totalAmount,
     payment_method: 'COD',
+    status: 'pending',
     is_whatsapp_verified: true,
   };
 
@@ -1689,18 +1695,10 @@ export async function placeFastOrder(
 
   if (orderError) {
     console.warn('Primary orders insert error, attempting minimal schema insert:', orderError.message);
-    // Minimal fallback insert with strictly standard fields
+    // Minimal fallback insert strictly matching core schema: customer_name, customer_phone, items, total_amount, payment_method, status
     const minimalPayload = {
       customer_name: customerData.name || 'Campus Student',
       customer_phone: customerData.phone || '',
-      delivery_address: {
-        fullName: customerData.name || 'Campus Student',
-        phone: customerData.phone || '',
-        area: selectedZone,
-        roomNo: room,
-        notes: customerData.notes || '',
-        formatted: deliveryLocation,
-      },
       items: cartItems.map((it) => ({
         id: it.id || 'item',
         name: it.title || it.name || 'Campus Item',
@@ -1709,7 +1707,7 @@ export async function placeFastOrder(
       })),
       total_amount: totalAmount,
       payment_method: 'COD',
-      is_whatsapp_verified: true,
+      status: 'pending',
     };
     const retry = await supabase
       .from('orders')
@@ -1807,18 +1805,11 @@ export const handleQuickOrder = async ({
 }) => {
   const startTime = Date.now();
 
-  // 1. Minimum strictly standard payload
+  // 1. Minimum strictly standard payload matching basic orders schema
   const orderPayload = {
     order_number: `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
     customer_name: formData.fullName,
     customer_phone: formData.phone,
-    delivery_address: {
-      fullName: formData.fullName,
-      phone: formData.phone,
-      area: formData.area,
-      roomNo: formData.roomNo,
-      notes: formData.notes || '',
-    },
     items: cartItems.map((item: any) => ({
       id: item.id || item.product?.id || 'item',
       name: item.title || item.name || item.product?.name || 'Campus Item',
@@ -1827,6 +1818,14 @@ export const handleQuickOrder = async ({
     })),
     total_amount: totalAmount,
     payment_method: 'COD',
+    status: 'pending',
+    delivery_address: {
+      fullName: formData.fullName,
+      phone: formData.phone,
+      area: formData.area,
+      roomNo: formData.roomNo,
+      notes: formData.notes || '',
+    },
     is_whatsapp_verified: true,
   };
 
@@ -1838,21 +1837,14 @@ export const handleQuickOrder = async ({
     .single();
 
   if (orderError) {
-    console.warn('handleQuickOrder initial insert notice, retrying with minimal standard payload:', orderError.message);
+    console.warn('handleQuickOrder initial insert notice, retrying with core basic schema payload:', orderError.message);
     const minimalPayload = {
       customer_name: formData.fullName,
       customer_phone: formData.phone,
-      delivery_address: {
-        fullName: formData.fullName,
-        phone: formData.phone,
-        area: formData.area,
-        roomNo: formData.roomNo,
-        notes: formData.notes || '',
-      },
       items: orderPayload.items,
       total_amount: totalAmount,
       payment_method: 'COD',
-      is_whatsapp_verified: true,
+      status: 'pending',
     };
     const retry = await supabase
       .from('orders')
