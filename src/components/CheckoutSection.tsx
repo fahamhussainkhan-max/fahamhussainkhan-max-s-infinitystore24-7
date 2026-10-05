@@ -79,22 +79,17 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         image_url: item.image_url || '',
       }));
 
-      // Single fast call directly to Supabase orders table strictly matching basic orders schema
-      // Excludes all GPS fields ('gps_verified', 'gps_status') and deprecated columns ('email', 'customer_email', 'delivery_zone')
+      // Single fast call directly to Supabase orders table matching schema:
+      // { customer_name, customer_phone, items, total_amount, payment_method, delivery_zone, campus_location, delivery_note, is_whatsapp_verified }
       const standardPayload = {
-        order_number: orderNumber,
-        customer_name: name.trim(),
+        customer_name: name.trim() || 'Campus Student',
         customer_phone: cleanPhone,
         items: itemsJSON,
-        total_amount: grandTotal,
+        total_amount: Number(grandTotal) || 0,
         payment_method: 'COD',
-        status: 'pending',
-        delivery_address: {
-          fullName: name.trim(),
-          phone: cleanPhone,
-          area: location.trim(),
-          formatted: location.trim(),
-        },
+        delivery_zone: location.trim() || 'Campus',
+        campus_location: location.trim() || 'Campus',
+        delivery_note: '',
         is_whatsapp_verified: true,
       };
 
@@ -106,14 +101,14 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
 
       if (res.error) {
         console.warn('CheckoutSection orders insert notice, retrying with core basic schema payload:', res.error.message);
-        // Fallback strictly matching core schema: customer_name, customer_phone, items, total_amount, payment_method, status
+        // Fallback strictly matching core schema: customer_name, customer_phone, items, total_amount, payment_method
         const minimalPayload = {
-          customer_name: name.trim(),
-          customer_phone: cleanPhone,
-          items: itemsJSON,
-          total_amount: grandTotal,
-          payment_method: 'COD',
-          status: 'pending',
+          customer_name: standardPayload.customer_name,
+          customer_phone: standardPayload.customer_phone,
+          items: standardPayload.items,
+          total_amount: standardPayload.total_amount,
+          payment_method: standardPayload.payment_method,
+          is_whatsapp_verified: true,
         };
         const retryRes = await supabase
           .from('orders')

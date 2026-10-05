@@ -1589,21 +1589,14 @@ export async function recordCampusOrder(orderData: {
       .from('orders')
       .insert([
         {
-          order_number: fullOrder.order_number || orderId,
           customer_name: fullOrder.customer_name,
           customer_phone: fullOrder.customer_phone,
           items: orderData.items,
           total_amount: Number(fullOrder.total_amount || 0),
           payment_method: fullOrder.payment_method || 'COD',
-          status: 'pending',
-          delivery_address: {
-            fullName: fullOrder.customer_name,
-            phone: fullOrder.customer_phone,
-            area: fullOrder.delivery_zone,
-            roomNo: fullOrder.room_details,
-            notes: typeof fullOrder.delivery_address === 'object' ? fullOrder.delivery_address?.notes : undefined,
-            formatted: `${fullOrder.delivery_zone} - Room: ${fullOrder.room_details}`,
-          },
+          delivery_zone: fullOrder.delivery_zone || 'Campus',
+          campus_location: fullOrder.room_details ? `${fullOrder.delivery_zone} - Room: ${fullOrder.room_details}` : (fullOrder.delivery_zone || 'Campus'),
+          delivery_note: typeof fullOrder.delivery_address === 'object' ? (fullOrder.delivery_address?.notes || '') : '',
           is_whatsapp_verified: true,
         },
       ])
@@ -1659,21 +1652,11 @@ export async function placeFastOrder(
   const orderId = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const now = new Date().toISOString();
 
-  // 1. Insert directly into 'orders' with strictly standard schema:
-  //    customer_name, customer_phone, delivery_address, items, total_amount, payment_method, is_whatsapp_verified
-  //    Deprecated/non-existent columns removed: email, customer_email, gps_status, delivery_zone
+  // 1. Insert directly into 'orders' matching the schema:
+  //    { customer_name, customer_phone, items, total_amount, payment_method, delivery_zone, campus_location, delivery_note, is_whatsapp_verified }
   const orderPayload: any = {
-    order_number: orderId,
     customer_name: customerData.name || 'Campus Student',
     customer_phone: customerData.phone || '',
-    delivery_address: {
-      fullName: customerData.name || 'Campus Student',
-      phone: customerData.phone || '',
-      area: selectedZone,
-      roomNo: room,
-      notes: customerData.notes || '',
-      formatted: deliveryLocation,
-    },
     items: cartItems.map((it) => ({
       id: it.id || 'item',
       name: it.title || it.name || 'Campus Item',
@@ -1682,7 +1665,9 @@ export async function placeFastOrder(
     })),
     total_amount: totalAmount,
     payment_method: 'COD',
-    status: 'pending',
+    delivery_zone: selectedZone,
+    campus_location: deliveryLocation,
+    delivery_note: customerData.notes || '',
     is_whatsapp_verified: true,
   };
 
@@ -1695,19 +1680,14 @@ export async function placeFastOrder(
 
   if (orderError) {
     console.warn('Primary orders insert error, attempting minimal schema insert:', orderError.message);
-    // Minimal fallback insert strictly matching core schema: customer_name, customer_phone, items, total_amount, payment_method, status
+    // Minimal fallback insert strictly matching core schema
     const minimalPayload = {
       customer_name: customerData.name || 'Campus Student',
       customer_phone: customerData.phone || '',
-      items: cartItems.map((it) => ({
-        id: it.id || 'item',
-        name: it.title || it.name || 'Campus Item',
-        price: it.price,
-        quantity: it.quantity,
-      })),
+      items: orderPayload.items,
       total_amount: totalAmount,
       payment_method: 'COD',
-      status: 'pending',
+      is_whatsapp_verified: true,
     };
     const retry = await supabase
       .from('orders')
@@ -1805,9 +1785,9 @@ export const handleQuickOrder = async ({
 }) => {
   const startTime = Date.now();
 
-  // 1. Minimum strictly standard payload matching basic orders schema
+  // 1. Minimum payload strictly matching database schema:
+  //    { customer_name, customer_phone, items, total_amount, payment_method, delivery_zone, campus_location, delivery_note, is_whatsapp_verified }
   const orderPayload = {
-    order_number: `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
     customer_name: formData.fullName,
     customer_phone: formData.phone,
     items: cartItems.map((item: any) => ({
@@ -1818,14 +1798,9 @@ export const handleQuickOrder = async ({
     })),
     total_amount: totalAmount,
     payment_method: 'COD',
-    status: 'pending',
-    delivery_address: {
-      fullName: formData.fullName,
-      phone: formData.phone,
-      area: formData.area,
-      roomNo: formData.roomNo,
-      notes: formData.notes || '',
-    },
+    delivery_zone: formData.area || 'Campus',
+    campus_location: formData.roomNo ? `${formData.area} - Room: ${formData.roomNo}` : (formData.area || 'Campus'),
+    delivery_note: formData.notes || '',
     is_whatsapp_verified: true,
   };
 
@@ -1837,14 +1812,14 @@ export const handleQuickOrder = async ({
     .single();
 
   if (orderError) {
-    console.warn('handleQuickOrder initial insert notice, retrying with core basic schema payload:', orderError.message);
+    console.warn('handleQuickOrder initial insert notice, retrying with core schema payload:', orderError.message);
     const minimalPayload = {
       customer_name: formData.fullName,
       customer_phone: formData.phone,
       items: orderPayload.items,
       total_amount: totalAmount,
       payment_method: 'COD',
-      status: 'pending',
+      is_whatsapp_verified: true,
     };
     const retry = await supabase
       .from('orders')
