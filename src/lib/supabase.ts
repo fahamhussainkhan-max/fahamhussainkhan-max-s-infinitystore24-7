@@ -1861,6 +1861,7 @@ export async function placeFastOrder(
 
   const itemsJSON = cartItems.map((it) => ({
     id: it.id || 'item',
+    product_id: it.id || 'item',
     name: it.title || it.name || 'Campus Item',
     price: Number(it.price || 0),
     quantity: Number(it.quantity || 1),
@@ -2023,6 +2024,7 @@ export const handleQuickOrder = async ({
 
   const itemsJSON = cartItems.map((item: any) => ({
     id: item.id || item.product?.id || 'item',
+    product_id: item.id || item.product?.id || 'item',
     name: item.title || item.name || item.product?.name || 'Campus Item',
     price: item.price !== undefined ? Number(item.price) : Number(item.product?.price ?? 0),
     quantity: Number(item.quantity || 1),

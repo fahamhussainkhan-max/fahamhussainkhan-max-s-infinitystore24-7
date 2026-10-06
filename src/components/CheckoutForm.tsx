@@ -540,6 +540,7 @@ export default function CheckoutForm({
 
       const itemsPayloadJSON = itemsSummaryJSON.map((it: any) => ({
         id: String(it.id || 'item'),
+        product_id: String(it.id || 'item'),
         name: String(it.name || it.title || 'Campus Item'),
         price: Number(it.price || 0),
         quantity: Number(it.quantity || 1),

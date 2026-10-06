@@ -32,6 +32,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const [justAdded, setJustAdded] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
+  // Live stock calculations
+  const availableStock = typeof product.stock === 'number'
+    ? product.stock
+    : (typeof product.stockCount === 'number' ? product.stockCount : 10);
+  const isOutOfStock = availableStock <= 0 || product.inStock === false;
+  const isMaxStockReached = quantityInCart >= availableStock;
+
   // 3D Tilt interaction using Spring physics
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -69,13 +76,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       }
       return;
     }
+    if (isOutOfStock) {
+      if (onToastMessage) {
+        onToastMessage(`⚠️ "${product.name}" is currently out of stock.`);
+      }
+      return;
+    }
     try {
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate(15);
       }
     } catch {}
     if (product.minQuantity && product.minQuantity > 1 && quantityInCart === 0) {
-      onUpdateQuantity(product.id, product.minQuantity);
+      onUpdateQuantity(product.id, Math.min(product.minQuantity, availableStock));
     } else {
       onAddToCart(product);
     }
@@ -92,6 +105,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     if (!isStoreOpen) {
       if (onToastMessage) {
         onToastMessage('⚠️ Store is currently closed for orders.');
+      }
+      return;
+    }
+    if (isOutOfStock) {
+      if (onToastMessage) {
+        onToastMessage(`⚠️ "${product.name}" is currently out of stock.`);
+      }
+      return;
+    }
+    if (isMaxStockReached) {
+      if (onToastMessage) {
+        onToastMessage(`⚠️ Only ${availableStock} in stock.`);
       }
       return;
     }
@@ -164,23 +189,27 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Top badges & Wishlist row */}
         <div className="relative z-20 pointer-events-auto flex items-center justify-between mb-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            {product.isPopular && (
+            {isOutOfStock ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white shadow-xs">
+                Out of Stock
+              </span>
+            ) : product.isPopular ? (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-[#FF3B30] to-[#FF9F0A] text-white shadow-xs">
                 <Sparkles className="w-2.5 h-2.5" />
                 Popular
               </span>
-            )}
-            {product.discount && !product.isPopular && (
+            ) : null}
+            {!isOutOfStock && product.discount && !product.isPopular && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide bg-[#30D158]/15 text-[#248a3d] border border-[#30D158]/30">
                 {product.discount}
               </span>
             )}
-            {product.minQuantity && product.minQuantity > 1 && (
+            {!isOutOfStock && product.minQuantity && product.minQuantity > 1 && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide bg-blue-50 text-[#0A84FF] border border-blue-200">
                 Min. {product.minQuantity} sheets
               </span>
             )}
-            {product.isLateNight && isDark && (
+            {!isOutOfStock && product.isLateNight && isDark && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide bg-purple-500/20 text-purple-300 border border-purple-500/30">
                 🌙 Night Pick
               </span>
@@ -233,9 +262,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             onLoad={() => setImageLoaded(true)}
             className={`w-full h-full object-contain mix-blend-multiply transition-all duration-500 group-hover:scale-110 ${
               imageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
+            } ${isOutOfStock ? 'grayscale opacity-60' : ''}`}
             loading="lazy"
           />
+
+          {/* Out of Stock visual overlay */}
+          {isOutOfStock && (
+            <div className="absolute inset-0 bg-white/60 dark:bg-black/60 backdrop-blur-[1px] flex items-center justify-center z-15">
+              <span className="px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider bg-rose-600 text-white shadow-md">
+                Out of Stock
+              </span>
+            </div>
+          )}
 
           {/* Micro "Added to cart" feedback pop-up badge with spring animation - non-blocking */}
           <AnimatePresence>
@@ -282,9 +320,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <span className="text-gray-400 font-normal">({product.reviewsCount})</span>
               </div>
               <span className="text-gray-300">•</span>
-              <span className="text-[#30D158] font-bold">
-                {product.stockCount ? `${product.stockCount} in stock` : 'In Stock'}
-              </span>
+              {isOutOfStock ? (
+                <span className="text-rose-600 font-bold">Out of Stock</span>
+              ) : (
+                <span className="text-[#30D158] font-bold">
+                  {availableStock ? `${availableStock} in stock` : 'In Stock'}
+                </span>
+              )}
             </div>
           </div>
 
@@ -310,32 +352,34 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   <motion.button
                     key="add-btn"
                     type="button"
-                    disabled={!isStoreOpen}
+                    disabled={!isStoreOpen || isOutOfStock}
                     onClick={handleAdd}
                     onPointerDown={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
                     initial={{ scale: 0.85, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.85, opacity: 0 }}
-                    whileHover={isStoreOpen ? { scale: 1.06 } : undefined}
-                    whileTap={isStoreOpen ? { scale: 0.92 } : undefined}
+                    whileHover={isStoreOpen && !isOutOfStock ? { scale: 1.06 } : undefined}
+                    whileTap={isStoreOpen && !isOutOfStock ? { scale: 0.92 } : undefined}
                     transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                     style={{ pointerEvents: 'auto' }}
                     className={`relative z-20 pointer-events-auto flex items-center justify-center gap-1.5 px-3 xs:px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] xs:text-xs sm:text-sm font-extrabold shadow-sm min-h-[36px] transition-colors ${
-                      !isStoreOpen
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 shadow-none'
+                      !isStoreOpen || isOutOfStock
+                        ? 'bg-gray-100 dark:bg-neutral-800 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-white/10 shadow-none'
                         : isDark
                         ? 'cursor-pointer bg-white text-black hover:bg-gray-200 active:scale-95'
                         : 'cursor-pointer bg-[#111111] hover:bg-[#0A84FF] text-white shadow-[0_4px_14px_rgba(0,0,0,0.15)] active:scale-95'
                     }`}
                   >
-                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    {!isOutOfStock && <Plus className="w-3.5 h-3.5 stroke-[2.5]" />}
                     <span>
                       {!isStoreOpen
                         ? 'Closed'
+                        : isOutOfStock
+                        ? 'Out of Stock'
                         : product.minQuantity && product.minQuantity > 1
                         ? `Add (Min ${product.minQuantity})`
-                        : 'Add'}
+                        : 'Add to Cart'}
                     </span>
                   </motion.button>
                 ) : (
@@ -373,13 +417,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     </motion.span>
                     <motion.button
                       type="button"
-                      whileTap={{ scale: 0.76 }}
+                      disabled={isMaxStockReached}
+                      whileTap={!isMaxStockReached ? { scale: 0.76 } : undefined}
                       onClick={handleIncrement}
                       onPointerDown={(e) => e.stopPropagation()}
                       onMouseDown={(e) => e.stopPropagation()}
                       style={{ pointerEvents: 'auto' }}
-                      className="w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center hover:bg-white/20 active:bg-white/30 rounded-full transition-colors cursor-pointer pointer-events-auto"
+                      className={`w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center rounded-full transition-colors pointer-events-auto ${
+                        isMaxStockReached
+                          ? 'opacity-30 cursor-not-allowed text-gray-400'
+                          : 'hover:bg-white/20 active:bg-white/30 cursor-pointer text-white'
+                      }`}
                       aria-label="Increase quantity"
+                      title={isMaxStockReached ? `Max available stock (${availableStock}) reached` : 'Increase quantity'}
                     >
                       <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                     </motion.button>

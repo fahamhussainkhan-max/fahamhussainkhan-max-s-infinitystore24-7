@@ -608,6 +608,32 @@ function CustomerStorefront() {
     } catch {}
   }, [cartItems]);
 
+  // Synchronize cart items with live product stock updates from Realtime
+  useEffect(() => {
+    setCartItems((prev) => {
+      let changed = false;
+      const updated = prev.map((item) => {
+        const live = products.find((p) => p.id === item.product.id);
+        if (!live) return item;
+        const liveStock = typeof live.stock === 'number'
+          ? live.stock
+          : (typeof live.stockCount === 'number' ? live.stockCount : 999);
+        
+        let newQty = item.quantity;
+        if (liveStock > 0 && newQty > liveStock) {
+          newQty = liveStock;
+          changed = true;
+        }
+        if (item.product !== live || newQty !== item.quantity) {
+          changed = true;
+          return { ...item, product: live, quantity: newQty };
+        }
+        return item;
+      });
+      return changed ? updated : prev;
+    });
+  }, [products]);
+
   const cartQuantities = useMemo(() => {
     const map: Record<string, number> = {};
     cartItems.forEach((item) => {
@@ -631,7 +657,10 @@ function CustomerStorefront() {
       triggerToast('⚠️ Store is currently closed for orders.');
       return;
     }
-    if (product.inStock === false || (typeof product.stockCount === 'number' && product.stockCount <= 0)) {
+    const availableStock = typeof product.stock === 'number'
+      ? product.stock
+      : (typeof product.stockCount === 'number' ? product.stockCount : 10);
+    if (product.inStock === false || availableStock <= 0) {
       triggerToast(`⚠️ "${product.name}" is currently out of stock.`);
       return;
     }
@@ -639,8 +668,8 @@ function CustomerStorefront() {
       const existing = prev.find((item) => item.product.id === product.id);
       const initialQty = product.minQuantity && product.minQuantity > 1 ? product.minQuantity : 1;
       if (existing) {
-        if (typeof product.stockCount === 'number' && existing.quantity >= product.stockCount) {
-          triggerToast(`⚠️ Maximum available stock (${product.stockCount}) reached.`);
+        if (existing.quantity >= availableStock) {
+          triggerToast(`⚠️ Maximum available stock (${availableStock}) reached.`);
           return prev;
         }
         return prev.map((item) =>
@@ -661,12 +690,15 @@ function CustomerStorefront() {
     const targetItem = cartItems.find((i) => i.product.id === productId);
     if (quantity > current && targetItem?.product) {
       const p = targetItem.product;
-      if (p.inStock === false || (typeof p.stockCount === 'number' && p.stockCount <= 0)) {
+      const availableStock = typeof p.stock === 'number'
+        ? p.stock
+        : (typeof p.stockCount === 'number' ? p.stockCount : 999);
+      if (p.inStock === false || availableStock <= 0) {
         triggerToast(`⚠️ "${p.name}" is currently out of stock.`);
         return;
       }
-      if (typeof p.stockCount === 'number' && quantity > p.stockCount) {
-        triggerToast(`⚠️ Maximum available stock (${p.stockCount}) reached.`);
+      if (quantity > availableStock) {
+        triggerToast(`⚠️ Maximum available stock (${availableStock}) reached.`);
         return;
       }
     }

@@ -106,9 +106,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     try {
       const orderItems = cartItems.map((item) => ({
         id: item.product.id,
+        product_id: item.product.id,
         name: item.product.name,
-        quantity: item.quantity,
-        price: item.product.price,
+        quantity: Number(item.quantity || 1),
+        price: Number(item.product.price || 0),
       }));
 
       const res = await recordCampusOrder({
@@ -413,46 +414,61 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </div>
 
                         {/* Quantity Controls */}
-                        <div
-                          style={{ pointerEvents: 'auto' }}
-                          className="relative z-20 pointer-events-auto flex items-center bg-white rounded-xl border border-gray-200 p-0.5 shadow-2xs"
-                        >
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (item.product.minQuantity && item.product.minQuantity > 1 && item.quantity <= item.product.minQuantity) {
-                                onUpdateQuantity(item.product.id, 0);
-                              } else {
-                                onUpdateQuantity(item.product.id, item.quantity - 1);
-                              }
-                            }}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            style={{ pointerEvents: 'auto' }}
-                            className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-lg text-gray-600 transition-colors cursor-pointer pointer-events-auto"
-                            aria-label="Decrease"
-                          >
-                            <Minus className="w-3 h-3 stroke-[2.5]" />
-                          </button>
-                          <span className="px-2 text-xs font-bold text-gray-800 min-w-[18px] text-center select-none pointer-events-none">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onUpdateQuantity(item.product.id, item.quantity + 1);
-                            }}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            style={{ pointerEvents: 'auto' }}
-                            className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-lg text-gray-600 transition-colors cursor-pointer pointer-events-auto"
-                            aria-label="Increase"
-                          >
-                            <Plus className="w-3 h-3 stroke-[2.5]" />
-                          </button>
-                        </div>
+                        {(() => {
+                          const itemStock = typeof item.product.stock === 'number'
+                            ? item.product.stock
+                            : (typeof item.product.stockCount === 'number' ? item.product.stockCount : 999);
+                          const isMaxStock = item.quantity >= itemStock;
+                          return (
+                            <div
+                              style={{ pointerEvents: 'auto' }}
+                              className="relative z-20 pointer-events-auto flex items-center bg-white rounded-xl border border-gray-200 p-0.5 shadow-2xs"
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (item.product.minQuantity && item.product.minQuantity > 1 && item.quantity <= item.product.minQuantity) {
+                                    onUpdateQuantity(item.product.id, 0);
+                                  } else {
+                                    onUpdateQuantity(item.product.id, item.quantity - 1);
+                                  }
+                                }}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                style={{ pointerEvents: 'auto' }}
+                                className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-lg text-gray-600 transition-colors cursor-pointer pointer-events-auto"
+                                aria-label="Decrease"
+                              >
+                                <Minus className="w-3 h-3 stroke-[2.5]" />
+                              </button>
+                              <span className="px-2 text-xs font-bold text-gray-800 min-w-[18px] text-center select-none pointer-events-none">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={isMaxStock}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isMaxStock) return;
+                                  onUpdateQuantity(item.product.id, item.quantity + 1);
+                                }}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                style={{ pointerEvents: 'auto' }}
+                                className={`w-6 h-6 flex items-center justify-center rounded-lg transition-colors pointer-events-auto ${
+                                  isMaxStock
+                                    ? 'opacity-30 cursor-not-allowed text-gray-400'
+                                    : 'hover:bg-gray-100 text-gray-600 cursor-pointer'
+                                }`}
+                                aria-label="Increase"
+                                title={isMaxStock ? `Max available stock (${itemStock}) reached` : 'Increase'}
+                              >
+                                <Plus className="w-3 h-3 stroke-[2.5]" />
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>

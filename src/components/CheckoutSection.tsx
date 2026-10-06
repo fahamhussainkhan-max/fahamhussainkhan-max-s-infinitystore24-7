@@ -77,6 +77,7 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
 
       const itemsJSON = cart.map(item => ({
         id: item.id || 'item',
+        product_id: item.id || 'item',
         name: item.name || 'Campus Item',
         title: item.name || 'Campus Item',
         price: Number(item.price || 0),

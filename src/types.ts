@@ -11,6 +11,7 @@ export interface Product {
   inStock: boolean;
   isActive?: boolean;
   stockCount?: number;
+  stock?: number;
   isPopular?: boolean;
   isLateNight?: boolean;
   isFlashDeal?: boolean;
