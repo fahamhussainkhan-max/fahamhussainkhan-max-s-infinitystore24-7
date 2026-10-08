@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { calculateDeliveryFee, getBaseDeliveryFee, PACKAGING_HANDLING_FEE } from '../utils/delivery';
+import {
+  calculateDeliveryFee,
+  getBaseDeliveryFee,
+  PACKAGING_HANDLING_FEE,
+  DAY_DELIVERY_FEE,
+  NIGHT_DELIVERY_FEE,
+  isNightDeliveryTime,
+} from '../utils/delivery';
 
 export interface CartItem {
   id: string;
@@ -23,17 +30,35 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Destination-based Delivery & Packaging Fee Rules:
-  // - Free delivery above Rs. 200
-  // - Rs. 15 for hostel/CCCT, Rs. 20 for outer/further spots
-  // - Packaging & Handling: Rs. 9
+  // Day / Night Fee Rules:
+  // - Day Hours (06:00 AM to 07:59 PM): Base Delivery ₹15, Handling ₹9
+  // - Night Hours (08:00 PM to 05:59 AM): Base Delivery ₹30, Handling ₹9
+  // - Subtotal >= ₹500: Delivery Fee = ₹0 (FREE), Handling Fee = ₹0 (FREE)
+  // - Subtotal >= ₹200: Handling Fee = ₹0 (FREE), Delivery Fee = baseDelivery (₹15 or ₹30)
+  // - Subtotal < ₹200: Full charges apply: baseDelivery + ₹9 handling
   const productPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const isFreeDeliveryQualified = productPrice >= 200;
-  const baseDeliveryFee = getBaseDeliveryFee(location);
-  const deliveryCharge = calculateDeliveryFee(location, productPrice);
-  const handlingFee = PACKAGING_HANDLING_FEE;
+  const currentHour = new Date().getHours();
+  const isNight = currentHour >= 20 || currentHour < 6;
+  const baseDelivery = isNight ? NIGHT_DELIVERY_FEE : DAY_DELIVERY_FEE;
+  const baseHandling = PACKAGING_HANDLING_FEE;
 
-  const totalAmount = Number(productPrice) + Number(deliveryCharge) + Number(handlingFee);
+  let deliveryCharge = 0;
+  let handlingFee = 0;
+
+  if (productPrice >= 500) {
+    deliveryCharge = 0;
+    handlingFee = 0;
+  } else if (productPrice >= 200) {
+    handlingFee = 0;
+    deliveryCharge = baseDelivery;
+  } else {
+    deliveryCharge = baseDelivery;
+    handlingFee = baseHandling;
+  }
+
+  const isFreeDeliveryQualified = deliveryCharge === 0 && productPrice > 0;
+  const isFreeHandlingQualified = handlingFee === 0 && productPrice > 0;
+  const totalAmount = productPrice > 0 ? Number(productPrice) + Number(deliveryCharge) + Number(handlingFee) : 0;
   const itemsTotal = productPrice;
   const grandTotal = totalAmount;
   const DELIVERY_FEE = deliveryCharge;
@@ -70,10 +95,10 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
 
       // 1. Explicit Payload Calculation & Validation
       const subtotal = cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
-      const deliveryFee = 15;
-      const total = Number(grandTotal || (subtotal + deliveryFee)) || 0;
+      const currentDeliveryFee = Number(deliveryCharge);
+      const currentHandlingFee = Number(handlingFee);
       const subtotalVal = Number(subtotal) || 0;
-      const totalVal = Number(total) || 0;
+      const totalVal = Number(totalAmount) || (subtotalVal > 0 ? subtotalVal + currentDeliveryFee + currentHandlingFee : 0);
 
       const itemsJSON = cart.map(item => ({
         id: item.id || 'item',
@@ -93,11 +118,13 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         area: location.trim() || 'Campus',
       };
 
-      // Pass both numeric values in the Supabase payload:
+      // Pass exact delivery_fee, handling_fee, subtotal, and total in the Supabase payload:
       const standardPayload = {
         total: totalVal || 0,
         subtotal: subtotalVal || 0,
         total_amount: totalVal || 0,
+        delivery_fee: currentDeliveryFee,
+        handling_fee: currentHandlingFee,
         items: itemsJSON || [],
         customer_name: name.trim() || 'Campus Student',
         customer_phone: cleanPhone,
@@ -123,6 +150,8 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
           total: totalVal || 0,
           subtotal: subtotalVal || 0,
           total_amount: totalVal || 0,
+          delivery_fee: currentDeliveryFee,
+          handling_fee: currentHandlingFee,
           items: itemsJSON || [],
           customer_name: standardPayload.customer_name,
           customer_phone: standardPayload.customer_phone,
@@ -241,24 +270,84 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         />
       </div>
 
+      {/* Day / Night Slot Indicator Badge */}
+      <div className="mb-3">
+        {isNight ? (
+          <div className="bg-indigo-950/60 border border-indigo-500/40 p-2.5 rounded-xl flex items-center justify-between text-xs text-indigo-200">
+            <span className="font-bold flex items-center gap-1.5 text-white">
+              <span>🌙</span>
+              <span>🌙 Night Delivery (₹30)</span>
+            </span>
+            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 px-2 py-0.5 rounded font-extrabold uppercase">
+              {isFreeDeliveryQualified ? 'WAIVED (FREE)' : '8:00 PM - 5:59 AM'}
+            </span>
+          </div>
+        ) : (
+          <div className="bg-amber-950/40 border border-amber-500/30 p-2.5 rounded-xl flex items-center justify-between text-xs text-amber-200">
+            <span className="font-bold flex items-center gap-1.5 text-white">
+              <span>☀️</span>
+              <span>☀️ Day Delivery (₹15)</span>
+            </span>
+            <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded font-extrabold uppercase">
+              {isFreeDeliveryQualified ? 'WAIVED (FREE)' : '6:00 AM - 7:59 PM'}
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="bg-slate-800/50 p-3 rounded-xl space-y-1.5 text-xs text-slate-300 mb-4 border border-slate-700/50">
         <div className="flex justify-between">
           <span>Items Total:</span>
           <span className="font-semibold text-white">₹{productPrice}</span>
         </div>
-        <div className="flex justify-between">
-          <span>Delivery Charge:</span>
-          <span className="font-semibold text-white">
+        <div className="flex justify-between items-center">
+          <span className="flex items-center gap-1.5">
+            <span>Delivery Charge:</span>
+            {isNight ? (
+              <span className="text-[10px] bg-indigo-900/60 text-indigo-200 border border-indigo-700/60 px-1.5 py-0.2 rounded font-bold">
+                🌙 Night
+              </span>
+            ) : (
+              <span className="text-[10px] bg-amber-900/60 text-amber-200 border border-amber-700/60 px-1.5 py-0.2 rounded font-bold">
+                ☀️ Day
+              </span>
+            )}
+            {isFreeDeliveryQualified && (
+              <span className="text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-1.5 py-0.2 rounded font-extrabold uppercase">
+                FREE
+              </span>
+            )}
+          </span>
+          <span className="font-semibold text-white flex items-center gap-1.5">
             {isFreeDeliveryQualified ? (
-              <span className="text-emerald-400 font-bold">FREE (₹0)</span>
+              <>
+                <span className="line-through text-slate-500 font-normal">₹{baseDelivery}</span>
+                <span className="text-emerald-400 font-bold">FREE</span>
+              </>
             ) : (
               `₹${deliveryCharge}`
             )}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span>Packaging & Handling:</span>
-          <span className="font-semibold text-white">₹{handlingFee}</span>
+        <div className="flex justify-between items-center">
+          <span className="flex items-center gap-1.5">
+            <span>Packaging & Handling:</span>
+            {isFreeHandlingQualified && (
+              <span className="text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-1.5 py-0.2 rounded font-extrabold uppercase">
+                FREE
+              </span>
+            )}
+          </span>
+          <span className="font-semibold text-white flex items-center gap-1.5">
+            {isFreeHandlingQualified ? (
+              <>
+                <span className="line-through text-slate-500 font-normal">₹9</span>
+                <span className="text-emerald-400 font-bold">FREE</span>
+              </>
+            ) : (
+              `₹${handlingFee}`
+            )}
+          </span>
         </div>
         <div className="flex justify-between font-bold text-sm text-emerald-400 border-t border-slate-700 pt-2 mt-1">
           <span>Total COD to Collect:</span>

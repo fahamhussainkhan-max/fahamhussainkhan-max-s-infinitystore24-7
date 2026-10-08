@@ -1732,8 +1732,23 @@ export async function recordCampusOrder(orderData: {
   // 1. Try Supabase insert
   try {
     const subtotal = orderData.items.reduce((sum, it) => sum + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
-    const handlingFee = orderData.handlingFee !== undefined ? Number(orderData.handlingFee) : 9;
-    const deliveryFee = orderData.deliveryFee !== undefined ? Number(orderData.deliveryFee) : 15;
+    const currentHour = new Date().getHours();
+    const isNight = currentHour >= 20 || currentHour < 6;
+    const baseDelivery = isNight ? 30 : 15;
+    const baseHandling = 9;
+
+    let defaultDelivery = baseDelivery;
+    let defaultHandling = baseHandling;
+    if (subtotal >= 500) {
+      defaultDelivery = 0;
+      defaultHandling = 0;
+    } else if (subtotal >= 200) {
+      defaultHandling = 0;
+      defaultDelivery = baseDelivery;
+    }
+
+    const handlingFee = orderData.handlingFee !== undefined ? Number(orderData.handlingFee) : defaultHandling;
+    const deliveryFee = orderData.deliveryFee !== undefined ? Number(orderData.deliveryFee) : defaultDelivery;
     const total = Number(fullOrder.total_amount || (subtotal + deliveryFee + handlingFee)) || 0;
     const subtotalVal = Number(subtotal) || 0;
     const totalVal = Number(total) || 0;
@@ -1745,6 +1760,8 @@ export async function recordCampusOrder(orderData: {
           total: totalVal || 0,
           subtotal: subtotalVal || 0,
           total_amount: totalVal || 0,
+          delivery_fee: deliveryFee,
+          handling_fee: handlingFee,
           items: orderData.items || [],
           customer_name: fullOrder.customer_name,
           customer_phone: fullOrder.customer_phone,
@@ -1854,8 +1871,23 @@ export async function placeFastOrder(
 
   // 1. Explicit Payload Calculation & Validation
   const subtotal = cartItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
-  const deliveryFee = 15;
-  const total = Number(totalAmount || (subtotal + deliveryFee)) || 0;
+  const currentHour = new Date().getHours();
+  const isNight = currentHour >= 20 || currentHour < 6;
+  const baseDelivery = isNight ? 30 : 15;
+  const baseHandling = 9;
+
+  let deliveryFee = baseDelivery;
+  let handlingFee = baseHandling;
+
+  if (subtotal >= 500) {
+    deliveryFee = 0;
+    handlingFee = 0;
+  } else if (subtotal >= 200) {
+    handlingFee = 0;
+    deliveryFee = baseDelivery;
+  }
+
+  const total = Number(totalAmount || (subtotal + deliveryFee + handlingFee)) || 0;
   const subtotalVal = Number(subtotal) || 0;
   const totalVal = Number(total) || 0;
 
@@ -1881,6 +1913,8 @@ export async function placeFastOrder(
     total: totalVal || 0,
     subtotal: subtotalVal || 0,
     total_amount: totalVal || 0,
+    delivery_fee: deliveryFee,
+    handling_fee: handlingFee,
     items: itemsJSON || [],
     customer_name: customerData.name || 'Campus Student',
     customer_phone: customerData.phone || '',
@@ -1907,6 +1941,8 @@ export async function placeFastOrder(
       total: totalVal || 0,
       subtotal: subtotalVal || 0,
       total_amount: totalVal || 0,
+      delivery_fee: deliveryFee,
+      handling_fee: handlingFee,
       items: itemsJSON || [],
       customer_name: customerData.name || 'Campus Student',
       customer_phone: customerData.phone || '',
@@ -2017,8 +2053,23 @@ export const handleQuickOrder = async ({
     const quantity = Number(item.quantity || 1);
     return sum + (price * quantity);
   }, 0);
-  const deliveryFee = 15;
-  const total = Number(totalAmount || (subtotal + deliveryFee)) || 0;
+  const currentHour = new Date().getHours();
+  const isNight = currentHour >= 20 || currentHour < 6;
+  const baseDelivery = isNight ? 30 : 15;
+  const baseHandling = 9;
+
+  let deliveryFee = baseDelivery;
+  let handlingFee = baseHandling;
+
+  if (subtotal >= 500) {
+    deliveryFee = 0;
+    handlingFee = 0;
+  } else if (subtotal >= 200) {
+    handlingFee = 0;
+    deliveryFee = baseDelivery;
+  }
+
+  const total = Number(totalAmount || (subtotal + deliveryFee + handlingFee)) || 0;
   const subtotalVal = Number(subtotal) || 0;
   const totalVal = Number(total) || 0;
 
@@ -2039,11 +2090,13 @@ export const handleQuickOrder = async ({
     notes: formData.notes || '',
   };
 
-  // Pass both numeric values in the Supabase payload:
+  // Pass exact delivery_fee, handling_fee, subtotal, and total in the Supabase payload:
   const orderPayload = {
     total: totalVal || 0,
     subtotal: subtotalVal || 0,
     total_amount: totalVal || 0,
+    delivery_fee: deliveryFee,
+    handling_fee: handlingFee,
     items: itemsJSON || [],
     customer_name: formData.fullName,
     customer_phone: formData.phone,
@@ -2070,6 +2123,8 @@ export const handleQuickOrder = async ({
       total: totalVal || 0,
       subtotal: subtotalVal || 0,
       total_amount: totalVal || 0,
+      delivery_fee: deliveryFee,
+      handling_fee: handlingFee,
       items: itemsJSON || [],
       customer_name: formData.fullName,
       customer_phone: formData.phone,

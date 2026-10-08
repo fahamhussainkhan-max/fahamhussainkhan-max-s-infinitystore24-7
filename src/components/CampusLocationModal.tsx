@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { CampusZone } from '../types';
 import { verifyGPSInsideBoundary } from '../utils/geolocation';
+import { isNightDeliveryTime } from '../utils/delivery';
 
 interface CampusLocationModalProps {
   isOpen: boolean;
@@ -359,7 +360,11 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                           {isSelected && <Check className="w-3.5 h-3.5 text-[#0A84FF] flex-shrink-0" />}
                         </div>
                         <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                          {zone.block} • <span className="line-through text-gray-400">₹30</span> <span className="text-gray-900 font-bold">₹15</span> (50% OFF)
+                          {zone.block} • {isNightDeliveryTime() ? (
+                            <span className="text-indigo-900 font-bold">🌙 Night Delivery (₹30)</span>
+                          ) : (
+                            <span className="text-gray-900 font-bold">☀️ Day Delivery (₹15)</span>
+                          )}
                         </div>
                       </div>
                     </div>

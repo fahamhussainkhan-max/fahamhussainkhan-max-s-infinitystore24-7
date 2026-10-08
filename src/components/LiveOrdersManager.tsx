@@ -879,6 +879,19 @@ export const LiveOrdersManager: React.FC = () => {
                       <div className="text-xs font-bold text-gray-700">
                         {order.payment_method}
                       </div>
+                      <div className="text-[10px] text-gray-400 font-semibold mt-0.5 flex items-center gap-1">
+                        {order.delivery_fee !== undefined && order.delivery_fee > 0 ? (
+                          <span>Delivery: ₹{order.delivery_fee}</span>
+                        ) : (
+                          <span className="text-emerald-600 font-bold">Delivery: FREE</span>
+                        )}
+                        <span>•</span>
+                        {order.handling_fee !== undefined && order.handling_fee > 0 ? (
+                          <span>Handling: ₹{order.handling_fee}</span>
+                        ) : (
+                          <span className="text-emerald-600 font-bold">Handling: FREE</span>
+                        )}
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="text-[10px] font-bold text-gray-400 uppercase">Total</div>

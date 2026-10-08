@@ -15,9 +15,15 @@ import {
   Sparkles,
   AlertCircle,
   MessageCircle,
+  Moon,
 } from 'lucide-react';
 import { verifyGPSInsideBoundary } from '../utils/geolocation';
-import { PACKAGING_HANDLING_FEE } from '../utils/delivery';
+import {
+  PACKAGING_HANDLING_FEE,
+  DAY_DELIVERY_FEE,
+  NIGHT_DELIVERY_FEE,
+  isNightDeliveryTime,
+} from '../utils/delivery';
 import { useAuth } from '../context/AuthContext';
 import { AdminOrder } from '../types';
 
@@ -268,14 +274,36 @@ export default function CheckoutForm({
           0
         );
 
-  // 3. Pricing & Delivery Display & Dynamic Free Handling (above Rs. 200)
+  // 3. Pricing & Delivery Display & Dynamic Free Handling & Free Delivery thresholds:
+  // - Day Hours (06:00 AM to 07:59 PM): Base Delivery ₹15, Handling ₹9
+  // - Night Hours (08:00 PM to 05:59 AM): Base Delivery ₹30, Handling ₹9
+  // - Subtotal >= ₹500: Delivery Fee = ₹0 (FREE), Handling Fee = ₹0 (FREE)
+  // - Subtotal >= ₹200: Handling Fee = ₹0 (FREE), Delivery Fee = baseDelivery (₹15 or ₹30)
+  // - Subtotal < ₹200: Full charges apply: baseDelivery + ₹9 handling
+  const currentHour = new Date().getHours();
+  const isNight = currentHour >= 20 || currentHour < 6;
+  const baseDelivery = isNight ? NIGHT_DELIVERY_FEE : DAY_DELIVERY_FEE;
+  const baseHandling = PACKAGING_HANDLING_FEE;
+
   const subtotalAmount = Number(productPrice);
-  const isFreeDeliveryQualified = subtotalAmount >= 200;
-  const originalDeliveryFee = 30;
-  const deliveryCharge = isFreeDeliveryQualified ? 0 : 15; // Promotional delivery charge ₹15 (50% OFF on ₹30), FREE over ₹200
-  const isFreeHandlingQualified = isSecretPromoApplied || subtotalAmount >= 200;
-  const handlingFee = isFreeHandlingQualified ? 0 : PACKAGING_HANDLING_FEE;
-  const totalAmount = subtotalAmount + Number(deliveryCharge) + Number(handlingFee);
+
+  let deliveryCharge = 0;
+  let handlingFee = 0;
+
+  if (subtotalAmount >= 500) {
+    deliveryCharge = 0;
+    handlingFee = 0;
+  } else if (subtotalAmount >= 200) {
+    handlingFee = 0;
+    deliveryCharge = baseDelivery;
+  } else {
+    deliveryCharge = baseDelivery;
+    handlingFee = isSecretPromoApplied ? 0 : baseHandling;
+  }
+
+  const isFreeDeliveryQualified = deliveryCharge === 0 && subtotalAmount > 0;
+  const isFreeHandlingQualified = handlingFee === 0 && subtotalAmount > 0;
+  const totalAmount = subtotalAmount > 0 ? subtotalAmount + deliveryCharge + handlingFee : 0;
 
   const handleApplyPromoCode = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -532,10 +560,8 @@ export default function CheckoutForm({
           sum + (Number(item.price !== undefined ? item.price : item.product?.price || 0) * Number(item.quantity || 1)),
         0
       );
-      const deliveryFee = (isFreeDeliveryQualified ? 0 : 15) + (isFreeHandlingQualified ? 0 : PACKAGING_HANDLING_FEE);
-      const explicitTotal = explicitSubtotal + deliveryFee;
-
       const subtotalVal = Number(explicitSubtotal) || 0;
+      const explicitTotal = subtotalVal > 0 ? subtotalVal + currentDeliveryFee + currentHandlingFee : 0;
       const totalVal = Number(totalAmount || explicitTotal) || 0;
 
       const itemsPayloadJSON = itemsSummaryJSON.map((it: any) => ({
@@ -555,11 +581,13 @@ export default function CheckoutForm({
         notes: String(checkoutDetails.notes || '').trim(),
       };
 
-      // Pass both numeric values in the Supabase payload:
+      // Pass exact delivery_fee, handling_fee, subtotal, and total in the Supabase payload:
       const orderPayload = {
         total: totalVal || 0,
         subtotal: subtotalVal || 0,
         total_amount: totalVal || 0,
+        delivery_fee: currentDeliveryFee,
+        handling_fee: currentHandlingFee,
         items: itemsPayloadJSON || [],
         customer_name: String(checkoutDetails.name || 'Campus Student').trim(),
         customer_phone: String(cleanPhone || '9876543210').trim(),
@@ -586,6 +614,8 @@ export default function CheckoutForm({
           total: totalVal || 0,
           subtotal: subtotalVal || 0,
           total_amount: totalVal || 0,
+          delivery_fee: currentDeliveryFee,
+          handling_fee: currentHandlingFee,
           items: itemsPayloadJSON || [],
           customer_name: orderPayload.customer_name,
           customer_phone: orderPayload.customer_phone,
@@ -1090,16 +1120,28 @@ export default function CheckoutForm({
 
         {/* 3. Pricing & Delivery Display */}
         <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/80 text-xs space-y-2.5">
-          {/* Promotional Banner Badge showing 50% OFF */}
-          <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300 text-amber-950 font-bold flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>Delivery: ₹15 (50% OFF on ₹30)</span>
+          {/* Day / Night Delivery Badge */}
+          {isNight ? (
+            <div className="p-2.5 rounded-xl bg-indigo-950/5 border border-indigo-200 text-indigo-950 font-bold flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5">
+                <Moon className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span className="font-extrabold">🌙 Night Delivery (₹30)</span>
+              </div>
+              <span className="text-[10px] text-indigo-800 bg-indigo-100/80 px-2 py-0.5 rounded-md font-extrabold border border-indigo-200 shrink-0 uppercase">
+                {isFreeDeliveryQualified ? 'WAIVED (FREE)' : '8:00 PM - 5:59 AM'}
+              </span>
             </div>
-            <span className="text-[10px] text-amber-900 bg-white/90 px-2 py-0.5 rounded-md font-extrabold border border-amber-300 shrink-0 uppercase">
-              50% OFF on Delivery Charges
-            </span>
-          </div>
+          ) : (
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-300 text-amber-950 font-bold flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>☀️ Day Delivery (₹15)</span>
+              </div>
+              <span className="text-[10px] text-amber-900 bg-white/90 px-2 py-0.5 rounded-md font-extrabold border border-amber-300 shrink-0 uppercase">
+                {isFreeDeliveryQualified ? 'WAIVED (FREE)' : '6:00 AM - 7:59 PM'}
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center justify-between text-[11px] font-bold text-neutral-500 uppercase tracking-wider pb-1 border-b border-neutral-200/60 pt-1">
             <span>Order Summary ({cartItems.reduce((acc, it) => acc + (it.quantity || 1), 0)} items)</span>
@@ -1112,57 +1154,82 @@ export default function CheckoutForm({
               <span className="font-semibold text-neutral-900">₹{subtotalAmount}</span>
             </div>
 
-            {/* Delivery fee with Rs 30 strikethrough, followed by Rs 15, and 50% OFF discount badge */}
+            {/* Delivery fee with Day / Night label and FREE in green text */}
             <div className="flex justify-between items-center">
               <span className="flex items-center gap-1.5">
                 <span>Runner Delivery Fee</span>
-                {isFreeDeliveryQualified ? (
-                  <span className="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded-md font-extrabold uppercase">
-                    FREE
+                {isNight ? (
+                  <span className="text-[10px] text-indigo-800 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded font-extrabold">
+                    🌙 Night
                   </span>
                 ) : (
-                  <span className="text-[10px] text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-md font-extrabold uppercase">
-                    50% OFF
+                  <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-extrabold">
+                    ☀️ Day
+                  </span>
+                )}
+                {isFreeDeliveryQualified && (
+                  <span className="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded font-extrabold uppercase">
+                    FREE
                   </span>
                 )}
               </span>
               <span className="font-semibold text-neutral-900 flex items-center gap-1.5">
-                <span className="line-through text-neutral-400 font-normal text-xs">Rs. {originalDeliveryFee}</span>
                 {isFreeDeliveryQualified ? (
-                  <span className="text-emerald-600 font-bold">FREE (₹0)</span>
+                  <>
+                    <span className="line-through text-neutral-400 font-normal text-xs">₹{baseDelivery}</span>
+                    <span className="text-emerald-600 font-bold">FREE</span>
+                  </>
                 ) : (
-                  <span className="text-neutral-900 font-extrabold text-sm">Rs. {deliveryCharge}</span>
+                  <span className="text-neutral-900 font-extrabold text-sm">₹{deliveryCharge}</span>
                 )}
               </span>
             </div>
 
+            {/* Packaging & Handling Fee */}
             <div className="flex justify-between items-center text-neutral-600">
               <span className="flex items-center gap-1.5">
                 <span>Packaging & Handling Fee</span>
-                {subtotalAmount >= 200 && (
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-extrabold uppercase">
-                    FREE (Orders above ₹200)
+                {isFreeHandlingQualified && (
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded font-extrabold uppercase">
+                    FREE
                   </span>
                 )}
               </span>
               <span className="font-bold flex items-center gap-1.5">
                 {isFreeHandlingQualified ? (
                   <>
-                    <span className="line-through text-neutral-400 font-normal text-xs">Rs. 9</span>
-                    <span className="text-emerald-600 font-bold">FREE (₹0)</span>
+                    <span className="line-through text-neutral-400 font-normal text-xs">₹9</span>
+                    <span className="text-emerald-600 font-bold">FREE</span>
                   </>
                 ) : (
-                  <span className="text-neutral-900 font-semibold">Rs. 9</span>
+                  <span className="text-neutral-900 font-semibold">₹9</span>
                 )}
               </span>
             </div>
 
+            {/* Threshold Upsell Messages */}
             {subtotalAmount < 200 && subtotalAmount > 0 && (
               <div className="p-2 rounded-xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-900 flex items-center gap-1.5 font-medium">
                 <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <span>
                   Add items worth <strong>₹{200 - subtotalAmount}</strong> more to unlock <strong>FREE Packaging & Handling!</strong>
                 </span>
+              </div>
+            )}
+
+            {subtotalAmount >= 200 && subtotalAmount < 500 && (
+              <div className="p-2 rounded-xl bg-blue-50 border border-blue-200/80 text-[11px] text-blue-900 flex items-center gap-1.5 font-medium">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span>
+                  Add items worth <strong>₹{500 - subtotalAmount}</strong> more to unlock <strong>FREE Delivery ({isNight ? '₹30' : '₹15'})!</strong>
+                </span>
+              </div>
+            )}
+
+            {subtotalAmount >= 500 && (
+              <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200/80 text-[11px] text-emerald-800 flex items-center gap-1.5 font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>🎉 Both Delivery and Handling Fees are 100% FREE!</span>
               </div>
             )}
 
