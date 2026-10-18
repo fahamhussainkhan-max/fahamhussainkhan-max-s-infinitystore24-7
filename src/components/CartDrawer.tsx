@@ -181,8 +181,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               initial={{ y: '100%', x: 0 }}
               animate={{ y: 0, x: 0 }}
               exit={{ y: '100%', x: 0 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-              className="w-full sm:w-screen sm:max-w-md max-h-[92vh] sm:max-h-full bg-white rounded-t-3xl sm:rounded-t-none shadow-2xl flex flex-col justify-between overflow-hidden pointer-events-auto border-t sm:border-t-0 sm:border-l border-gray-100"
+              transition={{ ease: [0.16, 1, 0.3, 1], duration: 0.25 }}
+              style={{ willChange: 'transform' }}
+              className="w-full sm:w-screen sm:max-w-md max-h-[92vh] sm:max-h-full bg-white rounded-t-3xl sm:rounded-t-none shadow-2xl flex flex-col justify-between overflow-hidden pointer-events-auto border-t sm:border-t-0 sm:border-l border-neutral-100"
             >
               {/* Drawer Header with Universal Back / Close Navigation */}
               <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between bg-[#FAFAF7]">
@@ -459,13 +460,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                                     onUpdateQuantity(item.product.id, item.quantity - 1);
                                   }
                                 }}
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                                style={{ pointerEvents: 'auto' }}
-                                className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-lg text-gray-600 transition-colors cursor-pointer pointer-events-auto"
+                                className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center hover:bg-neutral-100 active:scale-90 transition-transform duration-150 rounded-lg text-neutral-700 cursor-pointer touch-manipulation"
                                 aria-label="Decrease"
                               >
-                                <Minus className="w-3 h-3 stroke-[2.5]" />
+                                <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
                               </button>
                               <span className="px-2 text-xs font-bold text-gray-800 min-w-[18px] text-center select-none pointer-events-none">
                                 {item.quantity}
@@ -478,18 +476,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                                   if (isMaxStock) return;
                                   onUpdateQuantity(item.product.id, item.quantity + 1);
                                 }}
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                                style={{ pointerEvents: 'auto' }}
-                                className={`w-6 h-6 flex items-center justify-center rounded-lg transition-colors pointer-events-auto ${
+                                className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg transition-transform active:scale-90 duration-150 touch-manipulation cursor-pointer ${
                                   isMaxStock
-                                    ? 'opacity-30 cursor-not-allowed text-gray-400'
-                                    : 'hover:bg-gray-100 text-gray-600 cursor-pointer'
+                                    ? 'opacity-30 cursor-not-allowed text-neutral-400'
+                                    : 'hover:bg-neutral-100 text-neutral-700'
                                 }`}
                                 aria-label="Increase"
                                 title={isMaxStock ? `Max available stock (${itemStock}) reached` : 'Increase'}
                               >
-                                <Plus className="w-3 h-3 stroke-[2.5]" />
+                                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                               </button>
                             </div>
                           );

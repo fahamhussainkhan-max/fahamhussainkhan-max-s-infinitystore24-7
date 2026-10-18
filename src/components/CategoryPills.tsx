@@ -1,8 +1,7 @@
 import React, { useRef, useMemo } from 'react';
-import { motion } from 'motion/react';
 import { CATEGORIES, sortCategoriesInStorefrontOrder } from '../data/mockData';
 import { Category } from '../types';
-import { Sparkles, Heart } from 'lucide-react';
+import { Heart } from 'lucide-react';
 
 interface CategoryPillsProps {
   categories?: Category[];
@@ -28,28 +27,17 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
         className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 px-1 select-none overscroll-x-contain touch-pan-x"
       >
         {/* 'All Aisles' Pill */}
-        <motion.button
+        <button
           type="button"
           onClick={() => onSelectCategory(null)}
-          whileHover={{ y: -2, scale: 1.04 }}
-          whileTap={{ scale: 0.94 }}
-          transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-          className={`relative px-4 py-2 rounded-full text-xs font-black tracking-wide shrink-0 transition-all duration-300 flex items-center gap-1.5 ${
+          className={`relative px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide shrink-0 transition-transform active:scale-95 duration-150 touch-manipulation cursor-pointer flex items-center gap-1.5 select-none ${
             selectedCategory === null
-              ? 'text-white shadow-[0_4px_18px_rgba(17,17,17,0.35)]'
-              : 'bg-white text-gray-700 hover:text-black border border-gray-200/90 shadow-xs hover:border-gray-300'
+              ? 'bg-neutral-900 text-white shadow-xs'
+              : 'bg-white text-neutral-700 hover:text-black border border-neutral-200 shadow-2xs hover:border-neutral-300'
           }`}
         >
-          {selectedCategory === null && (
-            <motion.div
-              layoutId="activeCategoryPillGlow"
-              className="absolute inset-0 rounded-full bg-gradient-to-r from-[#111111] via-[#222222] to-[#111111] -z-10 shadow-[0_0_20px_rgba(0,0,0,0.25)]"
-              transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-            />
-          )}
-          <Sparkles className={`w-3.5 h-3.5 ${selectedCategory === null ? 'text-[#FFD60A]' : 'text-gray-400'}`} />
-          <span>All Aisles</span>
-        </motion.button>
+          <span>All Items</span>
+        </button>
 
         {/* Categories Pills */}
         {displayCategories.map((cat, idx) => {
@@ -59,37 +47,27 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
             selectedCategory === cat.name;
 
           return (
-            <motion.button
+            <button
               key={`cat-pill-${cat.id}-${idx}`}
               type="button"
               onClick={() => onSelectCategory(isSelected ? null : cat.id)}
-              whileHover={{ y: -2, scale: 1.04 }}
-              whileTap={{ scale: 0.94 }}
-              transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-              className={`relative px-4 py-2 rounded-full text-xs font-black tracking-wide shrink-0 transition-all duration-300 flex items-center gap-1.5 ${
+              className={`relative px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide shrink-0 transition-transform active:scale-95 duration-150 touch-manipulation cursor-pointer flex items-center gap-1.5 select-none ${
                 isSelected
-                  ? 'text-white shadow-[0_4px_22px_rgba(10,132,255,0.45)]'
-                  : 'bg-white text-gray-700 hover:text-black border border-gray-200/90 shadow-xs hover:border-gray-300'
+                  ? 'bg-neutral-900 text-white shadow-xs'
+                  : 'bg-white text-neutral-700 hover:text-black border border-neutral-200 shadow-2xs hover:border-neutral-300'
               }`}
             >
-              {isSelected && (
-                <motion.div
-                  layoutId="activeCategoryPillGlow"
-                  className="absolute inset-0 rounded-full bg-gradient-to-r from-[#0A84FF] to-[#0060df] -z-10 shadow-[0_0_22px_rgba(10,132,255,0.6)]"
-                  transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                />
-              )}
               {cat.id === 'womens-care' ? (
                 <Heart
                   className={`w-3.5 h-3.5 shrink-0 ${
-                    isSelected ? 'text-white fill-white' : 'text-pink-500 fill-pink-500/20'
+                    isSelected ? 'text-white fill-white' : 'text-rose-500 fill-rose-500/20'
                   }`}
                 />
               ) : (
-                <span className="text-sm">{cat.emoji}</span>
+                <span className="text-xs">{cat.emoji}</span>
               )}
               <span>{cat.name}</span>
-            </motion.button>
+            </button>
           );
         })}
       </div>

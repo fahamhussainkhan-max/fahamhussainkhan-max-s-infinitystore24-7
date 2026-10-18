@@ -99,15 +99,7 @@ export const WhatsAppLoginModal: React.FC<WhatsAppLoginModalProps> = ({
       }
 
       // 3. Open WhatsApp verification chat to dispatch desk
-      const verificationCode = `INF-WA-${cleanPhone.slice(-4)}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
-      const waMessage = `👋 *INFINITY STORE CAMPUS VERIFICATION*
-*Name:* ${trimmedName}
-*WhatsApp:* +91${cleanPhone}
-*Campus Location:* ${campusHostel}${roomNo.trim() ? `\n*Room/Floor:* ${roomNo.trim()}` : ''}
-*Verification Token:* #${verificationCode}
-
-Please verify my student account for 1-click campus delivery!`;
-
+      const waMessage = `Verify my Infinity Store account for number: ${cleanPhone}`;
       const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(waMessage)}`;
       window.open(waUrl, '_blank', 'noopener,noreferrer');
 

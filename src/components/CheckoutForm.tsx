@@ -99,20 +99,60 @@ export default function CheckoutForm({
   const STORE_WHATSAPP_NUMBER = '919332727610';
 
   // Check if student is ALREADY VERIFIED in localStorage
-  const checkIsVerifiedStudent = () => {
+  const isPhoneVerifiedLocally = (phoneToCheck?: string) => {
     try {
-      const verified = localStorage.getItem('infinity_user_verified') === 'true';
-      const phone = localStorage.getItem('infinity_user_phone');
-      const name = localStorage.getItem('infinity_user_name');
-      return Boolean(verified && phone && name);
+      const isVerified = localStorage.getItem('infinity_whatsapp_verified') === 'true' ||
+                         localStorage.getItem('infinity_user_verified') === 'true';
+      const savedPhone = localStorage.getItem('infinity_user_phone');
+      if (phoneToCheck) {
+        const clean = phoneToCheck.replace(/\D/g, '').slice(-10);
+        if (clean.length === 10) {
+          if (isVerified && savedPhone === clean) return true;
+          try {
+            const raw = localStorage.getItem('infinity_verified_numbers');
+            if (raw) {
+              const list = JSON.parse(raw);
+              if (Array.isArray(list) && list.includes(clean)) return true;
+            }
+          } catch {}
+        }
+      }
+      return Boolean(isVerified && savedPhone);
     } catch {
       return false;
     }
   };
 
-  const [isVerifiedStudent, setIsVerifiedStudent] = useState<boolean>(checkIsVerifiedStudent);
+  const [isVerifiedStudent, setIsVerifiedStudent] = useState<boolean>(() => isPhoneVerifiedLocally());
+  const [whatsAppTriggered, setWhatsAppTriggered] = useState<boolean>(false);
   const [isEditingDetails, setIsEditingDetails] = useState<boolean>(false);
   const isSubmittingRef = useRef<boolean>(false);
+
+  const markPhoneAsVerified = (phoneToVerify: string) => {
+    const rawDigits = phoneToVerify.replace(/\D/g, '');
+    const cleanPhone = rawDigits.length > 10 ? rawDigits.slice(-10) : rawDigits;
+    try {
+      localStorage.setItem('infinity_whatsapp_verified', 'true');
+      localStorage.setItem('infinity_user_verified', 'true');
+      if (cleanPhone) {
+        localStorage.setItem('infinity_user_phone', cleanPhone);
+        let list: string[] = [];
+        try {
+          const raw = localStorage.getItem('infinity_verified_numbers');
+          if (raw) list = JSON.parse(raw);
+        } catch {}
+        if (!list.includes(cleanPhone)) {
+          list.push(cleanPhone);
+          localStorage.setItem('infinity_verified_numbers', JSON.stringify(list));
+        }
+      }
+    } catch (e) {
+      console.warn('LocalStorage notice:', e);
+    }
+    setIsVerifiedStudent(true);
+    setWhatsAppTriggered(false);
+  };
+
 
   useEffect(() => {
     setStoreOpen(isStoreOpen);
@@ -242,6 +282,53 @@ export default function CheckoutForm({
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const handleTriggerWhatsAppVerification = () => {
+    const rawDigits = formData.phone.replace(/\D/g, '');
+    const cleanPhone = rawDigits.length > 10 ? rawDigits.slice(-10) : rawDigits;
+    const indianPhoneRegex = /^[6-9]\d{9}$/;
+    if (!indianPhoneRegex.test(cleanPhone)) {
+      setErrorMsg('Please enter a valid 10-digit Indian WhatsApp mobile number.');
+      return;
+    }
+    setErrorMsg('');
+    setWhatsAppTriggered(true);
+
+    const waText = encodeURIComponent(`Verify my Infinity Store account for number: ${cleanPhone}`);
+    const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${waText}`;
+
+    try {
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.warn('Window open notice:', err);
+    }
+
+    markPhoneAsVerified(cleanPhone);
+  };
+
+  // Auto-mark verified when user switches back from WhatsApp tab/app without blocking
+  useEffect(() => {
+    if (!whatsAppTriggered) return;
+
+    const handleFocus = () => {
+      if (formData.phone.replace(/\D/g, '').length >= 10) {
+        markPhoneAsVerified(formData.phone);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    const handleVis = () => {
+      if (document.visibilityState === 'visible' && formData.phone.replace(/\D/g, '').length >= 10) {
+        markPhoneAsVerified(formData.phone);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVis);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVis);
+    };
+  }, [whatsAppTriggered, formData.phone]);
 
   useEffect(() => {
     if (appliedPromo === 'SHADOW') {
@@ -402,6 +489,13 @@ export default function CheckoutForm({
     if (name === 'phone') {
       const digits = value.replace(/\D/g, '').slice(0, 10);
       setFormData((prev) => ({ ...prev, phone: digits }));
+      if (digits.length === 10) {
+        if (isPhoneVerifiedLocally(digits)) {
+          setIsVerifiedStudent(true);
+        } else {
+          setIsVerifiedStudent(false);
+        }
+      }
       return;
     }
 
@@ -500,8 +594,18 @@ export default function CheckoutForm({
     const deliveryLocation = `${selectedLocation} - Room: ${roomDetails}`;
 
     // Check verification status BEFORE saving: repeat orders are already verified
-    const wasAlreadyVerified = checkIsVerifiedStudent();
-    const orderStatus = wasAlreadyVerified ? 'Confirmed' : 'Pending Verification';
+    const wasAlreadyVerified = isPhoneVerifiedLocally(cleanPhone);
+    if (!wasAlreadyVerified) {
+      // First-time customer WhatsApp verification trigger
+      const waText = encodeURIComponent(`Verify my Infinity Store account for number: ${cleanPhone}`);
+      const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${waText}`;
+      try {
+        window.open(waUrl, '_blank', 'noopener,noreferrer');
+      } catch (waErr) {
+        console.warn('WhatsApp open notice:', waErr);
+      }
+      markPhoneAsVerified(cleanPhone);
+    }
 
     try {
       const currentDeliveryFee = Number(deliveryCharge);
@@ -892,10 +996,25 @@ export default function CheckoutForm({
               <span>WhatsApp Mobile Number</span>
               <span className="text-red-500">*</span>
             </label>
-            <span className="text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#25D366]"></span>
-              WhatsApp Verification
-            </span>
+            {isVerifiedStudent ? (
+              <span className="text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#25D366]"></span>
+                ✓ WhatsApp Verified
+              </span>
+            ) : formData.phone.length === 10 ? (
+              <button
+                type="button"
+                onClick={handleTriggerWhatsAppVerification}
+                className="text-[10px] text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-full font-bold border border-emerald-300 flex items-center gap-1 transition active:scale-95 cursor-pointer touch-manipulation"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#25D366]"></span>
+                Verify on WhatsApp
+              </button>
+            ) : (
+              <span className="text-[10px] text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full font-medium">
+                10-digit number
+              </span>
+            )}
           </div>
           <div className="relative flex items-center">
             <span className="absolute left-3.5 text-xs font-bold text-neutral-400 pointer-events-none select-none z-10">
@@ -912,9 +1031,23 @@ export default function CheckoutForm({
               value={formData.phone}
               onChange={handleChange}
               placeholder="9876543210"
-              className="w-full pl-11 pr-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#25D366] text-base sm:text-sm bg-white font-medium text-neutral-900 cursor-text pointer-events-auto relative z-0"
+              className="w-full pl-11 pr-4 py-2.5 sm:py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#25D366] text-base sm:text-sm bg-white font-medium text-neutral-900 cursor-text pointer-events-auto relative z-0 touch-manipulation"
             />
           </div>
+          {whatsAppTriggered && !isVerifiedStudent && (
+            <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-950 flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium text-emerald-800">
+                WhatsApp opened! Tap to confirm:
+              </span>
+              <button
+                type="button"
+                onClick={() => markPhoneAsVerified(formData.phone)}
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] transition active:scale-95 cursor-pointer shrink-0"
+              >
+                ✓ Continue Order
+              </button>
+            </div>
+          )}
           <p className="text-[11px] text-neutral-500 mt-1">
             Order verification, runner dispatch alerts, and doorstep handover coordination are handled via WhatsApp.
           </p>

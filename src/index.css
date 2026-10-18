@@ -208,3 +208,29 @@
   }
 }
 
+/* Universal touch-action manipulation to eliminate 300ms tap delay across all viewport sizes */
+button,
+a,
+input,
+select,
+textarea,
+label,
+[role="button"],
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Native lightweight CSS micro-interactions: gentle scale on active tap */
+.tap-active-scale:active,
+button:active:not(:disabled):not(.no-tap-scale),
+[role="button"]:active:not([aria-disabled="true"]):not(.no-tap-scale) {
+  transform: scale(0.97);
+  transition: transform 150ms ease-out;
+}
+
+/* Smooth hardware-accelerated drawer transitions for the cart/checkout sheet */
+.drawer-sheet-hardware {
+  transition: transform 250ms ease-out;
+  will-change: transform;
+}
+

@@ -166,19 +166,13 @@ export const Navbar: React.FC<NavbarProps> = ({
       }}
       className="sticky top-0 z-50 w-full max-w-full border-b border-gray-200/80 pointer-events-auto select-none overflow-visible"
     >
-      {/* Top Quick-Delivery pill banner (Fixed Height h-7.5 to prevent vertical layout shifts) */}
-      <div className="w-full bg-[#111111] px-2.5 sm:px-4 h-7.5 sm:h-8 flex items-center justify-center border-b border-white/10 overflow-hidden">
-        <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-0.5 rounded-full bg-[#1c1c1e] text-[10px] sm:text-xs font-bold text-white border border-[#30D158]/60 shadow-[0_0_18px_rgba(48,209,88,0.4),0_0_6px_rgba(10,132,255,0.3)] animate-pulse max-w-full">
-          <span className="relative flex h-2 w-2 flex-shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#30D158] opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#30D158]" />
-          </span>
-          <span className="text-[#FFD60A] font-black tracking-wide flex-shrink-0">⚡ Special Offer:</span>
-          <span className="text-gray-100 font-semibold truncate hidden md:inline">Flat 50% OFF on Delivery Charges — Now at ₹15!</span>
-          <span className="text-gray-100 font-semibold truncate md:hidden">Flat 50% OFF Delivery — Now ₹15!</span>
-          <span className="ml-1 sm:ml-1.5 px-2 py-0.5 rounded-full bg-gradient-to-r from-[#FF3B30] to-[#FF9500] text-white text-[9.5px] sm:text-[10.5px] font-black tracking-wide uppercase shadow-xs border border-white/20 whitespace-nowrap flex-shrink-0">
-            50% OFF
-          </span>
+      {/* Top Quick-Delivery pill banner (Clean human aesthetic) */}
+      <div className="w-full bg-[#111111] px-2.5 sm:px-4 h-7.5 sm:h-8 flex items-center justify-center border-b border-neutral-800 overflow-hidden">
+        <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-neutral-900 text-[10px] sm:text-xs font-semibold text-neutral-200 border border-neutral-700 max-w-full">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+          <span className="text-white font-bold tracking-wide">Campus Dispatch:</span>
+          <span className="truncate hidden sm:inline">Day Delivery ₹15 • Night Delivery ₹30 (8 PM – 6 AM) • Free above ₹500</span>
+          <span className="truncate sm:hidden">Day ₹15 • Night ₹30 • Free ₹500+</span>
         </div>
       </div>
 
@@ -414,7 +408,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${activeTab === 'wishlist' ? 'fill-[#FF3B30]' : ''}`} />
               {wishlistCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#FF3B30] text-white text-[9px] font-black flex items-center justify-center animate-pulse shadow-[0_0_8px_rgba(255,59,48,0.7)]">
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
                   {wishlistCount}
                 </span>
               )}
@@ -451,7 +445,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="relative">
               <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#FF3B30] text-white text-[9px] font-black flex items-center justify-center border border-[#111111] animate-pulse shadow-[0_0_10px_rgba(255,59,48,0.8)]">
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border border-neutral-900">
                   {cartCount}
                 </span>
               )}
