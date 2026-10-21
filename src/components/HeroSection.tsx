@@ -61,9 +61,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 transition={{ duration: 0.4, delay: 0.08 }}
                 className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-neutral-900 text-white text-xs sm:text-sm font-semibold tracking-wide shadow-xs"
               >
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
                 <span className="font-bold text-white">
-                  Day ₹15 • Night ₹30 • Free delivery above ₹500
+                  ⚡ 50% OFF on Delivery Charges for 1 Month
                 </span>
               </motion.div>
             </div>

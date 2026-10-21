@@ -169,10 +169,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Top Quick-Delivery pill banner (Clean human aesthetic) */}
       <div className="w-full bg-[#111111] px-2.5 sm:px-4 h-7.5 sm:h-8 flex items-center justify-center border-b border-neutral-800 overflow-hidden">
         <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-neutral-900 text-[10px] sm:text-xs font-semibold text-neutral-200 border border-neutral-700 max-w-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-          <span className="text-white font-bold tracking-wide">Campus Dispatch:</span>
-          <span className="truncate hidden sm:inline">Day Delivery ₹15 • Night Delivery ₹30 (8 PM – 6 AM) • Free above ₹500</span>
-          <span className="truncate sm:hidden">Day ₹15 • Night ₹30 • Free ₹500+</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
+          <span className="text-white font-bold tracking-wide">⚡ Launch Offer: 50% OFF on Delivery Charges for 1 Month!</span>
         </div>
       </div>
 

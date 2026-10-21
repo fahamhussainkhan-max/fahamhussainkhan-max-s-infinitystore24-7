@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShoppingBag,
   Clock,
@@ -10,12 +10,16 @@ import {
   Filter,
   RefreshCw,
   ChevronRight,
+  ChevronLeft,
   FileText,
   History,
   X,
   Send,
   Radio,
   MessageCircle,
+  TrendingUp,
+  Wallet,
+  CreditCard,
 } from 'lucide-react';
 import {
   fetchOrders,
@@ -40,6 +44,10 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Pagination State for Instant Admin Rendering
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Status History Modal
   const [selectedOrderForHistory, setSelectedOrderForHistory] = useState<AdminOrder | null>(null);
@@ -209,6 +217,56 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
     }
   };
 
+  // Reset pagination on filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  // Memoize financial & operational metrics (zero lagging or freeze on state updates)
+  const metrics = useMemo(() => {
+    const deliveredOrders = orders.filter(
+      (o) => o.status === 'Delivered' || (o.status as string)?.toLowerCase() === 'delivered'
+    );
+
+    const totalRevenue = deliveredOrders.reduce(
+      (sum, o) => sum + (Number(o.total_amount) || 0),
+      0
+    );
+
+    const cashRevenue = deliveredOrders
+      .filter((o) => {
+        const pm = (o.payment_method || 'COD').toUpperCase();
+        return pm === 'COD' || pm.includes('CASH');
+      })
+      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+
+    const onlineRevenue = deliveredOrders
+      .filter((o) => {
+        const pm = (o.payment_method || '').toUpperCase();
+        return pm !== '' && pm !== 'COD' && !pm.includes('CASH');
+      })
+      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+
+    const totalOrders = orders.length;
+    const pendingOrders = orders.filter(
+      (o) => o.status === 'Pending' || (o.status as string)?.toLowerCase() === 'pending'
+    ).length;
+    const outForDeliveryOrders = orders.filter(
+      (o) => o.status === 'Out for Delivery' || (o.status as string)?.toLowerCase() === 'out for delivery'
+    ).length;
+    const deliveredCount = deliveredOrders.length;
+
+    return {
+      totalRevenue,
+      cashRevenue,
+      onlineRevenue,
+      totalOrders,
+      pendingOrders,
+      outForDeliveryOrders,
+      deliveredCount,
+    };
+  }, [orders]);
+
   const filteredOrders = orders.filter((o) => {
     const matchesSearch =
       o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -226,6 +284,12 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
 
     return matchesSearch && matchesStatus;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ITEMS_PER_PAGE));
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredOrders.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredOrders, currentPage, ITEMS_PER_PAGE]);
 
   return (
     <div className="space-y-6">
@@ -268,6 +332,112 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
         </div>
       </div>
 
+      {/* Financial & Operations Analytics - Obsidian Dark Glowing Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Total Revenue */}
+        <div className="p-4 rounded-2xl bg-[#0B0F19] border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.08)] relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Total Revenue
+            </span>
+            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-white font-display tracking-tight">
+            ₹{metrics.totalRevenue.toLocaleString('en-IN')}
+          </div>
+          <div className="text-[11px] text-gray-400 mt-1 flex items-center justify-between">
+            <span>Completed & Delivered</span>
+            <span className="text-emerald-400 font-bold">{metrics.deliveredCount} orders</span>
+          </div>
+        </div>
+
+        {/* Cash / COD Total */}
+        <div className="p-4 rounded-2xl bg-[#0B0F19] border border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.08)] relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              Cash Revenue (COD)
+            </span>
+            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-white font-display tracking-tight">
+            ₹{metrics.cashRevenue.toLocaleString('en-IN')}
+          </div>
+          <div className="text-[11px] text-gray-400 mt-1 flex items-center justify-between">
+            <span>Doorstep Cash / COD</span>
+            <span className="text-amber-400 font-bold">
+              {metrics.totalRevenue > 0
+                ? `${Math.round((metrics.cashRevenue / metrics.totalRevenue) * 100)}%`
+                : '100%'}
+            </span>
+          </div>
+        </div>
+
+        {/* Online / Digital Revenue */}
+        <div className="p-4 rounded-2xl bg-[#0B0F19] border border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.08)] relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-blue-400" />
+              Online / Digital
+            </span>
+            <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+              <CreditCard className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-white font-display tracking-tight">
+            ₹{metrics.onlineRevenue.toLocaleString('en-IN')}
+          </div>
+          <div className="text-[11px] text-gray-400 mt-1 flex items-center justify-between">
+            <span>Prepaid / UPI Orders</span>
+            <span className="text-blue-400 font-bold">
+              {metrics.totalRevenue > 0
+                ? `${Math.round((metrics.onlineRevenue / metrics.totalRevenue) * 100)}%`
+                : '0%'}
+            </span>
+          </div>
+        </div>
+
+        {/* Dispatch Summary */}
+        <div className="p-4 rounded-2xl bg-[#0B0F19] border border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.08)] relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+              Dispatch Summary
+            </span>
+            <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+              <Truck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 mt-1 text-xs">
+            <div className="p-1.5 rounded-lg bg-white/5 border border-white/10 flex items-center justify-between">
+              <span className="text-gray-400 text-[10px] font-bold">Total Orders</span>
+              <span className="text-white font-black">{metrics.totalOrders}</span>
+            </div>
+            <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
+              <span className="text-amber-400 text-[10px] font-bold">Pending</span>
+              <span className="text-amber-300 font-black">{metrics.pendingOrders}</span>
+            </div>
+            <div className="p-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-between">
+              <span className="text-sky-400 text-[10px] font-bold">Out for Del.</span>
+              <span className="text-sky-300 font-black">{metrics.outForDeliveryOrders}</span>
+            </div>
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+              <span className="text-emerald-400 text-[10px] font-bold">Delivered</span>
+              <span className="text-emerald-300 font-black">{metrics.deliveredCount}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Filter and Search */}
       <div className="p-4 rounded-2xl bg-white border border-gray-200/90 shadow-2xs flex flex-col md:flex-row items-center gap-3">
         <div className="relative w-full md:flex-1">
@@ -302,12 +472,12 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
 
       {/* Orders Grid / Cards */}
       <div className="space-y-3.5">
-        {filteredOrders.length === 0 ? (
+        {paginatedOrders.length === 0 ? (
           <div className="p-12 text-center bg-white rounded-2xl border border-gray-200 text-gray-400 text-xs">
             No campus orders found matching your criteria.
           </div>
         ) : (
-          filteredOrders.map((order, idx) => {
+          paginatedOrders.map((order, idx) => {
             const next = getNextStatus(order.status);
             const isUpdating = updatingId === order.id;
 
@@ -504,6 +674,76 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
           })
         )}
       </div>
+
+      {/* Pagination Controls - Lightweight, fast pagination */}
+      {filteredOrders.length > 0 && (
+        <div className="p-4 rounded-2xl bg-white border border-gray-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-xs text-gray-500 font-medium">
+            Showing <span className="font-bold text-gray-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to{' '}
+            <span className="font-bold text-gray-900">
+              {Math.min(currentPage * ITEMS_PER_PAGE, filteredOrders.length)}
+            </span>{' '}
+            of <span className="font-bold text-gray-900">{filteredOrders.length}</span> orders
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer flex items-center gap-1"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              Prev
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                if (
+                  totalPages > 7 &&
+                  page !== 1 &&
+                  page !== totalPages &&
+                  Math.abs(page - currentPage) > 1
+                ) {
+                  if (page === 2 || page === totalPages - 1) {
+                    return (
+                      <span key={page} className="px-1 text-xs text-gray-400">
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
+                }
+
+                return (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      currentPage === page
+                        ? 'bg-[#0A84FF] text-white shadow-xs'
+                        : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer flex items-center gap-1"
+            >
+              Next
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Audit History Drawer / Modal */}
       {selectedOrderForHistory && (

@@ -360,11 +360,7 @@ export const CampusLocationModal: React.FC<CampusLocationModalProps> = ({
                           {isSelected && <Check className="w-3.5 h-3.5 text-[#0A84FF] flex-shrink-0" />}
                         </div>
                         <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                          {zone.block} • {isNightDeliveryTime() ? (
-                            <span className="text-indigo-900 font-bold">🌙 Night Delivery (₹30)</span>
-                          ) : (
-                            <span className="text-gray-900 font-bold">☀️ Day Delivery (₹15)</span>
-                          )}
+                          {zone.block} • <span className="line-through text-gray-400">₹30</span> <span className="text-emerald-700 font-bold">₹15</span> <span className="text-[10px] text-emerald-600 font-bold">(50% Launch Offer)</span>
                         </div>
                       </div>
                     </div>

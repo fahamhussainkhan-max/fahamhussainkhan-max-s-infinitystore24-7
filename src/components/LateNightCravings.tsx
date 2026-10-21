@@ -46,8 +46,8 @@ export const LateNightCravings: React.FC<LateNightCravingsProps> = ({
           </div>
 
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-800/80 border border-neutral-700 text-xs font-medium text-neutral-300 self-start sm:self-auto">
-            <Clock className="w-3.5 h-3.5 text-neutral-400" />
-            <span>Night Delivery ₹30 (Free on ₹500+)</span>
+            <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+            <span>⚡ Delivery at ₹15 (50% Launch Offer • Free on ₹500+)</span>
           </div>
         </div>
 

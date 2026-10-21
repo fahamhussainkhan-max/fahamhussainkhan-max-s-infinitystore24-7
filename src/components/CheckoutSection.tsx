@@ -6,6 +6,8 @@ import {
   PACKAGING_HANDLING_FEE,
   DAY_DELIVERY_FEE,
   NIGHT_DELIVERY_FEE,
+  ORIGINAL_DELIVERY_FEE,
+  LAUNCH_OFFER_DELIVERY_FEE,
   isNightDeliveryTime,
 } from '../utils/delivery';
 
@@ -30,16 +32,14 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Day / Night Fee Rules:
-  // - Day Hours (06:00 AM to 07:59 PM): Base Delivery ₹15, Handling ₹9
-  // - Night Hours (08:00 PM to 05:59 AM): Base Delivery ₹30, Handling ₹9
+  // 1-Month Launch Offer Delivery Rules:
+  // - Flat 50% discount on base delivery fee: ₹30 discounted to ₹15 flat
   // - Subtotal >= ₹500: Delivery Fee = ₹0 (FREE), Handling Fee = ₹0 (FREE)
-  // - Subtotal >= ₹200: Handling Fee = ₹0 (FREE), Delivery Fee = baseDelivery (₹15 or ₹30)
-  // - Subtotal < ₹200: Full charges apply: baseDelivery + ₹9 handling
+  // - Subtotal >= ₹200: Handling Fee = ₹0 (FREE), Delivery Fee = ₹15
+  // - Subtotal < ₹200: Delivery Fee = ₹15, Handling Fee = ₹9
   const productPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const currentHour = new Date().getHours();
-  const isNight = currentHour >= 20 || currentHour < 6;
-  const baseDelivery = isNight ? NIGHT_DELIVERY_FEE : DAY_DELIVERY_FEE;
+  const originalDelivery = ORIGINAL_DELIVERY_FEE;
+  const baseDelivery = LAUNCH_OFFER_DELIVERY_FEE;
   const baseHandling = PACKAGING_HANDLING_FEE;
 
   let deliveryCharge = 0;
@@ -270,29 +270,17 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         />
       </div>
 
-      {/* Day / Night Slot Indicator Badge */}
+      {/* Promotional 50% Launch Offer Badge */}
       <div className="mb-3">
-        {isNight ? (
-          <div className="bg-indigo-950/60 border border-indigo-500/40 p-2.5 rounded-xl flex items-center justify-between text-xs text-indigo-200">
-            <span className="font-bold flex items-center gap-1.5 text-white">
-              <span>🌙</span>
-              <span>🌙 Night Delivery (₹30)</span>
-            </span>
-            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 px-2 py-0.5 rounded font-extrabold uppercase">
-              {isFreeDeliveryQualified ? 'WAIVED (FREE)' : '8:00 PM - 5:59 AM'}
-            </span>
-          </div>
-        ) : (
-          <div className="bg-amber-950/40 border border-amber-500/30 p-2.5 rounded-xl flex items-center justify-between text-xs text-amber-200">
-            <span className="font-bold flex items-center gap-1.5 text-white">
-              <span>☀️</span>
-              <span>☀️ Day Delivery (₹15)</span>
-            </span>
-            <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded font-extrabold uppercase">
-              {isFreeDeliveryQualified ? 'WAIVED (FREE)' : '6:00 AM - 7:59 PM'}
-            </span>
-          </div>
-        )}
+        <div className="bg-emerald-950/60 border border-emerald-500/40 p-2.5 rounded-xl flex items-center justify-between text-xs text-emerald-200">
+          <span className="font-bold flex items-center gap-1.5 text-white">
+            <span>⚡</span>
+            <span>⚡ 50% OFF Launch Offer</span>
+          </span>
+          <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded font-extrabold uppercase">
+            {isFreeDeliveryQualified ? 'WAIVED (FREE)' : '₹15 FLAT DELIVERY'}
+          </span>
+        </div>
       </div>
 
       <div className="bg-slate-800/50 p-3 rounded-xl space-y-1.5 text-xs text-slate-300 mb-4 border border-slate-700/50">
@@ -303,29 +291,28 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         <div className="flex justify-between items-center">
           <span className="flex items-center gap-1.5">
             <span>Delivery Charge:</span>
-            {isNight ? (
-              <span className="text-[10px] bg-indigo-900/60 text-indigo-200 border border-indigo-700/60 px-1.5 py-0.2 rounded font-bold">
-                🌙 Night
-              </span>
-            ) : (
-              <span className="text-[10px] bg-amber-900/60 text-amber-200 border border-amber-700/60 px-1.5 py-0.2 rounded font-bold">
-                ☀️ Day
-              </span>
-            )}
-            {isFreeDeliveryQualified && (
+            {isFreeDeliveryQualified ? (
               <span className="text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-1.5 py-0.2 rounded font-extrabold uppercase">
                 FREE
+              </span>
+            ) : (
+              <span className="text-[10px] text-emerald-300 bg-emerald-900/60 border border-emerald-700/60 px-1.5 py-0.2 rounded font-bold">
+                50% Launch Offer
               </span>
             )}
           </span>
           <span className="font-semibold text-white flex items-center gap-1.5">
             {isFreeDeliveryQualified ? (
               <>
-                <span className="line-through text-slate-500 font-normal">₹{baseDelivery}</span>
+                <span className="line-through text-slate-500 font-normal">₹{originalDelivery}</span>
                 <span className="text-emerald-400 font-bold">FREE</span>
               </>
             ) : (
-              `₹${deliveryCharge}`
+              <>
+                <span className="line-through text-slate-500 font-normal text-xs">₹{originalDelivery}</span>
+                <span className="text-white font-bold">₹{deliveryCharge}</span>
+                <span className="text-[10px] text-emerald-400 font-bold hidden sm:inline">(50% Launch Offer)</span>
+              </>
             )}
           </span>
         </div>

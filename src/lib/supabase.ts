@@ -1732,9 +1732,7 @@ export async function recordCampusOrder(orderData: {
   // 1. Try Supabase insert
   try {
     const subtotal = orderData.items.reduce((sum, it) => sum + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
-    const currentHour = new Date().getHours();
-    const isNight = currentHour >= 20 || currentHour < 6;
-    const baseDelivery = isNight ? 30 : 15;
+    const baseDelivery = 15; // 50% Launch Offer discount (standard was 30)
     const baseHandling = 9;
 
     let defaultDelivery = baseDelivery;
@@ -1871,9 +1869,7 @@ export async function placeFastOrder(
 
   // 1. Explicit Payload Calculation & Validation
   const subtotal = cartItems.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
-  const currentHour = new Date().getHours();
-  const isNight = currentHour >= 20 || currentHour < 6;
-  const baseDelivery = isNight ? 30 : 15;
+  const baseDelivery = 15; // 50% Launch Offer discount (standard was 30)
   const baseHandling = 9;
 
   let deliveryFee = baseDelivery;
@@ -2053,9 +2049,7 @@ export const handleQuickOrder = async ({
     const quantity = Number(item.quantity || 1);
     return sum + (price * quantity);
   }, 0);
-  const currentHour = new Date().getHours();
-  const isNight = currentHour >= 20 || currentHour < 6;
-  const baseDelivery = isNight ? 30 : 15;
+  const baseDelivery = 15; // 50% Launch Offer discount (standard was 30)
   const baseHandling = 9;
 
   let deliveryFee = baseDelivery;

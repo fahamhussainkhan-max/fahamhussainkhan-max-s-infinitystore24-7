@@ -16,12 +16,15 @@ import {
   AlertCircle,
   MessageCircle,
   Moon,
+  Zap,
 } from 'lucide-react';
 import { verifyGPSInsideBoundary } from '../utils/geolocation';
 import {
   PACKAGING_HANDLING_FEE,
   DAY_DELIVERY_FEE,
   NIGHT_DELIVERY_FEE,
+  ORIGINAL_DELIVERY_FEE,
+  LAUNCH_OFFER_DELIVERY_FEE,
   isNightDeliveryTime,
 } from '../utils/delivery';
 import { useAuth } from '../context/AuthContext';
@@ -362,14 +365,12 @@ export default function CheckoutForm({
         );
 
   // 3. Pricing & Delivery Display & Dynamic Free Handling & Free Delivery thresholds:
-  // - Day Hours (06:00 AM to 07:59 PM): Base Delivery ₹15, Handling ₹9
-  // - Night Hours (08:00 PM to 05:59 AM): Base Delivery ₹30, Handling ₹9
+  // - 1-Month Launch Offer Delivery: Standard ₹30 discounted by 50% to ₹15 flat
   // - Subtotal >= ₹500: Delivery Fee = ₹0 (FREE), Handling Fee = ₹0 (FREE)
-  // - Subtotal >= ₹200: Handling Fee = ₹0 (FREE), Delivery Fee = baseDelivery (₹15 or ₹30)
-  // - Subtotal < ₹200: Full charges apply: baseDelivery + ₹9 handling
-  const currentHour = new Date().getHours();
-  const isNight = currentHour >= 20 || currentHour < 6;
-  const baseDelivery = isNight ? NIGHT_DELIVERY_FEE : DAY_DELIVERY_FEE;
+  // - Subtotal >= ₹200: Handling Fee = ₹0 (FREE), Delivery Fee = ₹15
+  // - Subtotal < ₹200: Delivery Fee = ₹15, Handling Fee = ₹9
+  const originalDelivery = ORIGINAL_DELIVERY_FEE;
+  const baseDelivery = LAUNCH_OFFER_DELIVERY_FEE;
   const baseHandling = PACKAGING_HANDLING_FEE;
 
   const subtotalAmount = Number(productPrice);
@@ -1253,28 +1254,16 @@ export default function CheckoutForm({
 
         {/* 3. Pricing & Delivery Display */}
         <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/80 text-xs space-y-2.5">
-          {/* Day / Night Delivery Badge */}
-          {isNight ? (
-            <div className="p-2.5 rounded-xl bg-indigo-950/5 border border-indigo-200 text-indigo-950 font-bold flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5">
-                <Moon className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span className="font-extrabold">🌙 Night Delivery (₹30)</span>
-              </div>
-              <span className="text-[10px] text-indigo-800 bg-indigo-100/80 px-2 py-0.5 rounded-md font-extrabold border border-indigo-200 shrink-0 uppercase">
-                {isFreeDeliveryQualified ? 'WAIVED (FREE)' : '8:00 PM - 5:59 AM'}
-              </span>
+          {/* Promotional 50% Launch Offer Badge */}
+          <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 font-bold flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-emerald-600 shrink-0 fill-emerald-600" />
+              <span className="font-extrabold text-emerald-950">⚡ 50% OFF Launch Offer</span>
             </div>
-          ) : (
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-300 text-amber-950 font-bold flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>☀️ Day Delivery (₹15)</span>
-              </div>
-              <span className="text-[10px] text-amber-900 bg-white/90 px-2 py-0.5 rounded-md font-extrabold border border-amber-300 shrink-0 uppercase">
-                {isFreeDeliveryQualified ? 'WAIVED (FREE)' : '6:00 AM - 7:59 PM'}
-              </span>
-            </div>
-          )}
+            <span className="text-[10px] text-emerald-800 bg-white px-2 py-0.5 rounded-md font-extrabold border border-emerald-300 shrink-0 uppercase">
+              {isFreeDeliveryQualified ? 'WAIVED (FREE)' : '₹15 FLAT DELIVERY'}
+            </span>
+          </div>
 
           <div className="flex items-center justify-between text-[11px] font-bold text-neutral-500 uppercase tracking-wider pb-1 border-b border-neutral-200/60 pt-1">
             <span>Order Summary ({cartItems.reduce((acc, it) => acc + (it.quantity || 1), 0)} items)</span>
@@ -1287,33 +1276,32 @@ export default function CheckoutForm({
               <span className="font-semibold text-neutral-900">₹{subtotalAmount}</span>
             </div>
 
-            {/* Delivery fee with Day / Night label and FREE in green text */}
+            {/* Delivery fee with 50% Launch Offer breakdown and strikethrough */}
             <div className="flex justify-between items-center">
               <span className="flex items-center gap-1.5">
                 <span>Runner Delivery Fee</span>
-                {isNight ? (
-                  <span className="text-[10px] text-indigo-800 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded font-extrabold">
-                    🌙 Night
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-extrabold">
-                    ☀️ Day
-                  </span>
-                )}
-                {isFreeDeliveryQualified && (
+                {isFreeDeliveryQualified ? (
                   <span className="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded font-extrabold uppercase">
                     FREE
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">
+                    50% Launch Offer
                   </span>
                 )}
               </span>
               <span className="font-semibold text-neutral-900 flex items-center gap-1.5">
                 {isFreeDeliveryQualified ? (
                   <>
-                    <span className="line-through text-neutral-400 font-normal text-xs">₹{baseDelivery}</span>
+                    <span className="line-through text-neutral-400 font-normal text-xs">₹{originalDelivery}</span>
                     <span className="text-emerald-600 font-bold">FREE</span>
                   </>
                 ) : (
-                  <span className="text-neutral-900 font-extrabold text-sm">₹{deliveryCharge}</span>
+                  <>
+                    <span className="line-through text-neutral-400 font-normal text-xs">₹{originalDelivery}</span>
+                    <span className="text-neutral-900 font-extrabold text-sm">₹{deliveryCharge}</span>
+                    <span className="text-[10px] text-emerald-600 font-bold hidden sm:inline">(50% Launch Offer)</span>
+                  </>
                 )}
               </span>
             </div>
@@ -1354,7 +1342,7 @@ export default function CheckoutForm({
               <div className="p-2 rounded-xl bg-blue-50 border border-blue-200/80 text-[11px] text-blue-900 flex items-center gap-1.5 font-medium">
                 <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                 <span>
-                  Add items worth <strong>₹{500 - subtotalAmount}</strong> more to unlock <strong>FREE Delivery ({isNight ? '₹30' : '₹15'})!</strong>
+                  Add items worth <strong>₹{500 - subtotalAmount}</strong> more to unlock <strong>FREE Delivery (save ₹15)!</strong>
                 </span>
               </div>
             )}
