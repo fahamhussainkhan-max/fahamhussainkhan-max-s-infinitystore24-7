@@ -14,25 +14,37 @@ import {
   EyeOff,
   Radio,
 } from 'lucide-react';
-import { supabase, SUPABASE_URL } from '../../lib/supabase';
+import { supabase, SUPABASE_URL, invokeAdminAction } from '../../lib/supabase';
+import { getCooldownRemainingSeconds, recordCooldownAction } from '../../utils/security';
 
 interface AdminLoginProps {
   onSuccess: (user: { email: string; role: string; name: string }) => void;
 }
 
+const ALLOWED_STAFF_ROLES = new Set(['staff', 'admin', 'super_admin']);
+
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [honeypot, setHoneypot] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [successInfo, setSuccessInfo] = useState<string | null>(null);
+  const [failedCount, setFailedCount] = useState(0);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    setSuccessInfo(null);
+
+    if (honeypot.trim()) {
+      return;
+    }
+
+    const remaining = getCooldownRemainingSeconds('admin_login_lock', 30000);
+    if (remaining > 0) {
+      setErrorMessage(`Too many failed attempts. Please wait ${remaining}s before trying again.`);
+      return;
+    }
 
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !password) {
@@ -42,101 +54,89 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
 
     setLoading(true);
     try {
-      if (mode === 'signin') {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: password,
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
 
-        if (error) {
-          throw error;
+      if (error || !data.user || !data.session?.access_token) {
+        throw error || new Error('Invalid staff credentials.');
+      }
+
+      // Verify staff authorization server-side first via /api/admin-action
+      const apiRes = await invokeAdminAction<{
+        authorized?: boolean;
+        user?: { email: string; role: string; name: string };
+      }>('verify_admin', {}, data.session.access_token);
+
+      let resolvedUser: { email: string; role: string; name: string } | null = null;
+
+      if (apiRes.ok && apiRes.data?.authorized && apiRes.data.user) {
+        resolvedUser = {
+          email: apiRes.data.user.email || cleanEmail,
+          role: apiRes.data.user.role,
+          name: apiRes.data.user.name || cleanEmail.split('@')[0],
+        };
+      } else if (apiRes.endpointMissing) {
+        // Local Vite dev fallback: verify role strictly against admin_users or user_roles table
+        let verifiedRole = '';
+        let verifiedName = data.user.user_metadata?.full_name || cleanEmail.split('@')[0];
+
+        const { data: adminRow } = await supabase
+          .from('admin_users')
+          .select('role, is_active, full_name')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+
+        if (adminRow && adminRow.is_active !== false && ALLOWED_STAFF_ROLES.has(String(adminRow.role))) {
+          verifiedRole = String(adminRow.role);
+          if (adminRow.full_name) verifiedName = String(adminRow.full_name);
+        } else {
+          const { data: roleRow } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', data.user.id)
+            .maybeSingle();
+
+          if (roleRow?.role && ALLOWED_STAFF_ROLES.has(String(roleRow.role))) {
+            verifiedRole = String(roleRow.role);
+          }
         }
 
-        if (data.user) {
-          // Check role from public.user_roles, profile, or metadata
-          const userMeta = data.user.user_metadata || {};
-          let resolvedRole = userMeta.role;
-
-          try {
-            const { data: roleRow } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', data.user.id)
-              .maybeSingle();
-
-            if (roleRow?.role) {
-              resolvedRole = roleRow.role;
-            }
-          } catch (roleErr) {
-            console.warn('Role query notice:', roleErr);
-          }
-
-          if (!resolvedRole) {
-            if (cleanEmail === 'fahamhussainkhan@gmail.com') {
-              resolvedRole = 'super_admin';
-            } else if (cleanEmail.includes('admin')) {
-              resolvedRole = 'admin';
-            } else {
-              resolvedRole = 'staff';
-            }
-          }
-
-          const staffUser = {
+        if (verifiedRole) {
+          resolvedUser = {
             email: data.user.email || cleanEmail,
-            role: resolvedRole,
-            name: userMeta.full_name || (cleanEmail === 'fahamhussainkhan@gmail.com' ? 'Faham (Super Admin)' : cleanEmail.split('@')[0]),
+            role: verifiedRole,
+            name: verifiedName,
           };
-          localStorage.setItem('infinity_staff_session', JSON.stringify(staffUser));
-          localStorage.setItem('infinity_admin_logged_in', 'true');
-          localStorage.setItem('infinity_admin_email', cleanEmail);
-          onSuccess(staffUser);
-        }
-      } else {
-        // Sign up for staff account
-        const isSuperAdminEmail = cleanEmail === 'fahamhussainkhan@gmail.com';
-        const initialRole = isSuperAdminEmail ? 'super_admin' : 'staff';
-        const { data, error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: password,
-          options: {
-            data: {
-              role: initialRole,
-              full_name: isSuperAdminEmail ? 'Faham (Super Admin)' : cleanEmail.split('@')[0],
-            },
-          },
-        });
-
-        if (error) throw error;
-
-        if (data.user) {
-          // If public.user_roles table exists, try inserting role
-          try {
-            await supabase.from('user_roles').insert([
-              { user_id: data.user.id, role: initialRole }
-            ]);
-          } catch (roleInsertErr) {
-            console.warn('user_roles insert note:', roleInsertErr);
-          }
-
-          setSuccessInfo('Account created! You are now authenticated.');
-          const staffUser = {
-            email: data.user.email || cleanEmail,
-            role: initialRole,
-            name: isSuperAdminEmail ? 'Faham (Super Admin)' : cleanEmail.split('@')[0],
-          };
-          localStorage.setItem('infinity_staff_session', JSON.stringify(staffUser));
-          setTimeout(() => onSuccess(staffUser), 1000);
         }
       }
+
+      if (!resolvedUser || !ALLOWED_STAFF_ROLES.has(resolvedUser.role)) {
+        await supabase.auth.signOut().catch(() => {});
+        throw new Error('Access denied: This account does not have Infinity Operations staff privileges.');
+      }
+
+      setFailedCount(0);
+      localStorage.setItem('infinity_staff_session', JSON.stringify(resolvedUser));
+      onSuccess(resolvedUser);
     } catch (err: any) {
-      console.warn('Auth notice:', err);
+      const nextFailures = failedCount + 1;
+      setFailedCount(nextFailures);
+      if (nextFailures >= 3) {
+        recordCooldownAction('admin_login_lock');
+      }
       setErrorMessage(
-        err.message || 'Authentication failed. Please verify your credentials.'
+        err?.message || 'Authentication failed. Please verify your credentials.'
       );
     } finally {
       setLoading(false);
     }
   };
+
+  const projectSlug = SUPABASE_URL
+    ? SUPABASE_URL.replace(/^https?:\/\//, '').split('.')[0]
+    : 'Offline / Env Pending';
 
   return (
     <div className="min-h-screen bg-[#0B0F17] flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans select-none">
@@ -176,16 +176,19 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
           </div>
         )}
 
-        {/* Success Alert */}
-        {successInfo && (
-          <div className="mb-5 p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-xs flex items-center gap-2.5">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-            <div className="flex-1 font-medium">{successInfo}</div>
-          </div>
-        )}
-
         {/* Form */}
         <form onSubmit={handleAuthSubmit} className="space-y-4">
+          <input
+            type="text"
+            name="company_website"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            className="hidden"
+          />
+
           <div>
             <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
               Staff Email
@@ -236,7 +239,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
               <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <span>{mode === 'signin' ? 'Sign In to Dashboard' : 'Register Staff Account'}</span>
+                <span>Sign In to Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -247,7 +250,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
       {/* Database indicator */}
       <div className="mt-6 text-center text-xs text-gray-500 flex items-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-        <span>Supabase Project: {SUPABASE_URL.replace('https://', '').split('.')[0]}</span>
+        <span>Supabase Project: {projectSlug}</span>
       </div>
     </div>
   );

@@ -94,7 +94,10 @@ export const OrderDispatchTracker: React.FC<OrderDispatchTrackerProps> = ({
             <span className="text-xs font-black uppercase tracking-wider text-gray-900 font-display">
               Live Dispatch Timeline
             </span>
-            <span className="text-[10px] font-mono font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md">
+            <span
+              data-selectable="true"
+              className="text-[10px] font-mono font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md select-text cursor-text"
+            >
               #{orderId}
             </span>
           </div>

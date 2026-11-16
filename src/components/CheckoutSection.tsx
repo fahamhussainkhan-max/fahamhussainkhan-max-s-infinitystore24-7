@@ -10,6 +10,13 @@ import {
   LAUNCH_OFFER_DELIVERY_FEE,
   isNightDeliveryTime,
 } from '../utils/delivery';
+import {
+  sanitizeTextInput,
+  normalizeIndianPhone,
+  isValidIndianPhone,
+  getCooldownRemainingSeconds,
+  recordCooldownAction,
+} from '../utils/security';
 
 export interface CartItem {
   id: string;
@@ -29,8 +36,20 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('');
+  const [honeypot, setHoneypot] = useState('');
+  const [cooldownSeconds, setCooldownSeconds] = useState<number>(() =>
+    getCooldownRemainingSeconds('checkout_section_submit', 30000)
+  );
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  React.useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSeconds(getCooldownRemainingSeconds('checkout_section_submit', 30000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
 
   // 1-Month Launch Offer Delivery Rules:
   // - Flat 50% discount on base delivery fee: ₹30 discounted to ₹15 flat
@@ -68,6 +87,17 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
     e.preventDefault();
     setErrorMsg('');
 
+    if (honeypot.trim()) {
+      return;
+    }
+
+    const remaining = getCooldownRemainingSeconds('checkout_section_submit', 30000);
+    if (remaining > 0) {
+      setCooldownSeconds(remaining);
+      setErrorMsg(`Please wait ${remaining}s before placing another order.`);
+      return;
+    }
+
     if (!isStoreOpen) {
       setErrorMsg('Store is closed right now.');
       return;
@@ -78,13 +108,20 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
       return;
     }
 
-    const cleanPhone = phone.trim().replace(/\D/g, '');
-    if (cleanPhone.length !== 10) {
-      setErrorMsg('Please enter a valid 10-digit mobile number.');
+    const cleanName = sanitizeTextInput(name, 100);
+    if (cleanName.length < 2) {
+      setErrorMsg('Please enter your Full Name (minimum 2 characters).');
       return;
     }
 
-    if (!location.trim()) {
+    const cleanPhone = normalizeIndianPhone(phone);
+    if (!isValidIndianPhone(cleanPhone)) {
+      setErrorMsg('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+
+    const cleanLocation = sanitizeTextInput(location, 120);
+    if (cleanLocation.length < 2) {
       setErrorMsg('Please enter your Room / Hostel / Delivery Spot.');
       return;
     }
@@ -103,8 +140,8 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
       const itemsJSON = cart.map(item => ({
         id: item.id || 'item',
         product_id: item.id || 'item',
-        name: item.name || 'Campus Item',
-        title: item.name || 'Campus Item',
+        name: sanitizeTextInput(item.name || 'Campus Item', 120),
+        title: sanitizeTextInput(item.name || 'Campus Item', 120),
         price: Number(item.price || 0),
         unit_price: Number(item.price || 0),
         quantity: Number(item.quantity || 1),
@@ -113,9 +150,9 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
       }));
 
       const deliveryAddress = {
-        fullName: name.trim() || 'Campus Student',
+        fullName: cleanName,
         phone: cleanPhone,
-        area: location.trim() || 'Campus',
+        area: cleanLocation,
       };
 
       // Pass exact delivery_fee, handling_fee, subtotal, and total in the Supabase payload:
@@ -126,13 +163,13 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         delivery_fee: currentDeliveryFee,
         handling_fee: currentHandlingFee,
         items: itemsJSON || [],
-        customer_name: name.trim() || 'Campus Student',
+        customer_name: cleanName,
         customer_phone: cleanPhone,
         delivery_address: deliveryAddress,
         status: 'pending',
         payment_method: 'COD',
-        delivery_zone: location.trim() || 'Campus',
-        campus_location: location.trim() || 'Campus',
+        delivery_zone: cleanLocation,
+        campus_location: cleanLocation,
         delivery_note: '',
         is_whatsapp_verified: true,
       };
@@ -224,6 +261,8 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
         supabase.from('order_items').insert(itemsPayload).then(() => {}, () => {});
       }
 
+      recordCooldownAction('checkout_section_submit');
+      setCooldownSeconds(30);
       onSuccess(createdOrderId);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to place order.');
@@ -234,6 +273,16 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
 
   return (
     <form onSubmit={handlePlaceOrder} className="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-white max-w-md mx-auto shadow-2xl">
+      <input
+        type="text"
+        name="company_website"
+        value={honeypot}
+        onChange={(e) => setHoneypot(e.target.value)}
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        className="hidden"
+      />
       <h3 className="text-lg font-bold mb-4 font-display">Checkout & Delivery</h3>
 
       {errorMsg && (
@@ -344,10 +393,16 @@ export const CheckoutSection: React.FC<CheckoutProps> = ({ cart, isStoreOpen, on
 
       <button
         type="submit"
-        disabled={loading || !isStoreOpen}
+        disabled={loading || !isStoreOpen || cooldownSeconds > 0}
         className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold py-2.5 rounded-xl text-sm transition cursor-pointer disabled:cursor-not-allowed shadow-lg active:scale-[0.99]"
       >
-        {loading ? 'Placing Order...' : !isStoreOpen ? 'Store is Closed' : `Place COD Order • ₹${totalAmount}`}
+        {loading
+          ? 'Placing Order...'
+          : !isStoreOpen
+          ? 'Store is Closed'
+          : cooldownSeconds > 0
+          ? `Please wait ${cooldownSeconds}s...`
+          : `Place COD Order • ₹${totalAmount}`}
       </button>
     </form>
   );

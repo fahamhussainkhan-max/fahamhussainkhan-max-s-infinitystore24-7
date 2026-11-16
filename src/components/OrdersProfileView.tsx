@@ -17,7 +17,8 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { AdminOrder, CampusZone } from '../types';
-import { fetchOrders, supabase } from '../lib/supabase';
+import { fetchMyRecentOrders, lookupCustomerOrderSecure, supabase } from '../lib/supabase';
+import { sanitizeTextInput, normalizeIndianPhone, isValidIndianPhone } from '../utils/security';
 import { useAuth } from '../context/AuthContext';
 import { OrderDispatchTracker } from './OrderDispatchTracker';
 import { OrderTrackingTimeline } from './OrderTrackingTimeline';
@@ -120,18 +121,22 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
 
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Orders state
+  // Orders state (strictly scoped to current student's orders + verified Order ID/Phone lookup)
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [lookupOrderId, setLookupOrderId] = useState('');
+  const [lookupPhone, setLookupPhone] = useState(() => normalizeIndianPhone(profile.phone || ''));
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
-  // Load orders
+  // Load current student's recent orders
   const loadOrders = async () => {
     setLoadingOrders(true);
     try {
-      const data = await fetchOrders();
+      const data = await fetchMyRecentOrders();
       setOrders(data);
-    } catch (e) {
-      console.warn('Orders fetch error:', e);
+    } catch {
+      // Handled gracefully
     } finally {
       setLoadingOrders(false);
     }
@@ -139,23 +144,35 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
 
   useEffect(() => {
     loadOrders();
-
-    // Listen to live order updates via Supabase Realtime
-    const channel = supabase
-      .channel('public:orders:profile-tracker')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        () => {
-          loadOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
+
+  const handleLookupOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLookupError(null);
+    const cleanId = sanitizeTextInput(lookupOrderId, 80);
+    const cleanPhone = normalizeIndianPhone(lookupPhone);
+    if (!cleanId) {
+      setLookupError('Please enter your Order ID.');
+      return;
+    }
+    if (!isValidIndianPhone(cleanPhone)) {
+      setLookupError('Please enter the 10-digit Indian phone number used on that order.');
+      return;
+    }
+
+    setLookupLoading(true);
+    try {
+      const found = await lookupCustomerOrderSecure(cleanId, cleanPhone);
+      if (!found) {
+        setLookupError('No order matched that ID and phone number.');
+        return;
+      }
+      setOrders((prev) => [found, ...prev.filter((o) => o.id !== found.id)]);
+      setSelectedOrderForTracking(found);
+    } finally {
+      setLookupLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -201,18 +218,33 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanPhone = profile.phone.replace(/\D/g, '');
+    const cleanPhone = normalizeIndianPhone(profile.phone);
+    const cleanName = sanitizeTextInput(profile.fullName, 100);
+    const cleanRoom = sanitizeTextInput(profile.roomNo, 120);
+    const cleanHostel = sanitizeTextInput(profile.hostel, 120);
+    const cleanNotes = sanitizeTextInput(profile.notes, 240);
+
+    const sanitizedProfile = {
+      ...profile,
+      fullName: cleanName,
+      phone: cleanPhone,
+      hostel: cleanHostel,
+      roomNo: cleanRoom,
+      notes: cleanNotes,
+    };
+    setProfile(sanitizedProfile);
+
     try {
-      if (profile.fullName) localStorage.setItem('infinity_user_name', profile.fullName.trim());
+      if (cleanName) localStorage.setItem('infinity_user_name', cleanName);
       if (cleanPhone) localStorage.setItem('infinity_user_phone', cleanPhone);
-      if (profile.roomNo) localStorage.setItem('infinity_user_room', profile.roomNo.trim());
-      if (cleanPhone.length === 10 && profile.fullName.trim()) {
+      if (cleanRoom) localStorage.setItem('infinity_user_room', cleanRoom);
+      if (cleanPhone.length === 10 && cleanName) {
         localStorage.setItem('infinity_user_verified', 'true');
       }
     } catch {}
 
     const userId = authUser?.id || (cleanPhone ? `student-${cleanPhone}` : 'usr-student-local');
-    await saveProfileToSupabaseAndLocal(userId, profile);
+    await saveProfileToSupabaseAndLocal(userId, sanitizedProfile);
     setSaveSuccess(true);
     onToastMessage('Delivery address saved! Pre-filled for 1-click checkout.');
     setTimeout(() => setSaveSuccess(false), 3000);
@@ -627,6 +659,44 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
             </div>
           </div>
 
+          {/* Secure Order ID + Phone Verification Lookup */}
+          <form
+            onSubmit={handleLookupOrder}
+            className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs space-y-2.5"
+          >
+            <div className="text-xs font-bold text-gray-800">
+              Track Order by Order ID & Registered Phone
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+              <input
+                type="text"
+                value={lookupOrderId}
+                onChange={(e) => setLookupOrderId(e.target.value)}
+                placeholder="Order ID (e.g. INF-...)"
+                className="sm:col-span-5 px-3 py-2 rounded-xl bg-[#FAFAF7] border border-gray-200 text-xs font-semibold focus:outline-none focus:border-[#0A84FF]"
+              />
+              <input
+                type="tel"
+                maxLength={10}
+                inputMode="numeric"
+                value={lookupPhone}
+                onChange={(e) => setLookupPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="10-digit WhatsApp number"
+                className="sm:col-span-4 px-3 py-2 rounded-xl bg-[#FAFAF7] border border-gray-200 text-xs font-semibold focus:outline-none focus:border-[#0A84FF]"
+              />
+              <button
+                type="submit"
+                disabled={lookupLoading}
+                className="sm:col-span-3 px-4 py-2 rounded-xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {lookupLoading ? 'Locating...' : 'Track Order'}
+              </button>
+            </div>
+            {lookupError && (
+              <p className="text-xs font-semibold text-red-600">{lookupError}</p>
+            )}
+          </form>
+
           {loadingOrders ? (
             <div className="py-16 text-center text-gray-400">
               <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#0A84FF]" />
@@ -642,7 +712,10 @@ export const OrdersProfileView: React.FC<OrdersProfileViewProps> = ({
                   <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-100">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-sm text-gray-900">
+                        <span
+                          data-selectable="true"
+                          className="font-extrabold text-sm text-gray-900 font-mono select-text cursor-text"
+                        >
                           {order.order_number || order.id}
                         </span>
                         {getStatusBadge(order.status)}

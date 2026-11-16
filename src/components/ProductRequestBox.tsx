@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PackagePlus, CheckCircle2, ArrowRight, Sparkles, Building, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import {
+  sanitizeTextInput,
+  getCooldownRemainingSeconds,
+  recordCooldownAction,
+} from '../utils/security';
 
 interface ProductRequestBoxProps {
   onToastMessage?: (msg: string) => void;
@@ -10,15 +15,39 @@ interface ProductRequestBoxProps {
 export const ProductRequestBox: React.FC<ProductRequestBoxProps> = ({ onToastMessage }) => {
   const [productName, setProductName] = useState('');
   const [roomDetails, setRoomDetails] = useState('');
+  const [honeypot, setHoneypot] = useState('');
+  const [cooldownSeconds, setCooldownSeconds] = useState(() =>
+    getCooldownRemainingSeconds('product_request_submit', 30000)
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [validationError, setValidationError] = useState('');
 
+  React.useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSeconds(getCooldownRemainingSeconds('product_request_submit', 30000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedName = productName.trim();
+    if (honeypot.trim()) {
+      return;
+    }
 
-    if (!trimmedName) {
+    const remaining = getCooldownRemainingSeconds('product_request_submit', 30000);
+    if (remaining > 0) {
+      setCooldownSeconds(remaining);
+      setValidationError(`Please wait ${remaining}s before submitting another request.`);
+      return;
+    }
+
+    const trimmedName = sanitizeTextInput(productName, 160);
+    const trimmedRoom = sanitizeTextInput(roomDetails, 120);
+
+    if (!trimmedName || trimmedName.length < 2) {
       setValidationError('Please enter the product name or brand you need.');
       return;
     }
@@ -28,34 +57,31 @@ export const ProductRequestBox: React.FC<ProductRequestBoxProps> = ({ onToastMes
 
     const requestPayload = {
       product_name: trimmedName,
-      room_details: roomDetails.trim(),
+      room_details: trimmedRoom,
     };
 
     try {
       // 2. Submit directly to 'product_requests' (fields: product_name, room_details)
-      const { error } = await supabase
+      await supabase
         .from('product_requests')
         .insert([requestPayload]);
-
-      if (error) {
-        console.warn('Supabase product_requests notice:', error.message);
-      }
 
       // Safe local persistence fallback
       try {
         const stored = JSON.parse(localStorage.getItem('campus_product_requests') || '[]');
         stored.unshift({ ...requestPayload, created_at: new Date().toISOString() });
         localStorage.setItem('campus_product_requests', JSON.stringify(stored));
-      } catch (localErr) {
-        console.warn('Local storage write note:', localErr);
+      } catch {
+        // Non-blocking
       }
 
+      recordCooldownAction('product_request_submit');
+      setCooldownSeconds(30);
       setIsSubmitted(true);
       if (onToastMessage) {
         onToastMessage('✓ Request received! We will try to stock this ASAP.');
       }
-    } catch (err) {
-      console.warn('Network error handling product request:', err);
+    } catch {
       try {
         const stored = JSON.parse(localStorage.getItem('campus_product_requests') || '[]');
         stored.unshift({ ...requestPayload, created_at: new Date().toISOString() });
@@ -145,6 +171,16 @@ export const ProductRequestBox: React.FC<ProductRequestBoxProps> = ({ onToastMes
                 exit={{ opacity: 0 }}
                 className="space-y-4"
               >
+                <input
+                  type="text"
+                  name="company_website"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  className="hidden"
+                />
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
                   {/* Product Name / Description input */}
                   <div className="md:col-span-7">
@@ -212,9 +248,9 @@ export const ProductRequestBox: React.FC<ProductRequestBoxProps> = ({ onToastMes
                   <motion.button
                     id="request-item-submit-btn"
                     type="submit"
-                    disabled={isSubmitting}
-                    whileHover={{ scale: isSubmitting ? 1 : 1.02, y: isSubmitting ? 0 : -1 }}
-                    whileTap={{ scale: isSubmitting ? 1 : 0.96 }}
+                    disabled={isSubmitting || cooldownSeconds > 0}
+                    whileHover={{ scale: isSubmitting || cooldownSeconds > 0 ? 1 : 1.02, y: isSubmitting || cooldownSeconds > 0 ? 0 : -1 }}
+                    whileTap={{ scale: isSubmitting || cooldownSeconds > 0 ? 1 : 0.96 }}
                     transition={{ type: 'spring', stiffness: 450, damping: 22 }}
                     className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#111111] hover:bg-black text-white font-black text-sm tracking-wide shadow-md shadow-black/15 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-all touch-manipulation w-full sm:w-auto min-h-[48px]"
                   >
@@ -223,6 +259,8 @@ export const ProductRequestBox: React.FC<ProductRequestBoxProps> = ({ onToastMes
                         <Loader2 className="w-4 h-4 animate-spin text-white" />
                         <span>Submitting...</span>
                       </>
+                    ) : cooldownSeconds > 0 ? (
+                      <span>Please wait {cooldownSeconds}s...</span>
                     ) : (
                       <>
                         <span>Request Item</span>

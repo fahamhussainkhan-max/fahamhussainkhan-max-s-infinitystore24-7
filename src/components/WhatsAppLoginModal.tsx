@@ -3,6 +3,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, ShieldCheck, CheckCircle2, MessageCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import {
+  sanitizeTextInput,
+  normalizeIndianPhone,
+  isValidIndianPhone,
+  getCooldownRemainingSeconds,
+  recordCooldownAction,
+} from '../utils/security';
 
 interface WhatsAppLoginModalProps {
   isOpen: boolean;
@@ -40,8 +47,20 @@ export const WhatsAppLoginModal: React.FC<WhatsAppLoginModalProps> = ({
       return '';
     }
   });
+  const [honeypot, setHoneypot] = useState('');
+  const [cooldownSeconds, setCooldownSeconds] = useState(() =>
+    getCooldownRemainingSeconds('whatsapp_login_verify', 30000)
+  );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSeconds(getCooldownRemainingSeconds('whatsapp_login_verify', 30000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
 
   // Auto-dismiss if already verified and open
   React.useEffect(() => {
@@ -57,25 +76,37 @@ export const WhatsAppLoginModal: React.FC<WhatsAppLoginModalProps> = ({
     e.preventDefault();
     setErrorMsg(null);
 
-    const trimmedName = fullName.trim();
+    if (honeypot.trim()) {
+      return;
+    }
+
+    const remaining = getCooldownRemainingSeconds('whatsapp_login_verify', 30000);
+    if (remaining > 0) {
+      setCooldownSeconds(remaining);
+      setErrorMsg(`Please wait ${remaining}s before requesting another WhatsApp verification.`);
+      return;
+    }
+
+    const trimmedName = sanitizeTextInput(fullName, 100);
     if (!trimmedName || trimmedName.length < 2) {
       setErrorMsg('Please enter your full name (minimum 2 characters).');
       return;
     }
 
-    const rawDigits = phone.replace(/\D/g, '');
-    const cleanPhone = rawDigits.length > 10 ? rawDigits.slice(-10) : rawDigits;
-    const indianPhoneRegex = /^[6-9]\d{9}$/;
-    if (!indianPhoneRegex.test(cleanPhone)) {
+    const cleanPhone = normalizeIndianPhone(phone);
+    if (!isValidIndianPhone(cleanPhone)) {
       setErrorMsg('Please enter a valid 10-digit Indian WhatsApp mobile number.');
       return;
     }
+
+    const trimmedRoom = sanitizeTextInput(roomNo, 120);
+    const cleanHostel = sanitizeTextInput(campusHostel, 120) || 'CCCT — Academic Complex & Admin';
 
     setIsSubmitting(true);
 
     try {
       // 1. Perform WhatsApp login verification via AuthContext
-      await verifyAndLoginWithWhatsApp(trimmedName, cleanPhone, roomNo.trim(), campusHostel);
+      await verifyAndLoginWithWhatsApp(trimmedName, cleanPhone, trimmedRoom, cleanHostel);
 
       // 2. Background sync to Supabase profiles table
       try {
@@ -86,16 +117,16 @@ export const WhatsAppLoginModal: React.FC<WhatsAppLoginModalProps> = ({
               id: studentId,
               full_name: trimmedName,
               phone: cleanPhone,
-              email: `${trimmedName.toLowerCase().replace(/\s+/g, '.')}@campus.infinity.store`,
+              email: `${trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@campus.infinity.store`,
               role: 'student',
-              hostel_block: `${campusHostel} - ${roomNo.trim() || 'Room Pending'}`,
+              hostel_block: `${cleanHostel} - ${trimmedRoom || 'Room Pending'}`,
               created_at: new Date().toISOString(),
             },
           ],
           { onConflict: 'id' }
         );
-      } catch (dbErr) {
-        console.warn('Profiles sync note:', dbErr);
+      } catch {
+        // Non-blocking
       }
 
       // 3. Open WhatsApp verification chat to dispatch desk
@@ -103,11 +134,13 @@ export const WhatsAppLoginModal: React.FC<WhatsAppLoginModalProps> = ({
       const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(waMessage)}`;
       window.open(waUrl, '_blank', 'noopener,noreferrer');
 
+      recordCooldownAction('whatsapp_login_verify');
+      setCooldownSeconds(30);
+
       refreshUser();
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
-      console.error('WhatsApp login error:', err);
       setErrorMsg(err?.message || 'Failed to complete WhatsApp verification. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -172,6 +205,16 @@ export const WhatsAppLoginModal: React.FC<WhatsAppLoginModalProps> = ({
 
           {/* Form */}
           <form onSubmit={handleWhatsAppVerifyAndLogin} className="space-y-3.5">
+            <input
+              type="text"
+              name="company_website"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              className="hidden"
+            />
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
                 Full Name <span className="text-red-500">*</span>
@@ -242,14 +285,16 @@ export const WhatsAppLoginModal: React.FC<WhatsAppLoginModalProps> = ({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full mt-2 py-3 px-4 bg-[#25D366] hover:bg-[#20ba5a] active:scale-98 text-white text-xs sm:text-sm font-black rounded-2xl transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              disabled={isSubmitting || cooldownSeconds > 0}
+              className="w-full mt-2 py-3 px-4 bg-[#25D366] hover:bg-[#20ba5a] active:scale-98 text-white text-xs sm:text-sm font-black rounded-2xl transition shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-white" />
                   <span>Verifying via WhatsApp...</span>
                 </>
+              ) : cooldownSeconds > 0 ? (
+                <span>Please wait {cooldownSeconds}s...</span>
               ) : (
                 <>
                   <MessageCircle className="w-4 h-4 fill-white text-white" />

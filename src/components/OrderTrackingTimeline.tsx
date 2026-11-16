@@ -233,7 +233,10 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
               </div>
 
               <div className="flex items-center gap-2 mt-1.5">
-                <h3 className="text-lg sm:text-xl font-black font-mono tracking-tight text-white">
+                <h3
+                  data-selectable="true"
+                  className="text-lg sm:text-xl font-black font-mono tracking-tight text-white select-text cursor-text"
+                >
                   {currentOrder.order_number || currentOrder.id}
                 </h3>
                 <button

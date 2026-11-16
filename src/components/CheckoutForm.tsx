@@ -29,6 +29,13 @@ import {
 } from '../utils/delivery';
 import { useAuth } from '../context/AuthContext';
 import { AdminOrder } from '../types';
+import {
+  sanitizeTextInput,
+  normalizeIndianPhone,
+  isValidIndianPhone,
+  getCooldownRemainingSeconds,
+  recordCooldownAction,
+} from '../utils/security';
 
 interface CheckoutFormProps {
   cartItems: any[];
@@ -129,7 +136,20 @@ export default function CheckoutForm({
   const [isVerifiedStudent, setIsVerifiedStudent] = useState<boolean>(() => isPhoneVerifiedLocally());
   const [whatsAppTriggered, setWhatsAppTriggered] = useState<boolean>(false);
   const [isEditingDetails, setIsEditingDetails] = useState<boolean>(false);
+  const [honeypot, setHoneypot] = useState<string>('');
+  const [cooldownSeconds, setCooldownSeconds] = useState<number>(() =>
+    getCooldownRemainingSeconds('checkout_submit', 30000)
+  );
   const isSubmittingRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      const rem = getCooldownRemainingSeconds('checkout_submit', 30000);
+      setCooldownSeconds(rem);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
 
   const markPhoneAsVerified = (phoneToVerify: string) => {
     const rawDigits = phoneToVerify.replace(/\D/g, '');
@@ -287,23 +307,29 @@ export default function CheckoutForm({
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleTriggerWhatsAppVerification = () => {
-    const rawDigits = formData.phone.replace(/\D/g, '');
-    const cleanPhone = rawDigits.length > 10 ? rawDigits.slice(-10) : rawDigits;
-    const indianPhoneRegex = /^[6-9]\d{9}$/;
-    if (!indianPhoneRegex.test(cleanPhone)) {
+    if (honeypot.trim()) return;
+    const waCooldown = getCooldownRemainingSeconds('whatsapp_verify', 30000);
+    if (waCooldown > 0) {
+      setErrorMsg(`Please wait ${waCooldown}s before re-opening WhatsApp verification.`);
+      return;
+    }
+
+    const cleanPhone = normalizeIndianPhone(formData.phone);
+    if (!isValidIndianPhone(cleanPhone)) {
       setErrorMsg('Please enter a valid 10-digit Indian WhatsApp mobile number.');
       return;
     }
     setErrorMsg('');
     setWhatsAppTriggered(true);
+    recordCooldownAction('whatsapp_verify');
 
     const waText = encodeURIComponent(`Verify my Infinity Store account for number: ${cleanPhone}`);
     const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${waText}`;
 
     try {
       window.open(waUrl, '_blank', 'noopener,noreferrer');
-    } catch (err) {
-      console.warn('Window open notice:', err);
+    } catch {
+      // Non-blocking
     }
 
     markPhoneAsVerified(cleanPhone);
@@ -520,8 +546,19 @@ export default function CheckoutForm({
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. Immediate Double-Click & In-Flight Lock
+    // 1. Immediate Double-Click & Bot / Rate-Limit Protection
+    if (honeypot.trim()) {
+      return;
+    }
+
     if (isSubmittingRef.current || loading) {
+      return;
+    }
+
+    const remainingCooldown = getCooldownRemainingSeconds('checkout_submit', 30000);
+    if (remainingCooldown > 0) {
+      setCooldownSeconds(remainingCooldown);
+      setErrorMsg(`Please wait ${remainingCooldown}s before placing another order.`);
       return;
     }
 
@@ -549,34 +586,34 @@ export default function CheckoutForm({
     }
 
     // 3. Name Sanitization (minimum 2 chars) - Mandatory
-    const trimmedName = formData.fullName.trim();
+    const trimmedName = sanitizeTextInput(formData.fullName, 100);
     if (!trimmedName || trimmedName.length < 2) {
       setErrorMsg('Please enter your complete Full Name (minimum 2 characters).');
       return;
     }
 
     // 4. Strict 10-digit Indian Mobile Validation (^[6-9]\d{9}$) - Mandatory
-    const rawDigits = formData.phone.replace(/\D/g, '');
-    const cleanPhone = rawDigits.length > 10 ? rawDigits.slice(-10) : rawDigits;
-    const indianPhoneRegex = /^[6-9]\d{9}$/;
-    if (!indianPhoneRegex.test(cleanPhone)) {
+    const cleanPhone = normalizeIndianPhone(formData.phone);
+    if (!isValidIndianPhone(cleanPhone)) {
       setErrorMsg('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
       return;
     }
 
-    // 5. Custom PG / Landmark (Optional text input - defaults cleanly to selected area)
-    const trimmedCustom = customPgName.trim();
+    // 5. Custom PG / Landmark (Sanitized)
+    const trimmedCustom = sanitizeTextInput(customPgName, 120);
+    const cleanArea = sanitizeTextInput(formData.area, 120) || 'CCCT Campus';
 
-    // 6. Room / Flat / Floor Number (Strictly Optional: never block checkout if empty)
-    const trimmedRoom = formData.roomNo.trim();
+    // 6. Room / Flat / Floor Number (Strictly Optional: sanitized, never blocks checkout if empty)
+    const trimmedRoom = sanitizeTextInput(formData.roomNo, 120);
     const roomDetails = trimmedRoom || 'Campus Drop / Handover';
+    const cleanNotes = sanitizeTextInput(formData.notes || '', 240);
 
     // Campus delivery location verification check - Mandatory
     if (!isLocationVerified) {
-      if (!isOutsideBoundary && formData.area && !formData.area.includes('Outside')) {
+      if (!isOutsideBoundary && cleanArea && !cleanArea.includes('Outside')) {
         setLocationVerification({
           status: 'inside',
-          message: `✓ Verified: On-Campus Spot confirmed (${formData.area}).`,
+          message: `✓ Verified: On-Campus Spot confirmed (${cleanArea}).`,
         });
       } else {
         setErrorMsg('Please verify your campus delivery location using GPS or click "Confirm Campus Spot".');
@@ -590,8 +627,8 @@ export default function CheckoutForm({
     setErrorMsg('');
 
     const selectedLocation = isCustomOption
-      ? customPgName.trim() || formData.area
-      : formData.area;
+      ? trimmedCustom || cleanArea
+      : cleanArea;
     const deliveryLocation = `${selectedLocation} - Room: ${roomDetails}`;
 
     // Check verification status BEFORE saving: repeat orders are already verified
@@ -602,8 +639,8 @@ export default function CheckoutForm({
       const waUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${waText}`;
       try {
         window.open(waUrl, '_blank', 'noopener,noreferrer');
-      } catch (waErr) {
-        console.warn('WhatsApp open notice:', waErr);
+      } catch {
+        // Non-blocking
       }
       markPhoneAsVerified(cleanPhone);
     }
@@ -616,7 +653,7 @@ export default function CheckoutForm({
         name: trimmedName,
         phone: cleanPhone,
         location: deliveryLocation,
-        notes: (formData.notes || '').trim(),
+        notes: cleanNotes,
         paymentMethod: 'COD',
       };
 
@@ -864,6 +901,9 @@ export default function CheckoutForm({
         console.warn('Dashboard instant sync notice:', dashErr);
       }
 
+      recordCooldownAction('checkout_submit');
+      setCooldownSeconds(30);
+
       // 6. Complete order, clear cart, and redirect to confirmation screen
       if (onOrderSuccess) {
         onOrderSuccess(finalOrderId, {
@@ -871,7 +911,7 @@ export default function CheckoutForm({
           phone: cleanPhone,
           area: selectedLocation,
           roomNo: roomDetails,
-          notes: formData.notes,
+          notes: checkoutDetails.notes,
         });
       }
     } catch (err: any) {
@@ -974,6 +1014,17 @@ export default function CheckoutForm({
       )}
 
       <form onSubmit={handleSubmitOrder} className="space-y-4">
+        <input
+          type="text"
+          name="company_website"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          className="hidden"
+        />
+
         {/* Full Name */}
         <div>
           <label className="block text-xs sm:text-sm font-bold text-neutral-700 mb-1">
@@ -1427,9 +1478,9 @@ export default function CheckoutForm({
             <button
               type="submit"
               id="place-order-instantly-btn"
-              disabled={!storeOpen || loading}
+              disabled={!storeOpen || loading || cooldownSeconds > 0}
               className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg transition duration-200 text-sm sm:text-base min-h-[48px] ${
-                !storeOpen || loading
+                !storeOpen || loading || cooldownSeconds > 0
                   ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/25 cursor-pointer active:scale-98'
               }`}
@@ -1441,6 +1492,8 @@ export default function CheckoutForm({
                 </>
               ) : !storeOpen ? (
                 <span>Store Closed for Deliveries</span>
+              ) : cooldownSeconds > 0 ? (
+                <span>Please wait {cooldownSeconds}s...</span>
               ) : (
                 <span>🚀 Place Order (COD) • ₹{totalAmount}</span>
               )}
@@ -1449,9 +1502,9 @@ export default function CheckoutForm({
             <button
               type="submit"
               id="verify-whatsapp-order-btn"
-              disabled={!storeOpen || loading}
+              disabled={!storeOpen || loading || cooldownSeconds > 0}
               className={`w-full py-4 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg transition duration-200 text-sm sm:text-base min-h-[48px] ${
-                !storeOpen || loading
+                !storeOpen || loading || cooldownSeconds > 0
                   ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed shadow-none'
                   : 'bg-[#25D366] hover:bg-[#20ba5a] text-white shadow-emerald-500/25 cursor-pointer active:scale-98'
               }`}
@@ -1463,6 +1516,8 @@ export default function CheckoutForm({
                 </>
               ) : !storeOpen ? (
                 <span>Store Closed for Deliveries</span>
+              ) : cooldownSeconds > 0 ? (
+                <span>Please wait {cooldownSeconds}s...</span>
               ) : (
                 <>
                   <MessageCircle className="w-5 h-5 shrink-0" />

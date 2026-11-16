@@ -37,6 +37,7 @@ import { fetchProducts, supabase, mapStorefrontCategory } from './lib/supabase';
 import { detectNearestCampusZone, isInsideDeliveryZone } from './utils/geolocation';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { WhatsAppLoginModal } from './components/WhatsAppLoginModal';
+import { useContentProtection } from './hooks/useContentProtection';
 
 export type NavigationTab = 'home' | 'wishlist' | 'profile';
 
@@ -45,6 +46,8 @@ export type NavigationTab = 'home' | 'wishlist' | 'profile';
  * Clean consumer storefront. The Admin Operations Console is on a separate dedicated URL (/admin.html).
  */
 export default function App() {
+  const { isDevToolsOpen } = useContentProtection({ enableDevToolsDetection: true });
+
   // Ensure the customer storefront clears any stale #admin hash from the browser address bar
   useEffect(() => {
     if (window.location.hash.includes('admin')) {
@@ -52,69 +55,22 @@ export default function App() {
     }
   }, []);
 
-  // Content Protection & Anti-Copy Lock
-  useEffect(() => {
-    // 1. Prevent right-click context menu
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-      return false;
-    };
-
-    // 2. Intercept inspect shortcut keys: F12, Ctrl+U, Ctrl+Shift+I/J/C, Ctrl+S
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-      const modKey = isMac ? e.metaKey : e.ctrlKey;
-
-      // F12 (Developer tools)
-      if (e.key === 'F12' || e.keyCode === 123) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-
-      // Ctrl+U / Cmd+U (View source)
-      if (modKey && (e.key === 'u' || e.key === 'U')) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-
-      // Ctrl+S / Cmd+S (Save page)
-      if (modKey && (e.key === 's' || e.key === 'S')) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-
-      // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (DevTools Inspect)
-      if (modKey && e.shiftKey && ['i', 'I', 'j', 'J', 'c', 'C'].includes(e.key)) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    };
-
-    // 3. Prevent dragging images across storefront
-    const handleDragStart = (e: DragEvent) => {
-      if ((e.target as HTMLElement)?.tagName === 'IMG') {
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener('contextmenu', handleContextMenu);
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('dragstart', handleDragStart);
-
-    return () => {
-      window.removeEventListener('contextmenu', handleContextMenu);
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('dragstart', handleDragStart);
-    };
-  }, []);
-
   return (
     <AuthProvider>
-      <CustomerStorefront />
+      <div className={isDevToolsOpen ? 'filter blur-lg pointer-events-none select-none transition-all duration-200' : ''}>
+        <CustomerStorefront />
+      </div>
+      {isDevToolsOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-md flex items-center justify-center p-6 text-center select-none">
+          <div className="max-w-md bg-[#111111] border border-white/15 rounded-3xl p-6 text-white shadow-2xl space-y-2">
+            <ShieldCheck className="w-10 h-10 text-[#0A84FF] mx-auto" />
+            <h2 className="text-lg font-black font-display">Protected Storefront View</h2>
+            <p className="text-xs text-gray-300 leading-relaxed">
+              Developer inspection tools are restricted on InfinityStore Chisopani. Close DevTools to resume browsing.
+            </p>
+          </div>
+        </div>
+      )}
     </AuthProvider>
   );
 }

@@ -19,8 +19,7 @@ import {
   sortCategoriesInStorefrontOrder,
 } from '../data/mockData';
 
-export const DEFAULT_SUPABASE_URL = 'https://egdbegaujzrzsbbstzsr.supabase.co';
-export const DEFAULT_SUPABASE_KEY = 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
+import { sanitizeTextInput, normalizeIndianPhone } from '../utils/security';
 
 /**
  * Detects whether an API key is a secret or service_role key.
@@ -81,57 +80,49 @@ function resolveSupabaseUrl(): string {
     if (envUrl && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
       const parsed = new URL(envUrl);
       if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        return envUrl;
+        return envUrl.replace(/\/$/, '');
       }
     }
   } catch {}
-  return DEFAULT_SUPABASE_URL;
+  return '';
 }
 
 function resolveSupabaseKey(): string {
-  const envUrl = (import.meta.env?.VITE_SUPABASE_URL as string)?.trim();
-  const envPublishable = (import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY as string)?.trim();
   const envAnon = (import.meta.env?.VITE_SUPABASE_ANON_KEY as string)?.trim();
 
-  // 1. If VITE_SUPABASE_URL was accidentally populated with the publishable key
-  if (envUrl && envUrl.startsWith('sb_publishable_') && !isSecretApiKey(envUrl)) {
-    return envUrl;
-  }
-
-  // 2. Check VITE_SUPABASE_PUBLISHABLE_KEY (if non-secret and valid public key)
-  if (envPublishable && isPublicApiKey(envPublishable)) {
-    return envPublishable;
-  }
-
-  // 3. Check VITE_SUPABASE_ANON_KEY (only if NOT a secret key)
   if (envAnon && isPublicApiKey(envAnon)) {
     return envAnon;
   }
 
-  // If a secret key was passed in client environment variables, warn and never use it in browser fetch
-  if (isSecretApiKey(envAnon) || isSecretApiKey(envPublishable)) {
+  if (isSecretApiKey(envAnon)) {
     console.warn(
-      '[Supabase Security] Secret key detected in client environment variables. ' +
-      'Secret/service_role keys are forbidden in browser fetch functions. ' +
-      'Safely using verified public publishable/anon key.'
+      '[Supabase Security] Secret/service_role keys are strictly forbidden in client env vars.'
     );
   }
 
-  return DEFAULT_SUPABASE_KEY;
+  return '';
 }
 
-// Centralized Supabase credentials and initialized client (strictly public/anon for browser safety)
-export const SUPABASE_URL = resolveSupabaseUrl() || DEFAULT_SUPABASE_URL;
-export const SUPABASE_ANON_KEY = resolveSupabaseKey() || DEFAULT_SUPABASE_KEY;
+// Centralized Supabase credentials (strictly safe public VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY)
+export const SUPABASE_URL = resolveSupabaseUrl();
+export const SUPABASE_ANON_KEY = resolveSupabaseKey();
 export const SUPABASE_PUBLISHABLE_KEY = SUPABASE_ANON_KEY;
 
+export const isSupabaseConfigured = Boolean(
+  SUPABASE_URL &&
+  (SUPABASE_URL.startsWith('http://') || SUPABASE_URL.startsWith('https://')) &&
+  SUPABASE_ANON_KEY &&
+  !isSecretApiKey(SUPABASE_ANON_KEY)
+);
+
 function createResilientSupabaseClient(): SupabaseClient<any, 'public', any> {
-  // Ensure client never uses a secret API key in browser
-  const safeClientKey = isSecretApiKey(SUPABASE_ANON_KEY) ? DEFAULT_SUPABASE_KEY : SUPABASE_ANON_KEY;
   try {
+    if (!isSupabaseConfigured) {
+      throw new Error('Public Supabase client credentials not configured in environment.');
+    }
     return createClient<any, 'public', any>(
       SUPABASE_URL,
-      safeClientKey,
+      SUPABASE_ANON_KEY,
       {
         auth: {
           persistSession: true,
@@ -145,8 +136,7 @@ function createResilientSupabaseClient(): SupabaseClient<any, 'public', any> {
         },
       }
     );
-  } catch (err) {
-    console.warn('[Supabase] Failed to initialize live client, using safe offline client fallback:', err);
+  } catch {
     const noOpBuilder: any = {
       select: () => noOpBuilder,
       insert: () => noOpBuilder,
@@ -154,19 +144,43 @@ function createResilientSupabaseClient(): SupabaseClient<any, 'public', any> {
       delete: () => noOpBuilder,
       upsert: () => noOpBuilder,
       eq: () => noOpBuilder,
+      neq: () => noOpBuilder,
+      in: () => noOpBuilder,
+      gt: () => noOpBuilder,
+      gte: () => noOpBuilder,
+      lt: () => noOpBuilder,
+      lte: () => noOpBuilder,
+      ilike: () => noOpBuilder,
+      like: () => noOpBuilder,
+      is: () => noOpBuilder,
+      match: () => noOpBuilder,
+      range: () => noOpBuilder,
+      or: () => noOpBuilder,
       order: () => noOpBuilder,
       limit: () => noOpBuilder,
       single: async () => ({ data: null, error: new Error('Offline fallback') }),
       maybeSingle: async () => ({ data: null, error: null }),
       then: (resolve: any) => resolve({ data: [], error: null }),
     };
+
+    const createNoOpChannel = () => {
+      const noOpChannel: any = {
+        on: () => noOpChannel,
+        subscribe: () => noOpChannel,
+        unsubscribe: async () => 'ok',
+        send: async () => 'ok',
+        track: async () => 'ok',
+        untrack: async () => 'ok',
+      };
+      return noOpChannel;
+    };
+
     return {
       from: () => noOpBuilder,
-      channel: () => ({
-        on: () => ({ subscribe: () => ({}) }),
-        subscribe: () => ({}),
-      }),
-      removeChannel: () => {},
+      rpc: async () => ({ data: null, error: new Error('Offline fallback') }),
+      channel: () => createNoOpChannel(),
+      removeChannel: async () => 'ok',
+      removeAllChannels: async () => [],
       storage: {
         from: () => ({
           upload: async () => ({ error: new Error('Offline') }),
@@ -175,6 +189,11 @@ function createResilientSupabaseClient(): SupabaseClient<any, 'public', any> {
       },
       auth: {
         getSession: async () => ({ data: { session: null }, error: null }),
+        signInWithPassword: async () => ({
+          data: { user: null, session: null },
+          error: new Error('Supabase Auth is not configured in this environment.'),
+        }),
+        signOut: async () => ({ error: null }),
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       },
     } as any;
@@ -183,11 +202,73 @@ function createResilientSupabaseClient(): SupabaseClient<any, 'public', any> {
 
 export const supabase: SupabaseClient<any, 'public', any> = createResilientSupabaseClient();
 
-export const isSupabaseConfigured = Boolean(
-  SUPABASE_URL &&
-  (SUPABASE_URL.startsWith('http://') || SUPABASE_URL.startsWith('https://')) &&
-  SUPABASE_ANON_KEY
-);
+/**
+ * Helper to invoke privileged server-side Vercel serverless route /api/admin-action
+ * using the current authenticated admin's Supabase JWT Bearer token.
+ */
+export async function invokeAdminAction<T = any>(
+  action: string,
+  payload: Record<string, any> = {},
+  explicitAccessToken?: string
+): Promise<{ ok: boolean; status: number; data: T | null; error?: string; endpointMissing?: boolean }> {
+  try {
+    let token = explicitAccessToken || '';
+    if (!token) {
+      const { data } = await supabase.auth.getSession();
+      token = data?.session?.access_token || '';
+    }
+    if (!token) {
+      return { ok: false, status: 401, data: null, error: 'Admin session token required.' };
+    }
+
+    const res = await fetch('/api/admin-action', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ action, payload }),
+    });
+
+    const contentType = res.headers.get('content-type') || '';
+    if (res.status === 404 || (!contentType.includes('application/json') && res.status >= 400)) {
+      return { ok: false, status: res.status, data: null, endpointMissing: true };
+    }
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        data: json,
+        error: json?.error || `Admin action failed (${res.status})`,
+      };
+    }
+
+    return { ok: true, status: res.status, data: json };
+  } catch {
+    return { ok: false, status: 0, data: null, endpointMissing: true };
+  }
+}
+
+export async function toggleStoreStatus(isOpen: boolean): Promise<{ ok: boolean; isOpen: boolean; error?: string }> {
+  const apiRes = await invokeAdminAction('toggle_store_status', { isOpen });
+  if (apiRes.ok) {
+    return { ok: true, isOpen };
+  }
+  if (!apiRes.endpointMissing) {
+    return { ok: false, isOpen: !isOpen, error: apiRes.error || 'Unauthorized store toggle.' };
+  }
+
+  const { error } = await supabase
+    .from('store_settings')
+    .update({ is_open: isOpen, updated_at: new Date().toISOString() })
+    .eq('id', 'primary');
+  if (error) {
+    return { ok: false, isOpen: !isOpen, error: error.message };
+  }
+  return { ok: true, isOpen };
+}
 
 // Local fallback store keys
 const LOCAL_STORAGE_KEYS = {
@@ -1007,44 +1088,59 @@ export async function createProduct(product: Omit<AdminProduct, 'id' | 'created_
   const newId = `prod-${Date.now().toString(36)}-${Math.floor(Math.random() * 1000)}`;
   const now = new Date().toISOString();
 
+  const sanitizedName = sanitizeTextInput(product.name || '', 120);
+  const sanitizedCategory = sanitizeTextInput(product.category || 'snacks', 60);
+  const sanitizedUnit = sanitizeTextInput(product.unit || '1 pc', 40);
+  const sanitizedDesc = sanitizeTextInput(product.description || '', 500);
+
   const fullProduct: AdminProduct = {
     ...product,
     id: newId,
+    name: sanitizedName || 'Campus Item',
+    category: sanitizedCategory || 'snacks',
+    unit: sanitizedUnit || '1 pc',
+    description: sanitizedDesc,
     created_at: now,
     in_stock: Number(product.stock_count || 0) > 0,
   };
 
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .insert([
-        {
-          id: newId,
-          name: fullProduct.name,
-          title: fullProduct.name,
-          category: fullProduct.category,
-          price: fullProduct.price,
-          original_price: fullProduct.original_price,
-          stock_count: fullProduct.stock_count,
-          stock_quantity: fullProduct.stock_count,
-          low_stock_threshold: fullProduct.low_stock_threshold,
-          image: fullProduct.image,
-          image_url: fullProduct.image,
-          unit: fullProduct.unit,
-          description: fullProduct.description,
-          in_stock: fullProduct.in_stock,
-          is_active: fullProduct.is_active !== undefined ? fullProduct.is_active : true,
-          is_popular: fullProduct.is_popular,
-          is_late_night: fullProduct.is_late_night,
-          is_flash_deal: fullProduct.is_flash_deal,
-          created_at: now,
-        },
-      ])
-      .select();
+  // 1. Prefer privileged serverless route /api/admin-action
+  const apiRes = await invokeAdminAction<{ ok?: boolean; product?: any }>('create_product', {
+    ...fullProduct,
+  });
 
-    if (!error && data && data.length > 0) {
-      // Record initial inventory transaction
-      try {
+  if (apiRes.ok && apiRes.data?.product) {
+    fullProduct.id = String(apiRes.data.product.id || newId);
+  } else if (apiRes.endpointMissing) {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .insert([
+          {
+            id: newId,
+            name: fullProduct.name,
+            title: fullProduct.name,
+            category: fullProduct.category,
+            price: fullProduct.price,
+            original_price: fullProduct.original_price,
+            stock_count: fullProduct.stock_count,
+            stock_quantity: fullProduct.stock_count,
+            low_stock_threshold: fullProduct.low_stock_threshold,
+            image: fullProduct.image,
+            image_url: fullProduct.image,
+            unit: fullProduct.unit,
+            description: fullProduct.description,
+            in_stock: fullProduct.in_stock,
+            is_active: fullProduct.is_active !== undefined ? fullProduct.is_active : true,
+            is_popular: fullProduct.is_popular,
+            is_late_night: fullProduct.is_late_night,
+            is_flash_deal: fullProduct.is_flash_deal,
+            created_at: now,
+          },
+        ])
+        .select();
+
+      if (!error && data && data.length > 0) {
         await supabase.from('inventory_transactions').insert([
           {
             id: `tx-${Date.now()}`,
@@ -1057,15 +1153,10 @@ export async function createProduct(product: Omit<AdminProduct, 'id' | 'created_
             created_at: now,
           },
         ]);
-      } catch (txErr) {
-        console.warn('Supabase initial tx insert ignored:', txErr);
       }
-    }
-  } catch (err) {
-    console.warn('Supabase product insert failed, fallback local:', err);
+    } catch {}
   }
 
-  // Update local fallback
   const local = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, DEFAULT_ADMIN_PRODUCTS);
   const updated = [fullProduct, ...local];
   setLocal(LOCAL_STORAGE_KEYS.PRODUCTS, updated);
@@ -1082,6 +1173,11 @@ export async function updateProduct(
   const merged: AdminProduct = {
     ...(existing || ({} as AdminProduct)),
     ...updates,
+    name: updates.name !== undefined ? sanitizeTextInput(updates.name, 120) : existing?.name || 'Campus Item',
+    description:
+      updates.description !== undefined
+        ? sanitizeTextInput(updates.description, 500)
+        : existing?.description || '',
     id,
     in_stock:
       updates.stock_count !== undefined
@@ -1089,30 +1185,46 @@ export async function updateProduct(
         : existing?.in_stock ?? true,
   };
 
-  try {
-    await supabase
-      .from('products')
-      .update({
-        name: merged.name,
-        title: merged.name,
-        category: merged.category,
-        price: merged.price,
-        original_price: merged.original_price,
-        stock_count: merged.stock_count,
-        stock_quantity: merged.stock_count,
-        low_stock_threshold: merged.low_stock_threshold,
-        image: merged.image,
-        image_url: merged.image,
-        unit: merged.unit,
-        description: merged.description,
-        in_stock: merged.in_stock,
-        is_popular: merged.is_popular,
-        is_late_night: merged.is_late_night,
-        is_flash_deal: merged.is_flash_deal,
-      })
-      .eq('id', id);
-  } catch (err) {
-    console.warn('Supabase product update failed:', err);
+  const apiRes = await invokeAdminAction('update_product', {
+    id,
+    name: merged.name,
+    category: merged.category,
+    price: merged.price,
+    original_price: merged.original_price,
+    stock_count: merged.stock_count,
+    low_stock_threshold: merged.low_stock_threshold,
+    image: merged.image,
+    unit: merged.unit,
+    description: merged.description,
+    is_popular: merged.is_popular,
+    is_late_night: merged.is_late_night,
+    is_flash_deal: merged.is_flash_deal,
+  });
+
+  if (apiRes.endpointMissing) {
+    try {
+      await supabase
+        .from('products')
+        .update({
+          name: merged.name,
+          title: merged.name,
+          category: merged.category,
+          price: merged.price,
+          original_price: merged.original_price,
+          stock_count: merged.stock_count,
+          stock_quantity: merged.stock_count,
+          low_stock_threshold: merged.low_stock_threshold,
+          image: merged.image,
+          image_url: merged.image,
+          unit: merged.unit,
+          description: merged.description,
+          in_stock: merged.in_stock,
+          is_popular: merged.is_popular,
+          is_late_night: merged.is_late_night,
+          is_flash_deal: merged.is_flash_deal,
+        })
+        .eq('id', id);
+    } catch {}
   }
 
   const updatedList = local.map((p) => (p.id === id ? merged : p));
@@ -1122,10 +1234,11 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {
-  try {
-    await supabase.from('products').delete().eq('id', id);
-  } catch (err) {
-    console.warn('Supabase product delete failed:', err);
+  const apiRes = await invokeAdminAction('delete_product', { id });
+  if (apiRes.endpointMissing) {
+    try {
+      await supabase.from('products').delete().eq('id', id);
+    } catch {}
   }
 
   const local = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, DEFAULT_ADMIN_PRODUCTS);
@@ -1177,7 +1290,144 @@ export async function uploadProductImage(file: File): Promise<string> {
 /* ============================================================
    3. ORDERS MANAGEMENT WITH REALTIME & STATUS PROGRESSION
    ============================================================ */
+function mapRawOrderRow(o: any): AdminOrder {
+  const delLoc = o.delivery_location || '';
+  const zoneMatch = delLoc.split(',')[0]?.trim() || o.delivery_zone || 'Academic Complex & Main Campus';
+  const roomMatch = delLoc.split(',').slice(1).join(',').trim() || o.room_details || '';
+
+  let resolvedItems = Array.isArray(o.items) && o.items.length > 0 ? o.items : [];
+  if ((!resolvedItems || resolvedItems.length === 0) && Array.isArray(o.order_items)) {
+    resolvedItems = o.order_items.map((oi: any) => ({
+      id: oi.id || oi.product_id || 'item',
+      name: oi.product_name_snapshot || oi.product_name || oi.name || 'Campus Item',
+      price: Number(oi.price_snapshot ?? oi.price ?? oi.unit_price ?? 0),
+      quantity: Number(oi.quantity || 1),
+      image_url: oi.image_url || '',
+    }));
+  }
+
+  return {
+    id: o.id,
+    order_number: o.order_number || o.id,
+    customer_name:
+      o.customer_name || (typeof o.delivery_address === 'object' && o.delivery_address?.fullName) || 'Campus Student',
+    customer_phone:
+      o.customer_phone || o.phone || (typeof o.delivery_address === 'object' && o.delivery_address?.phone) || '',
+    customer_id: o.customer_id,
+    delivery_zone: o.delivery_zone || zoneMatch,
+    room_details: o.room_details || roomMatch || 'Hostel Room',
+    delivery_address:
+      typeof o.delivery_address === 'object' && o.delivery_address !== null
+        ? o.delivery_address
+        : {
+            fullName: o.customer_name || 'Campus Student',
+            phone: o.customer_phone || o.phone || '',
+            area: o.delivery_zone || zoneMatch,
+            roomNo: o.room_details || roomMatch,
+            notes: o.notes || undefined,
+          },
+    items: resolvedItems,
+    total_amount: Number(o.total_amount ?? o.total ?? 0),
+    status: o.status as OrderStatus,
+    payment_method: o.payment_method || 'COD',
+    created_at: o.created_at || o.timestamp || new Date().toISOString(),
+    updated_at: o.updated_at,
+  };
+}
+
+/**
+ * Secure single-order lookup requiring exact Order ID + 10-digit Phone match via RPC.
+ * Prevents enumeration/dumping of other students' personal delivery details.
+ */
+export async function lookupCustomerOrderSecure(
+  orderId: string,
+  phone: string
+): Promise<AdminOrder | null> {
+  const cleanId = sanitizeTextInput(orderId, 80).replace(/^#/, '');
+  const cleanPhone = normalizeIndianPhone(phone);
+
+  if (!cleanId || cleanPhone.length !== 10) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('get_customer_order_secure', {
+      p_order_id: cleanId,
+      p_phone: cleanPhone,
+    });
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!error && row && typeof row === 'object' && row.id) {
+      return {
+        id: String(row.id || cleanId),
+        order_number: String(row.order_number || row.id || cleanId),
+        customer_name: String(row.customer_name || 'Campus Student'),
+        customer_phone: cleanPhone,
+        delivery_zone: String(row.delivery_zone || 'Campus Zone'),
+        room_details: String(row.room_details || 'Campus Drop'),
+        items: Array.isArray(row.items) ? row.items : [],
+        total_amount: Number(row.total_amount ?? 0),
+        status: (row.status as OrderStatus) || 'Pending',
+        payment_method: String(row.payment_method || 'COD'),
+        created_at: row.created_at || new Date().toISOString(),
+        updated_at: row.updated_at,
+      };
+    }
+  } catch {}
+
+  // Fallback check against this browser's own locally cached orders matching both ID & Phone
+  const local = getLocal<AdminOrder[]>(LOCAL_STORAGE_KEYS.ORDERS, []);
+  const match = local.find((o) => {
+    const oPhone = normalizeIndianPhone(o.customer_phone || o.delivery_address?.phone || '');
+    const idMatches =
+      o.id.toLowerCase() === cleanId.toLowerCase() ||
+      (o.order_number || '').toLowerCase() === cleanId.toLowerCase();
+    return idMatches && oPhone === cleanPhone;
+  });
+
+  return match || null;
+}
+
+/**
+ * Fetches orders belonging ONLY to the current browser session (from local history)
+ * or via authenticated admin route when in the Admin Console.
+ */
+export async function fetchMyRecentOrders(): Promise<AdminOrder[]> {
+  try {
+    const localOrders = getLocal<AdminOrder[]>(LOCAL_STORAGE_KEYS.ORDERS, []);
+    const verifiedPhone = normalizeIndianPhone(localStorage.getItem('infinity_user_phone') || '');
+    const savedIdsRaw = localStorage.getItem('infinity_orders');
+    const savedSummaries = savedIdsRaw ? JSON.parse(savedIdsRaw) : [];
+    const ownIds = new Set<string>(
+      Array.isArray(savedSummaries)
+        ? savedSummaries.map((s: any) => String(s?.id || s?.order_id || '').toLowerCase()).filter(Boolean)
+        : []
+    );
+
+    return localOrders.filter((o) => {
+      const idMatch =
+        ownIds.has(String(o.id || '').toLowerCase()) ||
+        ownIds.has(String(o.order_number || '').toLowerCase());
+      const phoneMatch =
+        verifiedPhone.length === 10 &&
+        normalizeIndianPhone(o.customer_phone || o.delivery_address?.phone || '') === verifiedPhone;
+      return idMatch || phoneMatch;
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchOrders(): Promise<AdminOrder[]> {
+  // 1. Prefer authenticated serverless admin endpoint
+  const apiRes = await invokeAdminAction<{ orders?: any[] }>('list_orders', { limit: 150 });
+  if (apiRes.ok && Array.isArray(apiRes.data?.orders)) {
+    const mapped = apiRes.data.orders.map(mapRawOrderRow);
+    setLocal(LOCAL_STORAGE_KEYS.ORDERS, mapped);
+    return mapped;
+  }
+
+  // 2. Fallback to Supabase client query (succeeds for authenticated admins under strict RLS)
   try {
     const { data, error } = await supabase
       .from('orders')
@@ -1185,55 +1435,11 @@ export async function fetchOrders(): Promise<AdminOrder[]> {
       .order('created_at', { ascending: false });
 
     if (!error && data && data.length > 0) {
-      const mapped: AdminOrder[] = data.map((o) => {
-        const delLoc = o.delivery_location || '';
-        const zoneMatch = delLoc.split(',')[0]?.trim() || o.delivery_zone || 'Academic Complex & Main Campus';
-        const roomMatch = delLoc.split(',').slice(1).join(',').trim() || o.room_details || '';
-
-        // Extract items from order_items relational query or items column
-        let resolvedItems = Array.isArray(o.items) && o.items.length > 0 ? o.items : [];
-        if ((!resolvedItems || resolvedItems.length === 0) && Array.isArray(o.order_items)) {
-          resolvedItems = o.order_items.map((oi: any) => ({
-            id: oi.id || oi.product_id || 'item',
-            name: oi.product_name_snapshot || oi.product_name || oi.name || 'Campus Item',
-            price: Number(oi.price_snapshot ?? oi.price ?? oi.unit_price ?? 0),
-            quantity: Number(oi.quantity || 1),
-            image_url: oi.image_url || '',
-          }));
-        }
-
-        return {
-          id: o.id,
-          order_number: o.order_number || o.id,
-          customer_name: o.customer_name || (typeof o.delivery_address === 'object' && o.delivery_address?.fullName) || 'Campus Student',
-          customer_phone: o.customer_phone || o.phone || (typeof o.delivery_address === 'object' && o.delivery_address?.phone) || '',
-          customer_id: o.customer_id,
-          delivery_zone: o.delivery_zone || zoneMatch,
-          room_details: o.room_details || roomMatch || 'Hostel Room',
-          delivery_address: typeof o.delivery_address === 'object' && o.delivery_address !== null
-            ? o.delivery_address
-            : {
-                fullName: o.customer_name || 'Campus Student',
-                phone: o.customer_phone || o.phone || '',
-                area: o.delivery_zone || zoneMatch,
-                roomNo: o.room_details || roomMatch,
-                notes: o.notes || undefined,
-              },
-          items: resolvedItems,
-          total_amount: Number(o.total_amount ?? o.total ?? 0),
-          status: o.status as OrderStatus,
-          payment_method: o.payment_method || 'COD',
-          created_at: o.created_at || o.timestamp || new Date().toISOString(),
-          updated_at: o.updated_at,
-        };
-      });
-
+      const mapped: AdminOrder[] = data.map(mapRawOrderRow);
       setLocal(LOCAL_STORAGE_KEYS.ORDERS, mapped);
       return mapped;
     }
-  } catch (err) {
-    console.warn('Supabase orders fetch failed:', err);
-  }
+  } catch {}
 
   return getLocal<AdminOrder[]>(LOCAL_STORAGE_KEYS.ORDERS, DEFAULT_ORDERS);
 }
@@ -1243,45 +1449,52 @@ export async function updateOrderStatus(
   newStatus: OrderStatus,
   notes?: string
 ): Promise<AdminOrder | null> {
-  // 1. Update in Supabase orders table
-  const { error } = await supabase
-    .from('orders')
-    .update({ status: newStatus, updated_at: new Date().toISOString() })
-    .eq('id', orderId);
-
-  if (error) {
-    console.error('Supabase status update error:', error.message);
-    return null;
-  }
-
+  const cleanNotes = sanitizeTextInput(notes || `Status updated to ${newStatus}`, 240);
   const now = new Date().toISOString();
 
-  // 2. Insert into order_status_history table
+  // 1. Prefer privileged serverless route
+  const apiRes = await invokeAdminAction('update_order_status', {
+    orderId,
+    newStatus,
+    notes: cleanNotes,
+  });
+
+  if (!apiRes.ok) {
+    if (!apiRes.endpointMissing) {
+      return null;
+    }
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: newStatus, updated_at: now })
+      .eq('id', orderId);
+
+    if (error) {
+      return null;
+    }
+
+    try {
+      await supabase.from('order_status_history').insert([
+        {
+          id: `hist-${Date.now()}`,
+          order_id: orderId,
+          status: newStatus,
+          notes: cleanNotes,
+          created_by: 'Admin / Staff',
+          created_at: now,
+        },
+      ]);
+    } catch {}
+  }
+
   const historyEntry: OrderStatusHistory = {
     id: `hist-${Date.now()}`,
     order_id: orderId,
     status: newStatus,
-    notes: notes || `Status updated to ${newStatus}`,
+    notes: cleanNotes,
     created_by: 'Admin / Staff',
     created_at: now,
   };
 
-  try {
-    await supabase.from('order_status_history').insert([
-      {
-        id: historyEntry.id,
-        order_id: historyEntry.order_id,
-        status: historyEntry.status,
-        notes: historyEntry.notes,
-        created_by: historyEntry.created_by,
-        created_at: historyEntry.created_at,
-      },
-    ]);
-  } catch (err) {
-    console.warn('Supabase order_status_history insert failed:', err);
-  }
-
-  // Local updates
   const localHistory = getLocal<OrderStatusHistory[]>(
     LOCAL_STORAGE_KEYS.ORDER_HISTORY,
     DEFAULT_STATUS_HISTORY
@@ -1433,25 +1646,45 @@ export async function adjustInventoryStock(
   const target = localProducts.find((p) => p.id === productId);
   if (!target) return null;
 
-  const previousStock = Number(target.stock_count || 0);
-  const newStock = Math.max(0, previousStock + changeAmount);
+  const cleanNotes = sanitizeTextInput(notes || `${reason} of ${Math.abs(changeAmount)} units`, 240);
+  let previousStock = Number(target.stock_count || 0);
+  let newStock = Math.max(0, previousStock + changeAmount);
   const now = new Date().toISOString();
 
-  // 1. Update Product in Supabase
-  try {
-    await supabase
-      .from('products')
-      .update({
-        stock_count: newStock,
-        stock_quantity: newStock,
-        in_stock: newStock > 0,
-      })
-      .eq('id', productId);
-  } catch (err) {
-    console.warn('Supabase stock update failed:', err);
+  const apiRes = await invokeAdminAction<{ ok?: boolean; previousStock?: number; newStock?: number }>(
+    'adjust_inventory',
+    { productId, changeAmount, reason, notes: cleanNotes }
+  );
+
+  if (apiRes.ok && typeof apiRes.data?.newStock === 'number') {
+    previousStock = Number(apiRes.data.previousStock ?? previousStock);
+    newStock = Number(apiRes.data.newStock);
+  } else if (apiRes.endpointMissing) {
+    try {
+      await supabase
+        .from('products')
+        .update({
+          stock_count: newStock,
+          stock_quantity: newStock,
+          in_stock: newStock > 0,
+        })
+        .eq('id', productId);
+
+      await supabase.from('inventory_transactions').insert([
+        {
+          id: `tx-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          product_id: productId,
+          change_amount: changeAmount,
+          previous_stock: previousStock,
+          new_stock: newStock,
+          reason,
+          notes: cleanNotes,
+          created_at: now,
+        },
+      ]);
+    } catch {}
   }
 
-  // 2. Insert into inventory_transactions in Supabase
   const tx: InventoryTransaction = {
     id: `tx-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     product_id: productId,
@@ -1460,28 +1693,10 @@ export async function adjustInventoryStock(
     previous_stock: previousStock,
     new_stock: newStock,
     reason,
-    notes: notes || `${reason} of ${Math.abs(changeAmount)} units`,
+    notes: cleanNotes,
     created_at: now,
   };
 
-  try {
-    await supabase.from('inventory_transactions').insert([
-      {
-        id: tx.id,
-        product_id: tx.product_id,
-        change_amount: tx.change_amount,
-        previous_stock: tx.previous_stock,
-        new_stock: tx.new_stock,
-        reason: tx.reason,
-        notes: tx.notes,
-        created_at: tx.created_at,
-      },
-    ]);
-  } catch (err) {
-    console.warn('Supabase inventory_transactions insert failed:', err);
-  }
-
-  // Local state updates
   const updatedProducts = localProducts.map((p) =>
     p.id === productId
       ? { ...p, stock_count: newStock, in_stock: newStock > 0 }
@@ -1707,25 +1922,35 @@ export async function recordCampusOrder(orderData: {
   const orderId = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const timestamp = new Date().toISOString();
 
-  const deliveryAddress = orderData.deliveryAddress || {
-    fullName: orderData.customerName || 'Campus Student',
-    phone: orderData.studentPhone || '',
-    area: orderData.deliveryZone,
-    roomNo: orderData.roomDetails,
+  const sanitizedName = sanitizeTextInput(orderData.customerName || orderData.deliveryAddress?.fullName || 'Campus Student', 100) || 'Campus Student';
+  const sanitizedPhone = normalizeIndianPhone(orderData.studentPhone || orderData.deliveryAddress?.phone || '');
+  const sanitizedZone = sanitizeTextInput(orderData.deliveryZone || orderData.deliveryAddress?.area || 'Campus', 120) || 'Campus';
+  const sanitizedRoom = sanitizeTextInput(orderData.roomDetails || orderData.deliveryAddress?.roomNo || '', 120);
+  const sanitizedNotes = sanitizeTextInput(orderData.deliveryAddress?.notes || '', 240);
+
+  const deliveryAddress: DeliveryAddress = {
+    fullName: sanitizedName,
+    phone: sanitizedPhone,
+    area: sanitizedZone,
+    roomNo: sanitizedRoom,
+    notes: sanitizedNotes || undefined,
   };
 
   const fullOrder: AdminOrder = {
     id: orderId,
     order_number: orderId,
-    customer_name: deliveryAddress.fullName || orderData.customerName || 'Campus Student',
-    customer_phone: deliveryAddress.phone || orderData.studentPhone || '',
-    delivery_zone: deliveryAddress.area || orderData.deliveryZone,
-    room_details: deliveryAddress.roomNo || orderData.roomDetails,
+    customer_name: sanitizedName,
+    customer_phone: sanitizedPhone,
+    delivery_zone: sanitizedZone,
+    room_details: sanitizedRoom,
     delivery_address: deliveryAddress,
-    items: orderData.items,
+    items: orderData.items.map((it) => ({
+      ...it,
+      name: sanitizeTextInput(it.name || 'Campus Item', 120),
+    })),
     total_amount: orderData.total,
     status: 'Pending',
-    payment_method: orderData.paymentMethod || 'Cash on Delivery',
+    payment_method: sanitizeTextInput(orderData.paymentMethod || 'Cash on Delivery', 40) || 'Cash on Delivery',
     created_at: timestamp,
   };
 
@@ -1861,8 +2086,11 @@ export async function placeFastOrder(
   cartItems: Array<{ id?: string; title?: string; name?: string; price: number; quantity: number }>,
   totalAmount: number
 ) {
-  const selectedZone = customerData.zone || customerData.area || 'Academic Complex & Main Campus';
-  const room = customerData.room || customerData.roomNo || '';
+  const selectedZone = sanitizeTextInput(customerData.zone || customerData.area || 'Academic Complex & Main Campus', 120) || 'Academic Complex & Main Campus';
+  const room = sanitizeTextInput(customerData.room || customerData.roomNo || '', 120);
+  const cleanName = sanitizeTextInput(customerData.name || 'Campus Student', 100) || 'Campus Student';
+  const cleanPhone = normalizeIndianPhone(customerData.phone || '');
+  const cleanNotes = sanitizeTextInput(customerData.notes || '', 240);
   const deliveryLocation = room ? `${selectedZone} (Room ${room})` : selectedZone;
   const orderId = `INF-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const now = new Date().toISOString();
@@ -1890,18 +2118,18 @@ export async function placeFastOrder(
   const itemsJSON = cartItems.map((it) => ({
     id: it.id || 'item',
     product_id: it.id || 'item',
-    name: it.title || it.name || 'Campus Item',
+    name: sanitizeTextInput(it.title || it.name || 'Campus Item', 120),
     price: Number(it.price || 0),
     quantity: Number(it.quantity || 1),
     subtotal: Number(it.price || 0) * Number(it.quantity || 1),
   }));
 
   const deliveryAddress = {
-    fullName: customerData.name || 'Campus Student',
-    phone: customerData.phone || '',
+    fullName: cleanName,
+    phone: cleanPhone,
     area: selectedZone,
     roomNo: room,
-    notes: customerData.notes || '',
+    notes: cleanNotes,
   };
 
   // Pass both numeric values in the Supabase payload:
@@ -1912,14 +2140,14 @@ export async function placeFastOrder(
     delivery_fee: deliveryFee,
     handling_fee: handlingFee,
     items: itemsJSON || [],
-    customer_name: customerData.name || 'Campus Student',
-    customer_phone: customerData.phone || '',
+    customer_name: cleanName,
+    customer_phone: cleanPhone,
     delivery_address: deliveryAddress,
     status: 'pending',
     payment_method: 'COD',
     delivery_zone: selectedZone,
     campus_location: deliveryLocation,
-    delivery_note: customerData.notes || '',
+    delivery_note: cleanNotes,
     is_whatsapp_verified: true,
   };
 
@@ -2067,21 +2295,27 @@ export const handleQuickOrder = async ({
   const subtotalVal = Number(subtotal) || 0;
   const totalVal = Number(total) || 0;
 
+  const cleanFullName = sanitizeTextInput(formData.fullName || 'Campus Student', 100) || 'Campus Student';
+  const cleanPhone = normalizeIndianPhone(formData.phone || '');
+  const cleanArea = sanitizeTextInput(formData.area || 'Campus', 120) || 'Campus';
+  const cleanRoomNo = sanitizeTextInput(formData.roomNo || '', 120);
+  const cleanNotes = sanitizeTextInput(formData.notes || '', 240);
+
   const itemsJSON = cartItems.map((item: any) => ({
     id: item.id || item.product?.id || 'item',
     product_id: item.id || item.product?.id || 'item',
-    name: item.title || item.name || item.product?.name || 'Campus Item',
+    name: sanitizeTextInput(item.title || item.name || item.product?.name || 'Campus Item', 120),
     price: item.price !== undefined ? Number(item.price) : Number(item.product?.price ?? 0),
     quantity: Number(item.quantity || 1),
     subtotal: (item.price !== undefined ? Number(item.price) : Number(item.product?.price ?? 0)) * Number(item.quantity || 1),
   }));
 
   const deliveryAddress = {
-    fullName: formData.fullName,
-    phone: formData.phone,
-    area: formData.area,
-    roomNo: formData.roomNo,
-    notes: formData.notes || '',
+    fullName: cleanFullName,
+    phone: cleanPhone,
+    area: cleanArea,
+    roomNo: cleanRoomNo,
+    notes: cleanNotes,
   };
 
   // Pass exact delivery_fee, handling_fee, subtotal, and total in the Supabase payload:
@@ -2092,14 +2326,14 @@ export const handleQuickOrder = async ({
     delivery_fee: deliveryFee,
     handling_fee: handlingFee,
     items: itemsJSON || [],
-    customer_name: formData.fullName,
-    customer_phone: formData.phone,
+    customer_name: cleanFullName,
+    customer_phone: cleanPhone,
     delivery_address: deliveryAddress,
     status: 'pending',
     payment_method: 'COD',
-    delivery_zone: formData.area || 'Campus',
-    campus_location: formData.roomNo ? `${formData.area} - Room: ${formData.roomNo}` : (formData.area || 'Campus'),
-    delivery_note: formData.notes || '',
+    delivery_zone: cleanArea,
+    campus_location: cleanRoomNo ? `${cleanArea} - Room: ${cleanRoomNo}` : cleanArea,
+    delivery_note: cleanNotes,
     is_whatsapp_verified: true,
   };
 
@@ -2233,6 +2467,5 @@ export const handleQuickOrder = async ({
     console.warn('Local state sync notice:', syncErr);
   }
 
-  console.log(`Order placed in ${Date.now() - startTime}ms`);
   return order || { id: generatedId, order_number: generatedId };
 };

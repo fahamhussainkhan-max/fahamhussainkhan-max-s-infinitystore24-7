@@ -39,8 +39,13 @@
     -webkit-touch-callout: none;
   }
 
-  /* Ensure form inputs and textareas remain fully selectable and editable */
-  input, textarea, select, [contenteditable="true"] {
+  /* Ensure form inputs, textareas, and order confirmation IDs remain fully selectable and editable */
+  input,
+  textarea,
+  select,
+  [contenteditable="true"],
+  .select-text,
+  [data-selectable="true"] {
     -webkit-user-select: text !important;
     -moz-user-select: text !important;
     -ms-user-select: text !important;

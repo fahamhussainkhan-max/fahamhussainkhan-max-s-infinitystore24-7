@@ -30,7 +30,12 @@ import { OrderManagement } from './OrderManagement';
 import { InventoryManagement } from './InventoryManagement';
 import LiveOrdersManager from './LiveOrdersManager';
 import { AdminLogin } from './AdminLogin';
-import { subscribeToOrders, SUPABASE_URL, supabase } from '../../lib/supabase';
+import {
+  subscribeToOrders,
+  supabase,
+  invokeAdminAction,
+  toggleStoreStatus,
+} from '../../lib/supabase';
 import { AdminOrder } from '../../types';
 import { playOrderAlertChime } from '../../utils/audioAlert';
 
@@ -46,114 +51,137 @@ interface StaffUser {
   name: string;
 }
 
+const ALLOWED_STAFF_ROLES = new Set(['staff', 'admin', 'super_admin']);
+
 export const AdminPanel: React.FC<AdminPanelProps> = () => {
-  // Authentication State with persistent storage
-  const [currentUser, setCurrentUser] = useState<StaffUser | null>(() => {
-    try {
-      const saved = localStorage.getItem('infinity_staff_session');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.email?.toLowerCase() === 'fahamhussainkhan@gmail.com') {
-          parsed.role = 'super_admin';
-          parsed.name = 'Faham';
-        }
-        return parsed;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  });
+  const [currentUser, setCurrentUser] = useState<StaffUser | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
 
-  // Helper to query user_roles table or apply super_admin rules
-  const resolveStaffRole = async (userId: string, email: string): Promise<{ role: string; name: string }> => {
-    let role = '';
-    try {
-      const { data: roleRow } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (roleRow?.role) {
-        role = roleRow.role;
-      }
-    } catch (e) {
-      console.warn('user_roles query note:', e);
-    }
-
+  const verifyAdminSession = async (
+    userId: string,
+    email: string,
+    accessToken?: string,
+    fallbackFullName?: string
+  ): Promise<StaffUser | null> => {
     const cleanEmail = email.toLowerCase().trim();
-    if (!role) {
-      if (cleanEmail === 'fahamhussainkhan@gmail.com') {
-        role = 'super_admin';
-      } else if (cleanEmail.includes('admin')) {
-        role = 'admin';
-      } else {
-        role = 'staff';
+    if (!userId || !cleanEmail) return null;
+
+    if (accessToken) {
+      const apiRes = await invokeAdminAction<{
+        authorized?: boolean;
+        user?: { email: string; role: string; name: string };
+      }>('verify_admin', {}, accessToken);
+
+      if (apiRes.ok && apiRes.data?.authorized && apiRes.data.user) {
+        if (ALLOWED_STAFF_ROLES.has(String(apiRes.data.user.role))) {
+          return {
+            email: apiRes.data.user.email || cleanEmail,
+            role: String(apiRes.data.user.role),
+            name: apiRes.data.user.name || cleanEmail.split('@')[0],
+          };
+        }
+        return null;
+      }
+
+      if (!apiRes.endpointMissing) {
+        return null;
       }
     }
 
-    const name = cleanEmail === 'fahamhussainkhan@gmail.com'
-      ? 'Faham'
-      : cleanEmail.includes('admin')
-      ? 'Store Admin'
-      : 'Dispatch Staff';
+    // Fallback when serverless endpoint is not mounted (local Vite dev): verify role in DB tables
+    const { data: adminRow } = await supabase
+      .from('admin_users')
+      .select('role, is_active, full_name')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-    return { role, name };
+    if (adminRow && adminRow.is_active !== false && ALLOWED_STAFF_ROLES.has(String(adminRow.role))) {
+      return {
+        email: cleanEmail,
+        role: String(adminRow.role),
+        name: String(adminRow.full_name || fallbackFullName || cleanEmail.split('@')[0]),
+      };
+    }
+
+    const { data: roleRow } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (roleRow?.role && ALLOWED_STAFF_ROLES.has(String(roleRow.role))) {
+      return {
+        email: cleanEmail,
+        role: String(roleRow.role),
+        name: String(fallbackFullName || cleanEmail.split('@')[0]),
+      };
+    }
+
+    return null;
   };
 
-  // Restore session from Supabase client local storage & sync with public.user_roles
+  // Strictly verify Supabase JWT session on mount — never blindly trust localStorage
   useEffect(() => {
+    let mounted = true;
+
     const restoreSession = async () => {
       try {
         const { data } = await supabase.auth.getSession();
-        if (data?.session?.user) {
-          const email = data.session.user.email || '';
-          const resolved = await resolveStaffRole(data.session.user.id, email);
-          const userObj = {
-            email,
-            role: resolved.role,
-            name: resolved.name,
-          };
-          setCurrentUser(userObj);
-          localStorage.setItem('infinity_staff_session', JSON.stringify(userObj));
-        } else {
-          // Check if persistent session exists in localStorage
-          const saved = localStorage.getItem('infinity_staff_session');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.email?.toLowerCase() === 'fahamhussainkhan@gmail.com') {
-              parsed.role = 'super_admin';
-              parsed.name = 'Faham (Super Admin)';
-            }
-            setCurrentUser(parsed);
+        const session = data?.session;
+        if (session?.user) {
+          const verifiedUser = await verifyAdminSession(
+            session.user.id,
+            session.user.email || '',
+            session.access_token,
+            session.user.user_metadata?.full_name
+          );
+
+          if (!mounted) return;
+          if (verifiedUser) {
+            setCurrentUser(verifiedUser);
+            localStorage.setItem('infinity_staff_session', JSON.stringify(verifiedUser));
+          } else {
+            localStorage.removeItem('infinity_staff_session');
+            setCurrentUser(null);
+            await supabase.auth.signOut().catch(() => {});
           }
+        } else {
+          localStorage.removeItem('infinity_staff_session');
+          if (mounted) setCurrentUser(null);
         }
-      } catch (e) {
-        console.error('Session sync error:', e);
+      } catch {
+        localStorage.removeItem('infinity_staff_session');
+        if (mounted) setCurrentUser(null);
+      } finally {
+        if (mounted) setCheckingSession(false);
       }
     };
     restoreSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        const email = session.user.email || '';
-        const resolved = await resolveStaffRole(session.user.id, email);
-        const userObj = {
-          email,
-          role: resolved.role,
-          name: resolved.name,
-        };
-        setCurrentUser(userObj);
-        localStorage.setItem('infinity_staff_session', JSON.stringify(userObj));
-      } else if (event === 'SIGNED_OUT') {
-        if (!localStorage.getItem('infinity_staff_session')) {
+        const verifiedUser = await verifyAdminSession(
+          session.user.id,
+          session.user.email || '',
+          session.access_token,
+          session.user.user_metadata?.full_name
+        );
+        if (!mounted) return;
+        if (verifiedUser) {
+          setCurrentUser(verifiedUser);
+          localStorage.setItem('infinity_staff_session', JSON.stringify(verifiedUser));
+        } else {
+          localStorage.removeItem('infinity_staff_session');
           setCurrentUser(null);
         }
+      } else if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('infinity_staff_session');
+        if (mounted) setCurrentUser(null);
       }
     });
 
     return () => {
+      mounted = false;
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -226,15 +254,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
     setTogglingStore(true);
     const newStatus = !isStoreOpen;
     try {
-      const { error } = await supabase
-        .from('store_settings')
-        .update({ is_open: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', 'primary');
-      if (error) throw error;
+      const res = await toggleStoreStatus(newStatus);
+      if (!res.ok) {
+        throw new Error(res.error || 'Action failed');
+      }
       setIsStoreOpen(newStatus);
       setRealtimeToast(`Store is now ${newStatus ? 'OPEN (Accepting orders)' : 'CLOSED (Orders paused)'}`);
     } catch (err: any) {
-      console.error('Failed to toggle store status:', err);
       setRealtimeToast('Error updating store status: ' + (err?.message || 'Action failed'));
     } finally {
       setTogglingStore(false);
@@ -304,6 +330,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
     localStorage.removeItem('infinity_staff_session');
     setCurrentUser(null);
   };
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-[#0B0F17] flex flex-col items-center justify-center text-gray-300 text-xs font-semibold gap-3 select-none">
+        <div className="w-8 h-8 border-2 border-[#0A84FF] border-t-transparent rounded-full animate-spin" />
+        <span>Verifying Operations Session...</span>
+      </div>
+    );
+  }
 
   // If staff is not signed in, show secure login screen strictly
   if (!currentUser) {

@@ -17,7 +17,8 @@ import {
   ExternalLink,
   ChevronRight,
 } from 'lucide-react';
-import { fetchOrders } from '../lib/supabase';
+import { fetchMyRecentOrders, lookupCustomerOrderSecure } from '../lib/supabase';
+import { sanitizeTextInput, normalizeIndianPhone, isValidIndianPhone } from '../utils/security';
 import { AdminOrder } from '../types';
 import { OrderTrackingTimeline } from './OrderTrackingTimeline';
 
@@ -54,13 +55,18 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
   });
   const [savedProfileSuccess, setSavedProfileSuccess] = useState(false);
 
+  const [lookupOrderId, setLookupOrderId] = useState('');
+  const [lookupPhone, setLookupPhone] = useState(() => normalizeIndianPhone(profile.phone || ''));
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
   const fetchCustomerOrders = async () => {
     setLoading(true);
     try {
-      const allOrders = await fetchOrders();
-      setOrders(allOrders);
-    } catch (e) {
-      console.error('Failed to fetch orders:', e);
+      const ownOrders = await fetchMyRecentOrders();
+      setOrders(ownOrders);
+    } catch {
+      // Handled gracefully
     } finally {
       setLoading(false);
     }
@@ -71,6 +77,7 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
       fetchCustomerOrders();
     } else {
       setSelectedOrderForTracking(null);
+      setLookupError(null);
     }
   }, [isOpen]);
 
@@ -85,14 +92,51 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
     }
   }, [isOpen, initialOrderId, orders]);
 
+  const handleSecureOrderLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLookupError(null);
+    const cleanId = sanitizeTextInput(lookupOrderId, 80);
+    const cleanPhone = normalizeIndianPhone(lookupPhone);
+    if (!cleanId) {
+      setLookupError('Enter your Order ID (e.g. INF-...).');
+      return;
+    }
+    if (!isValidIndianPhone(cleanPhone)) {
+      setLookupError('Enter the 10-digit Indian phone number used on the order.');
+      return;
+    }
+
+    setLookupLoading(true);
+    try {
+      const found = await lookupCustomerOrderSecure(cleanId, cleanPhone);
+      if (!found) {
+        setLookupError('No matching order found for that Order ID and phone number.');
+        return;
+      }
+      setOrders((prev) => [found, ...prev.filter((o) => o.id !== found.id)]);
+      setSelectedOrderForTracking(found);
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    const sanitizedProfile = {
+      fullName: sanitizeTextInput(profile.fullName, 100),
+      phone: normalizeIndianPhone(profile.phone),
+      hostel: sanitizeTextInput(profile.hostel, 120),
+      roomNo: sanitizeTextInput(profile.roomNo, 120),
+      notes: sanitizeTextInput(profile.notes, 240),
+    };
+    setProfile(sanitizedProfile);
     try {
-      localStorage.setItem('infinity_customer_profile', JSON.stringify(profile));
+      localStorage.setItem('infinity_customer_profile', JSON.stringify(sanitizedProfile));
+      localStorage.setItem('infinity_student_profile', JSON.stringify(sanitizedProfile));
       setSavedProfileSuccess(true);
       setTimeout(() => setSavedProfileSuccess(false), 2500);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // Non-blocking
     }
   };
 
@@ -219,6 +263,44 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
                 <div className="p-4 sm:p-6 overflow-y-auto flex-1">
                   {activeTab === 'orders' && (
                     <div className="space-y-4">
+                      {/* Secure Order ID + Phone Lookup */}
+                      <form
+                        onSubmit={handleSecureOrderLookup}
+                        className="p-3 rounded-2xl bg-gray-50 border border-gray-200/80 space-y-2"
+                      >
+                        <div className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                          Find Any Order by ID & Phone
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                          <input
+                            type="text"
+                            value={lookupOrderId}
+                            onChange={(e) => setLookupOrderId(e.target.value)}
+                            placeholder="Order ID (e.g. INF-...)"
+                            className="sm:col-span-5 px-3 py-2 rounded-xl bg-white border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 focus:border-[#0A84FF]"
+                          />
+                          <input
+                            type="tel"
+                            maxLength={10}
+                            inputMode="numeric"
+                            value={lookupPhone}
+                            onChange={(e) => setLookupPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                            placeholder="10-digit phone"
+                            className="sm:col-span-4 px-3 py-2 rounded-xl bg-white border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 focus:border-[#0A84FF]"
+                          />
+                          <button
+                            type="submit"
+                            disabled={lookupLoading}
+                            className="sm:col-span-3 px-3 py-2 rounded-xl bg-[#111111] hover:bg-[#0A84FF] text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {lookupLoading ? 'Checking...' : 'Track Order'}
+                          </button>
+                        </div>
+                        {lookupError && (
+                          <p className="text-[11px] font-semibold text-red-600">{lookupError}</p>
+                        )}
+                      </form>
+
                       {/* Search Bar & Refresh */}
                       <div className="flex items-center gap-2">
                         <div className="relative flex-1">
@@ -227,7 +309,7 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search by order ID or item..."
+                            placeholder="Filter your recent orders..."
                             className="w-full pl-9 pr-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 focus:border-[#0A84FF]"
                           />
                         </div>
@@ -289,7 +371,11 @@ export const CustomerOrdersModal: React.FC<CustomerOrdersModalProps> = ({
                                 <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-100">
                                   <div>
                                     <div className="flex items-center gap-2">
-                                      <span className="font-bold text-sm text-gray-900 font-mono group-hover:text-[#0A84FF] transition-colors">
+                                      <span
+                                        data-selectable="true"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="font-bold text-sm text-gray-900 font-mono group-hover:text-[#0A84FF] transition-colors select-text cursor-text"
+                                      >
                                         {order.order_number || order.id}
                                       </span>
                                       <span

@@ -18,10 +18,14 @@ export default defineConfig(() => {
             if (pathOnly === '/api/products') {
               res.setHeader('Content-Type', 'application/json');
               try {
-                const targetUrl = 'https://egdbegaujzrzsbbstzsr.supabase.co/rest/v1/products?select=*&order=created_at.desc';
-                const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.startsWith('sb_publishable_')
-                  ? process.env.VITE_SUPABASE_PUBLISHABLE_KEY
-                  : 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
+                const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim().replace(/\/$/, '');
+                const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
+                if (!supabaseUrl || !supabaseUrl.startsWith('http') || !key) {
+                  res.statusCode = 200;
+                  res.end(JSON.stringify({ products: [] }));
+                  return;
+                }
+                const targetUrl = `${supabaseUrl}/rest/v1/products?select=*&order=created_at.desc`;
                 const resp = await fetch(targetUrl, {
                   headers: {
                     apikey: key,
@@ -42,10 +46,14 @@ export default defineConfig(() => {
             if (pathOnly === '/api/categories') {
               res.setHeader('Content-Type', 'application/json');
               try {
-                const targetUrl = 'https://egdbegaujzrzsbbstzsr.supabase.co/rest/v1/categories?select=*';
-                const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.startsWith('sb_publishable_')
-                  ? process.env.VITE_SUPABASE_PUBLISHABLE_KEY
-                  : 'sb_publishable_NFG335bM--1HEo9Mx27mmA_Rcw4qF_Q';
+                const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim().replace(/\/$/, '');
+                const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
+                if (!supabaseUrl || !supabaseUrl.startsWith('http') || !key) {
+                  res.statusCode = 200;
+                  res.end(JSON.stringify({ categories: [] }));
+                  return;
+                }
+                const targetUrl = `${supabaseUrl}/rest/v1/categories?select=*`;
                 const resp = await fetch(targetUrl, {
                   headers: {
                     apikey: key,
@@ -71,7 +79,12 @@ export default defineConfig(() => {
         },
       },
     ],
+    esbuild: {
+      drop: ['console', 'debugger'],
+    },
     build: {
+      sourcemap: false,
+      minify: 'esbuild',
       rollupOptions: {
         input: {
           main: path.resolve(import.meta.dirname, 'index.html'),

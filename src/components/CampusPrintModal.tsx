@@ -33,7 +33,6 @@ export const CampusPrintModal: React.FC<CampusPrintModalProps> = ({
     try {
       return (
         localStorage.getItem('infinity_print_whatsapp_number') ||
-        import.meta.env.VITE_ADMIN_WHATSAPP_NUMBER ||
         '919332727610'
       );
     } catch {

@@ -242,7 +242,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       Order Placed Successfully!
                     </h3>
                     <p className="text-xs text-gray-500 max-w-xs mt-1 mx-auto">
-                      Order <strong>#{placedOrder.id}</strong> has been transmitted to our campus runner desk.
+                      Order <strong className="select-text cursor-text" data-selectable="true">#{placedOrder.id}</strong> has been transmitted to our campus runner desk.
                     </p>
                   </div>
 

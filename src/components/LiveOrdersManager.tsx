@@ -19,6 +19,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { fetchOrders, updateOrderStatus } from '../lib/supabase';
 import { playOrderAlertChime } from '../utils/audioAlert';
 
 export type LiveOrderStatus =
@@ -77,73 +78,39 @@ export const LiveOrdersManager: React.FC = () => {
     setLastAlertTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   };
 
-  // 1. Fetch initial orders
+  // 1. Fetch initial orders via secured admin helper (/api/admin-action with authenticated fallback)
   const fetchActiveOrders = async () => {
     setLoading(true);
     try {
-      // First try Supabase table
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (!error && data && data.length > 0) {
-        const mapped: LiveOrder[] = data.map((o: any) => {
-          const rawItems = Array.isArray(o.order_items) && o.order_items.length > 0
-            ? o.order_items
-            : (Array.isArray(o.items) ? o.items : []);
-
-          return {
-            id: o.id,
-            order_number: o.order_number ? `#${o.order_number}` : o.id,
-            customer_name: o.customer_name || o.delivery_address?.fullName || 'Campus Student',
-            customer_phone: o.customer_phone || o.phone || o.delivery_address?.phone || '',
-            delivery_zone: o.delivery_zone || o.delivery_location || o.delivery_address?.area || 'Campus Hostels',
-            room_details: o.room_details || o.delivery_address?.roomNo || '',
-            items: rawItems.map((it: any) => ({
-              id: it.id || it.product_id,
-              name: it.product_name_snapshot || it.product_name || it.name || 'Campus Item',
-              quantity: Number(it.quantity || 1),
-              price: Number(it.price_snapshot ?? it.price ?? it.subtotal ?? 0),
-              image_url: it.image_url || '',
-            })),
-            total_amount: Number(o.total || o.total_amount || 0),
-            delivery_fee: Number(o.delivery_fee || 0),
-            handling_fee: Number(o.handling_fee || 0),
-            status: normalizeStatus(o.status),
-            payment_method: o.payment_method || 'Cash on Delivery',
-            created_at: o.created_at || new Date().toISOString(),
-            notes: o.delivery_note || o.notes || o.delivery_address?.notes,
-          };
-        });
-        setOrders(mapped);
-      } else {
-        // Fallback to cached store orders
-        const { fetchOrders } = await import('../lib/supabase');
-        const fallbackOrders = await fetchOrders();
-        setOrders(
-          fallbackOrders.map((o: any) => ({
-            id: o.id,
-            order_number: o.order_number || o.id,
-            customer_name: o.customer_name || o.delivery_address?.fullName || 'Campus Student',
-            customer_phone: o.customer_phone || o.delivery_address?.phone || '9876543210',
-            delivery_zone: o.delivery_zone || o.delivery_address?.area || 'Campus Hostels',
-            room_details: o.room_details || o.delivery_address?.roomNo || 'Room 304',
-            items: o.items || [
-              { name: 'Maggi 2-Minute Noodles Masala', quantity: 2, price: 28 },
-              { name: 'Amul Taaza Homogenised Milk', quantity: 1, price: 34 },
-            ],
-            total_amount: o.total_amount || 62,
-            status: normalizeStatus(o.status),
-            payment_method: o.payment_method || 'UPI / QR at Doorstep',
-            created_at: o.created_at || new Date().toISOString(),
-            notes: o.delivery_address?.notes,
-          }))
-        );
-      }
-    } catch (err) {
-      console.warn('Orders fetch note:', err);
+      const adminOrders = await fetchOrders();
+      const mapped: LiveOrder[] = adminOrders.map((o: any) => {
+        const rawItems = Array.isArray(o.items) ? o.items : [];
+        return {
+          id: o.id,
+          order_number: o.order_number ? (String(o.order_number).startsWith('#') ? String(o.order_number) : `#${o.order_number}`) : o.id,
+          customer_name: o.customer_name || o.delivery_address?.fullName || 'Campus Student',
+          customer_phone: o.customer_phone || o.phone || o.delivery_address?.phone || '',
+          delivery_zone: o.delivery_zone || o.delivery_address?.area || 'Campus Hostels',
+          room_details: o.room_details || o.delivery_address?.roomNo || '',
+          items: rawItems.map((it: any) => ({
+            id: it.id || it.product_id,
+            name: it.product_name_snapshot || it.product_name || it.name || 'Campus Item',
+            quantity: Number(it.quantity || 1),
+            price: Number(it.price_snapshot ?? it.price ?? it.unit_price ?? 0),
+            image_url: it.image_url || '',
+          })),
+          total_amount: Number(o.total_amount || o.total || 0),
+          delivery_fee: o.delivery_fee !== undefined ? Number(o.delivery_fee) : undefined,
+          handling_fee: o.handling_fee !== undefined ? Number(o.handling_fee) : undefined,
+          status: normalizeStatus(o.status),
+          payment_method: o.payment_method || 'Cash on Delivery',
+          created_at: o.created_at || new Date().toISOString(),
+          notes: o.delivery_note || o.notes || o.delivery_address?.notes,
+        };
+      });
+      setOrders(mapped);
+    } catch {
+      // Handled gracefully
     } finally {
       setLoading(false);
     }
@@ -282,7 +249,7 @@ export const LiveOrdersManager: React.FC = () => {
     };
   }, [soundEnabled]);
 
-  // 3. Status Advancement Handler using standard Supabase update call & exact error alert
+  // 3. Status Advancement Handler routed via secured updateOrderStatus (/api/admin-action)
   const handleAdvanceStatus = async (orderId: string, nextStatus: LiveOrderStatus) => {
     const prevOrders = [...orders];
 
@@ -291,47 +258,16 @@ export const LiveOrdersManager: React.FC = () => {
       prev.map((ord) => (ord.id === orderId ? { ...ord, status: nextStatus } : ord))
     );
 
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: nextStatus, updated_at: new Date().toISOString() })
-      .eq('id', orderId);
+    const updatedOrder = await updateOrderStatus(
+      orderId,
+      nextStatus as any,
+      `Advanced to ${nextStatus} by dispatch operator`
+    );
 
-    if (error) {
-      setActionNotice('Failed to update status: ' + (error.message || 'Error occurred'));
-      console.error('Failed to update order status:', error);
-      // Revert optimistic update
+    if (!updatedOrder) {
+      setActionNotice('Failed to update status: Unauthorized or network error');
       setOrders(prevOrders);
       return;
-    }
-
-    // Also log to order_status_history
-    try {
-      await supabase.from('order_status_history').insert([
-        {
-          id: `hist-${Date.now()}`,
-          order_id: orderId,
-          status: nextStatus,
-          notes: `Advanced to ${nextStatus} by dispatch operator`,
-          created_by: 'Kitchen Operator',
-          created_at: new Date().toISOString(),
-        },
-      ]);
-    } catch (e) {
-      console.warn('Status history note:', e);
-    }
-
-    // Keep local fallback store in sync
-    try {
-      const saved = localStorage.getItem('infinity_admin_orders');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const updated = parsed.map((o: any) =>
-          o.id === orderId ? { ...o, status: nextStatus, updated_at: new Date().toISOString() } : o
-        );
-        localStorage.setItem('infinity_admin_orders', JSON.stringify(updated));
-      }
-    } catch {
-      // Handled
     }
 
     setActionNotice(`Order #${orderId.slice(0, 8)} updated to "${nextStatus}"`);
