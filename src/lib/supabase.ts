@@ -202,29 +202,229 @@ function createResilientSupabaseClient(): SupabaseClient<any, 'public', any> {
 
 export const supabase: SupabaseClient<any, 'public', any> = createResilientSupabaseClient();
 
+export interface AdminSessionUser {
+  id?: string;
+  email: string;
+  role: string;
+  name: string;
+  authMethod?: 'passphrase' | 'supabase_jwt';
+}
+
+export const ADMIN_AUTH_REQUIRED_EVENT = 'infinity-admin-auth-required';
+
+const ADMIN_SESSION_STORAGE_KEYS = {
+  TOKEN: 'infinity_admin_session_token',
+  USER: 'infinity_admin_session_user',
+  EXPIRES_AT: 'infinity_admin_session_exp',
+};
+
+export function getStoredAdminToken(): string {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return '';
+    const token = window.sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEYS.TOKEN) || '';
+    const expRaw = window.sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEYS.EXPIRES_AT);
+    if (!token) return '';
+    if (expRaw) {
+      const exp = Number(expRaw);
+      if (Number.isFinite(exp) && Date.now() >= exp) {
+        clearStoredAdminSession();
+        return '';
+      }
+    }
+    return token;
+  } catch {
+    return '';
+  }
+}
+
+export function getStoredAdminSession(): {
+  token: string;
+  user: AdminSessionUser;
+  expiresAt?: number;
+} | null {
+  try {
+    const token = getStoredAdminToken();
+    if (!token) return null;
+    const rawUser = window.sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEYS.USER);
+    if (!rawUser) return null;
+    const user = JSON.parse(rawUser) as AdminSessionUser;
+    const expRaw = window.sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEYS.EXPIRES_AT);
+    return {
+      token,
+      user,
+      expiresAt: expRaw ? Number(expRaw) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredAdminSession(
+  token: string,
+  user: AdminSessionUser,
+  expiresAt?: number
+): void {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    window.sessionStorage.setItem(ADMIN_SESSION_STORAGE_KEYS.TOKEN, token);
+    window.sessionStorage.setItem(ADMIN_SESSION_STORAGE_KEYS.USER, JSON.stringify(user));
+    if (expiresAt && Number.isFinite(expiresAt)) {
+      window.sessionStorage.setItem(ADMIN_SESSION_STORAGE_KEYS.EXPIRES_AT, String(expiresAt));
+    } else {
+      window.sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEYS.EXPIRES_AT);
+    }
+  } catch {}
+}
+
+export function clearStoredAdminSession(): void {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    window.sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEYS.TOKEN);
+    window.sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEYS.USER);
+    window.sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEYS.EXPIRES_AT);
+  } catch {}
+}
+
+function notifyAdminAuthRequired(message: string): void {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent(ADMIN_AUTH_REQUIRED_EVENT, {
+          detail: { message },
+        })
+      );
+    }
+  } catch {}
+}
+
 /**
- * Helper to invoke privileged server-side Vercel serverless route /api/admin-action
- * using the current authenticated admin's Supabase JWT Bearer token.
+ * Unlocks the Admin / Management console by verifying the entered passphrase
+ * against server-side process.env.ADMIN_BOOTSTRAP_SECRET via /api/admin-action.
+ * Stores the short-lived HMAC-signed session token strictly in sessionStorage.
+ */
+export async function unlockAdminWithPassphrase(passphrase: string): Promise<{
+  ok: boolean;
+  token?: string;
+  expiresAt?: number;
+  user?: AdminSessionUser;
+  error?: string;
+}> {
+  const trimmed = passphrase.trim();
+  if (!trimmed) {
+    return { ok: false, error: 'Please enter the admin unlock passphrase.' };
+  }
+
+  try {
+    const res = await fetch('/api/admin-action', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'unlock_admin',
+        payload: { passphrase: trimmed },
+      }),
+    });
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return {
+        ok: false,
+        error: `Admin API endpoint (/api/admin-action) returned non-JSON response (${res.status}). Check server routing.`,
+      };
+    }
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.ok || !json?.token || !json?.user) {
+      return {
+        ok: false,
+        error: json?.error || `Failed to unlock admin session (${res.status}).`,
+      };
+    }
+
+    const sessionUser: AdminSessionUser = {
+      id: json.user.id,
+      email: json.user.email || 'ops@infinity.store',
+      role: json.user.role || 'super_admin',
+      name: json.user.name || 'Operations Admin',
+      authMethod: 'passphrase',
+    };
+
+    setStoredAdminSession(json.token, sessionUser, json.expiresAt);
+    return {
+      ok: true,
+      token: json.token,
+      expiresAt: json.expiresAt,
+      user: sessionUser,
+    };
+  } catch (err: any) {
+    return {
+      ok: false,
+      error: err?.message || 'Network error while contacting /api/admin-action.',
+    };
+  }
+}
+
+export async function verifyAdminToken(explicitToken?: string): Promise<{
+  ok: boolean;
+  user?: AdminSessionUser;
+  expiresAt?: number;
+  error?: string;
+}> {
+  const res = await invokeAdminAction<{
+    authorized?: boolean;
+    user?: AdminSessionUser;
+    expiresAt?: number;
+    authMethod?: 'passphrase' | 'supabase_jwt';
+  }>('verify_admin', {}, explicitToken, { suppressAuthEvent: true });
+
+  if (res.ok && res.data?.authorized && res.data.user) {
+    return {
+      ok: true,
+      user: {
+        ...res.data.user,
+        authMethod: res.data.authMethod || res.data.user.authMethod,
+      },
+      expiresAt: res.data.expiresAt,
+    };
+  }
+
+  return {
+    ok: false,
+    error: res.error || 'Admin session could not be verified.',
+  };
+}
+
+/**
+ * Helper to invoke privileged server-side route /api/admin-action
+ * using either the short-lived signed sessionStorage token OR active Supabase Auth JWT.
  */
 export async function invokeAdminAction<T = any>(
   action: string,
   payload: Record<string, any> = {},
-  explicitAccessToken?: string
+  explicitAccessToken?: string,
+  options?: { suppressAuthEvent?: boolean }
 ): Promise<{ ok: boolean; status: number; data: T | null; error?: string; endpointMissing?: boolean }> {
   try {
-    let token = explicitAccessToken || '';
+    let token = explicitAccessToken || getStoredAdminToken();
     if (!token) {
       const { data } = await supabase.auth.getSession();
       token = data?.session?.access_token || '';
     }
     if (!token) {
-      return { ok: false, status: 401, data: null, error: 'Admin session token required.' };
+      const msg = 'Admin session locked. Please unlock with your admin passphrase.';
+      if (!options?.suppressAuthEvent) {
+        notifyAdminAuthRequired(msg);
+      }
+      return { ok: false, status: 401, data: null, error: msg };
     }
 
     const res = await fetch('/api/admin-action', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'application/json',
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ action, payload }),
@@ -232,42 +432,65 @@ export async function invokeAdminAction<T = any>(
 
     const contentType = res.headers.get('content-type') || '';
     if (res.status === 404 || (!contentType.includes('application/json') && res.status >= 400)) {
-      return { ok: false, status: res.status, data: null, endpointMissing: true };
+      return {
+        ok: false,
+        status: res.status,
+        data: null,
+        endpointMissing: true,
+        error: `Admin API route (/api/admin-action) is unreachable (${res.status}).`,
+      };
     }
 
     const json = await res.json().catch(() => null);
     if (!res.ok) {
+      const errMessage = json?.error || `Admin action "${action}" failed (HTTP ${res.status}).`;
+      if (res.status === 401) {
+        clearStoredAdminSession();
+        if (!options?.suppressAuthEvent) {
+          notifyAdminAuthRequired(errMessage);
+        }
+      }
       return {
         ok: false,
         status: res.status,
         data: json,
-        error: json?.error || `Admin action failed (${res.status})`,
+        error: errMessage,
       };
     }
 
     return { ok: true, status: res.status, data: json };
-  } catch {
-    return { ok: false, status: 0, data: null, endpointMissing: true };
+  } catch (err: any) {
+    return {
+      ok: false,
+      status: 0,
+      data: null,
+      error: err?.message || 'Network error while connecting to /api/admin-action.',
+    };
   }
 }
 
-export async function toggleStoreStatus(isOpen: boolean): Promise<{ ok: boolean; isOpen: boolean; error?: string }> {
-  const apiRes = await invokeAdminAction('toggle_store_status', { isOpen });
+export async function getStoreStatusAdmin(): Promise<{ ok: boolean; isOpen: boolean; error?: string }> {
+  const apiRes = await invokeAdminAction<{ ok?: boolean; isOpen?: boolean }>('get_store_status');
+  if (apiRes.ok && typeof apiRes.data?.isOpen === 'boolean') {
+    return { ok: true, isOpen: apiRes.data.isOpen };
+  }
+  return { ok: false, isOpen: true, error: apiRes.error || 'Failed to read store status.' };
+}
+
+export async function toggleStoreStatus(
+  isOpen: boolean
+): Promise<{ ok: boolean; isOpen: boolean; error?: string }> {
+  const apiRes = await invokeAdminAction<{ ok?: boolean; isOpen?: boolean }>('toggle_store_status', {
+    isOpen,
+  });
   if (apiRes.ok) {
     return { ok: true, isOpen };
   }
-  if (!apiRes.endpointMissing) {
-    return { ok: false, isOpen: !isOpen, error: apiRes.error || 'Unauthorized store toggle.' };
-  }
-
-  const { error } = await supabase
-    .from('store_settings')
-    .update({ is_open: isOpen, updated_at: new Date().toISOString() })
-    .eq('id', 'primary');
-  if (error) {
-    return { ok: false, isOpen: !isOpen, error: error.message };
-  }
-  return { ok: true, isOpen };
+  return {
+    ok: false,
+    isOpen: !isOpen,
+    error: apiRes.error || 'Failed to update store open/closed status.',
+  };
 }
 
 // Local fallback store keys
@@ -548,91 +771,82 @@ function setLocal<T>(key: string, data: T): void {
 /* ============================================================
    1. DASHBOARD & AGGREGATED METRICS
    ============================================================ */
+function mapRawAdminProduct(item: any): AdminProduct {
+  const stock = Number(item.stock_quantity ?? item.stock_count ?? item.stockCount ?? 0);
+  const name = item.title || item.name || 'Campus Product';
+  const img =
+    item.image_url ||
+    item.image ||
+    'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+  return {
+    id: String(item.id),
+    name,
+    title: name,
+    category: item.category || 'snacks',
+    price: Number(item.price || 0),
+    original_price: item.original_price ? Number(item.original_price) : undefined,
+    stock_count: stock,
+    stock_quantity: stock,
+    low_stock_threshold: Number(item.low_stock_threshold ?? 10),
+    image: img,
+    image_url: img,
+    unit: item.unit || '1 pc',
+    description: item.description || '',
+    in_stock: Boolean(item.in_stock ?? stock > 0),
+    is_active: item.is_active !== undefined ? Boolean(item.is_active) : true,
+    is_popular: Boolean(item.is_popular),
+    is_late_night: Boolean(item.is_late_night),
+    is_flash_deal: Boolean(item.is_flash_deal),
+    created_at: item.created_at || new Date().toISOString(),
+  };
+}
+
 export async function fetchDashboardMetrics() {
-  let ordersCount = 0;
-  let totalRevenue = 0;
-  let activeOrdersCount = 0;
-  let productsCount = 0;
-  let lowStockCount = 0;
-  let profilesCount = 0;
-  let recentOrders: AdminOrder[] = [];
-  let isLiveSupabase = false;
+  const apiRes = await invokeAdminAction<{
+    ordersCount: number;
+    totalRevenue: number;
+    activeOrdersCount: number;
+    productsCount: number;
+    lowStockCount: number;
+    profilesCount: number;
+    recentOrders: any[];
+    isLiveSupabase: boolean;
+  }>('get_dashboard_metrics');
 
-  try {
-    // 1. Fetch Orders from Supabase
-    const { data: remoteOrders, error: ordersError } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (!ordersError && remoteOrders) {
-      isLiveSupabase = true;
-      ordersCount = remoteOrders.length;
-      totalRevenue = remoteOrders.reduce(
-        (sum, o) => sum + Number(o.total_amount || o.total || 0),
-        0
-      );
-      activeOrdersCount = remoteOrders.filter((o) =>
-        ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery'].includes(
-          o.status
-        )
-      ).length;
-      recentOrders = remoteOrders.slice(0, 8);
-    } else {
-      throw new Error(ordersError?.message || 'Orders table not ready');
-    }
-
-    // 2. Fetch Products from Supabase
-    const { data: remoteProducts, error: productsError } = await supabase
-      .from('products')
-      .select('*');
-
-    if (!productsError && remoteProducts) {
-      productsCount = remoteProducts.length;
-      lowStockCount = remoteProducts.filter((p) => {
-        const stock = Number(p.stock_count ?? p.stockCount ?? 0);
-        const threshold = Number(p.low_stock_threshold ?? 10);
-        return stock <= threshold;
-      }).length;
-    }
-
-    // 3. Fetch Profiles from Supabase
-    const { data: remoteProfiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('*');
-
-    if (!profilesError && remoteProfiles) {
-      profilesCount = remoteProfiles.length;
-    }
-  } catch (err) {
-    // Fallback to local storage state
-    const localOrders = getLocal<AdminOrder[]>(LOCAL_STORAGE_KEYS.ORDERS, DEFAULT_ORDERS);
-    const localProducts = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, DEFAULT_ADMIN_PRODUCTS);
-    const localProfiles = getLocal<UserProfile[]>(LOCAL_STORAGE_KEYS.PROFILES, DEFAULT_PROFILES);
-
-    ordersCount = localOrders.length;
-    totalRevenue = localOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
-    activeOrdersCount = localOrders.filter((o) =>
-      ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery'].includes(o.status)
-    ).length;
-    recentOrders = localOrders.slice(0, 8);
-    productsCount = localProducts.length;
-    lowStockCount = localProducts.filter(
-      (p) => Number(p.stock_count || 0) <= Number(p.low_stock_threshold || 10)
-    ).length;
-    profilesCount = localProfiles.length;
+  if (!apiRes.ok || !apiRes.data) {
+    throw new Error(
+      apiRes.error || 'Failed to load dashboard analytics from /api/admin-action.'
+    );
   }
 
   return {
-    ordersCount,
-    totalRevenue,
-    activeOrdersCount,
-    productsCount,
-    lowStockCount,
-    profilesCount,
-    recentOrders,
-    isLiveSupabase,
+    ordersCount: Number(apiRes.data.ordersCount || 0),
+    totalRevenue: Number(apiRes.data.totalRevenue || 0),
+    activeOrdersCount: Number(apiRes.data.activeOrdersCount || 0),
+    productsCount: Number(apiRes.data.productsCount || 0),
+    lowStockCount: Number(apiRes.data.lowStockCount || 0),
+    profilesCount: Number(apiRes.data.profilesCount || 0),
+    recentOrders: Array.isArray(apiRes.data.recentOrders)
+      ? apiRes.data.recentOrders.map(mapRawOrderRow)
+      : [],
+    isLiveSupabase: Boolean(apiRes.data.isLiveSupabase),
   };
+}
+
+/**
+ * Privileged product catalog fetch for Admin & Management Panels.
+ * Routes strictly through /api/admin-action using SUPABASE_SERVICE_ROLE_KEY.
+ */
+export async function fetchAdminProducts(): Promise<AdminProduct[]> {
+  const apiRes = await invokeAdminAction<{ products?: any[] }>('list_products');
+  if (!apiRes.ok || !Array.isArray(apiRes.data?.products)) {
+    throw new Error(
+      apiRes.error || 'Failed to load products catalog from /api/admin-action.'
+    );
+  }
+  const mapped = apiRes.data.products.map(mapRawAdminProduct);
+  setLocal(LOCAL_STORAGE_KEYS.PRODUCTS, mapped);
+  return mapped;
 }
 
 /* ============================================================
@@ -1085,206 +1299,110 @@ export function subscribeToProductsRealtime(
 }
 
 export async function createProduct(product: Omit<AdminProduct, 'id' | 'created_at'>): Promise<AdminProduct> {
-  const newId = `prod-${Date.now().toString(36)}-${Math.floor(Math.random() * 1000)}`;
-  const now = new Date().toISOString();
-
   const sanitizedName = sanitizeTextInput(product.name || '', 120);
   const sanitizedCategory = sanitizeTextInput(product.category || 'snacks', 60);
   const sanitizedUnit = sanitizeTextInput(product.unit || '1 pc', 40);
   const sanitizedDesc = sanitizeTextInput(product.description || '', 500);
 
-  const fullProduct: AdminProduct = {
+  const apiRes = await invokeAdminAction<{ ok?: boolean; product?: any }>('create_product', {
     ...product,
-    id: newId,
     name: sanitizedName || 'Campus Item',
     category: sanitizedCategory || 'snacks',
     unit: sanitizedUnit || '1 pc',
     description: sanitizedDesc,
-    created_at: now,
     in_stock: Number(product.stock_count || 0) > 0,
-  };
-
-  // 1. Prefer privileged serverless route /api/admin-action
-  const apiRes = await invokeAdminAction<{ ok?: boolean; product?: any }>('create_product', {
-    ...fullProduct,
   });
 
-  if (apiRes.ok && apiRes.data?.product) {
-    fullProduct.id = String(apiRes.data.product.id || newId);
-  } else if (apiRes.endpointMissing) {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .insert([
-          {
-            id: newId,
-            name: fullProduct.name,
-            title: fullProduct.name,
-            category: fullProduct.category,
-            price: fullProduct.price,
-            original_price: fullProduct.original_price,
-            stock_count: fullProduct.stock_count,
-            stock_quantity: fullProduct.stock_count,
-            low_stock_threshold: fullProduct.low_stock_threshold,
-            image: fullProduct.image,
-            image_url: fullProduct.image,
-            unit: fullProduct.unit,
-            description: fullProduct.description,
-            in_stock: fullProduct.in_stock,
-            is_active: fullProduct.is_active !== undefined ? fullProduct.is_active : true,
-            is_popular: fullProduct.is_popular,
-            is_late_night: fullProduct.is_late_night,
-            is_flash_deal: fullProduct.is_flash_deal,
-            created_at: now,
-          },
-        ])
-        .select();
-
-      if (!error && data && data.length > 0) {
-        await supabase.from('inventory_transactions').insert([
-          {
-            id: `tx-${Date.now()}`,
-            product_id: newId,
-            change_amount: fullProduct.stock_count,
-            previous_stock: 0,
-            new_stock: fullProduct.stock_count,
-            reason: 'Initial Stock',
-            notes: 'Product created',
-            created_at: now,
-          },
-        ]);
-      }
-    } catch {}
+  if (!apiRes.ok || !apiRes.data?.product) {
+    throw new Error(apiRes.error || 'Failed to create product via /api/admin-action.');
   }
 
-  const local = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, DEFAULT_ADMIN_PRODUCTS);
-  const updated = [fullProduct, ...local];
-  setLocal(LOCAL_STORAGE_KEYS.PRODUCTS, updated);
-
-  return fullProduct;
+  const created = mapRawAdminProduct(apiRes.data.product);
+  const local = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, []);
+  setLocal(LOCAL_STORAGE_KEYS.PRODUCTS, [created, ...local.filter((p) => p.id !== created.id)]);
+  return created;
 }
 
 export async function updateProduct(
   id: string,
   updates: Partial<AdminProduct>
 ): Promise<AdminProduct> {
-  const local = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, DEFAULT_ADMIN_PRODUCTS);
-  const existing = local.find((p) => p.id === id);
-  const merged: AdminProduct = {
-    ...(existing || ({} as AdminProduct)),
-    ...updates,
-    name: updates.name !== undefined ? sanitizeTextInput(updates.name, 120) : existing?.name || 'Campus Item',
-    description:
-      updates.description !== undefined
-        ? sanitizeTextInput(updates.description, 500)
-        : existing?.description || '',
-    id,
-    in_stock:
-      updates.stock_count !== undefined
-        ? updates.stock_count > 0
-        : existing?.in_stock ?? true,
-  };
+  const payload: Record<string, any> = { id };
+  if (updates.name !== undefined) payload.name = sanitizeTextInput(updates.name, 120);
+  if (updates.category !== undefined) payload.category = sanitizeTextInput(updates.category, 60);
+  if (updates.price !== undefined) payload.price = Number(updates.price);
+  if (updates.original_price !== undefined) payload.original_price = Number(updates.original_price);
+  if (updates.stock_count !== undefined) payload.stock_count = Number(updates.stock_count);
+  if (updates.low_stock_threshold !== undefined) {
+    payload.low_stock_threshold = Number(updates.low_stock_threshold);
+  }
+  if (updates.image !== undefined) payload.image = updates.image;
+  if (updates.unit !== undefined) payload.unit = sanitizeTextInput(updates.unit, 40);
+  if (updates.description !== undefined) {
+    payload.description = sanitizeTextInput(updates.description, 500);
+  }
+  if (updates.is_active !== undefined) payload.is_active = Boolean(updates.is_active);
+  if (updates.is_popular !== undefined) payload.is_popular = Boolean(updates.is_popular);
+  if (updates.is_late_night !== undefined) payload.is_late_night = Boolean(updates.is_late_night);
+  if (updates.is_flash_deal !== undefined) payload.is_flash_deal = Boolean(updates.is_flash_deal);
 
-  const apiRes = await invokeAdminAction('update_product', {
-    id,
-    name: merged.name,
-    category: merged.category,
-    price: merged.price,
-    original_price: merged.original_price,
-    stock_count: merged.stock_count,
-    low_stock_threshold: merged.low_stock_threshold,
-    image: merged.image,
-    unit: merged.unit,
-    description: merged.description,
-    is_popular: merged.is_popular,
-    is_late_night: merged.is_late_night,
-    is_flash_deal: merged.is_flash_deal,
-  });
-
-  if (apiRes.endpointMissing) {
-    try {
-      await supabase
-        .from('products')
-        .update({
-          name: merged.name,
-          title: merged.name,
-          category: merged.category,
-          price: merged.price,
-          original_price: merged.original_price,
-          stock_count: merged.stock_count,
-          stock_quantity: merged.stock_count,
-          low_stock_threshold: merged.low_stock_threshold,
-          image: merged.image,
-          image_url: merged.image,
-          unit: merged.unit,
-          description: merged.description,
-          in_stock: merged.in_stock,
-          is_popular: merged.is_popular,
-          is_late_night: merged.is_late_night,
-          is_flash_deal: merged.is_flash_deal,
-        })
-        .eq('id', id);
-    } catch {}
+  const apiRes = await invokeAdminAction<{ ok?: boolean; product?: any }>('update_product', payload);
+  if (!apiRes.ok || !apiRes.data?.product) {
+    throw new Error(apiRes.error || 'Failed to update product via /api/admin-action.');
   }
 
-  const updatedList = local.map((p) => (p.id === id ? merged : p));
-  setLocal(LOCAL_STORAGE_KEYS.PRODUCTS, updatedList);
-
-  return merged;
+  const updated = mapRawAdminProduct(apiRes.data.product);
+  const local = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, []);
+  setLocal(
+    LOCAL_STORAGE_KEYS.PRODUCTS,
+    local.some((p) => p.id === id)
+      ? local.map((p) => (p.id === id ? updated : p))
+      : [updated, ...local]
+  );
+  return updated;
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {
-  const apiRes = await invokeAdminAction('delete_product', { id });
-  if (apiRes.endpointMissing) {
-    try {
-      await supabase.from('products').delete().eq('id', id);
-    } catch {}
+  const apiRes = await invokeAdminAction<{ ok?: boolean }>('delete_product', { id });
+  if (!apiRes.ok) {
+    throw new Error(apiRes.error || 'Failed to delete product via /api/admin-action.');
   }
 
-  const local = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, DEFAULT_ADMIN_PRODUCTS);
-  const updated = local.filter((p) => p.id !== id);
-  setLocal(LOCAL_STORAGE_KEYS.PRODUCTS, updated);
-
+  const local = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, []);
+  setLocal(
+    LOCAL_STORAGE_KEYS.PRODUCTS,
+    local.filter((p) => p.id !== id)
+  );
   return true;
 }
 
 /**
- * Image upload to Supabase Storage bucket 'product-images'
+ * Image upload routed through /api/admin-action (server-side service role) so
+ * passphrase-authenticated admins can upload to 'product-images' bucket cleanly.
  */
 export async function uploadProductImage(file: File): Promise<string> {
-  const fileExt = file.name.split('.').pop() || 'png';
-  const fileName = `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-  const filePath = `catalog/${fileName}`;
-
-  try {
-    const { error: uploadError } = await supabase.storage
-      .from('product-images')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.warn('Supabase storage upload error:', uploadError);
-      throw uploadError;
-    }
-
-    const { data } = supabase.storage.from('product-images').getPublicUrl(filePath);
-    if (data?.publicUrl) {
-      return data.publicUrl;
-    }
-  } catch (err) {
-    console.warn('Fallback to browser DataURL due to bucket permission or network:', err);
-  }
-
-  // Fallback: Read file as DataURL for offline/preview resilience
-  return new Promise((resolve) => {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => {
-      resolve(reader.result as string);
-    };
+    reader.onloadend = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to read selected image file.'));
     reader.readAsDataURL(file);
   });
+
+  const apiRes = await invokeAdminAction<{ ok?: boolean; publicUrl?: string }>(
+    'upload_product_image',
+    {
+      dataUrl,
+      fileName: file.name,
+      contentType: file.type,
+    }
+  );
+
+  if (apiRes.ok && apiRes.data?.publicUrl) {
+    return apiRes.data.publicUrl;
+  }
+
+  // Fallback to inline DataURL only if storage bucket isn't configured yet
+  return dataUrl;
 }
 
 /* ============================================================
@@ -1419,217 +1537,125 @@ export async function fetchMyRecentOrders(): Promise<AdminOrder[]> {
 }
 
 export async function fetchOrders(): Promise<AdminOrder[]> {
-  // 1. Prefer authenticated serverless admin endpoint
-  const apiRes = await invokeAdminAction<{ orders?: any[] }>('list_orders', { limit: 150 });
-  if (apiRes.ok && Array.isArray(apiRes.data?.orders)) {
-    const mapped = apiRes.data.orders.map(mapRawOrderRow);
-    setLocal(LOCAL_STORAGE_KEYS.ORDERS, mapped);
-    return mapped;
+  const apiRes = await invokeAdminAction<{ orders?: any[] }>('list_orders', { limit: 250 });
+  if (!apiRes.ok || !Array.isArray(apiRes.data?.orders)) {
+    throw new Error(apiRes.error || 'Failed to load orders from /api/admin-action.');
   }
 
-  // 2. Fallback to Supabase client query (succeeds for authenticated admins under strict RLS)
-  try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .order('created_at', { ascending: false });
-
-    if (!error && data && data.length > 0) {
-      const mapped: AdminOrder[] = data.map(mapRawOrderRow);
-      setLocal(LOCAL_STORAGE_KEYS.ORDERS, mapped);
-      return mapped;
-    }
-  } catch {}
-
-  return getLocal<AdminOrder[]>(LOCAL_STORAGE_KEYS.ORDERS, DEFAULT_ORDERS);
+  const mapped = apiRes.data.orders.map(mapRawOrderRow);
+  setLocal(LOCAL_STORAGE_KEYS.ORDERS, mapped);
+  return mapped;
 }
 
 export async function updateOrderStatus(
   orderId: string,
   newStatus: OrderStatus,
   notes?: string
-): Promise<AdminOrder | null> {
+): Promise<AdminOrder> {
   const cleanNotes = sanitizeTextInput(notes || `Status updated to ${newStatus}`, 240);
-  const now = new Date().toISOString();
-
-  // 1. Prefer privileged serverless route
-  const apiRes = await invokeAdminAction('update_order_status', {
+  const apiRes = await invokeAdminAction<{ ok?: boolean; order?: any }>('update_order_status', {
     orderId,
     newStatus,
     notes: cleanNotes,
   });
 
   if (!apiRes.ok) {
-    if (!apiRes.endpointMissing) {
-      return null;
-    }
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: newStatus, updated_at: now })
-      .eq('id', orderId);
-
-    if (error) {
-      return null;
-    }
-
-    try {
-      await supabase.from('order_status_history').insert([
-        {
-          id: `hist-${Date.now()}`,
-          order_id: orderId,
-          status: newStatus,
-          notes: cleanNotes,
-          created_by: 'Admin / Staff',
-          created_at: now,
-        },
-      ]);
-    } catch {}
+    throw new Error(apiRes.error || 'Failed to update order status via /api/admin-action.');
   }
 
-  const historyEntry: OrderStatusHistory = {
-    id: `hist-${Date.now()}`,
-    order_id: orderId,
-    status: newStatus,
-    notes: cleanNotes,
-    created_by: 'Admin / Staff',
-    created_at: now,
-  };
+  const now = new Date().toISOString();
+  const mappedOrder: AdminOrder = apiRes.data?.order
+    ? mapRawOrderRow(apiRes.data.order)
+    : ({
+        id: orderId,
+        order_number: orderId,
+        customer_name: 'Campus Student',
+        customer_phone: '',
+        delivery_zone: '',
+        room_details: '',
+        items: [],
+        total_amount: 0,
+        status: newStatus,
+        payment_method: 'COD',
+        created_at: now,
+        updated_at: now,
+      } as AdminOrder);
 
-  const localHistory = getLocal<OrderStatusHistory[]>(
-    LOCAL_STORAGE_KEYS.ORDER_HISTORY,
-    DEFAULT_STATUS_HISTORY
+  const localOrders = getLocal<AdminOrder[]>(LOCAL_STORAGE_KEYS.ORDERS, []);
+  setLocal(
+    LOCAL_STORAGE_KEYS.ORDERS,
+    localOrders.map((o) => (o.id === orderId ? { ...o, status: newStatus, updated_at: now } : o))
   );
-  setLocal(LOCAL_STORAGE_KEYS.ORDER_HISTORY, [historyEntry, ...localHistory]);
 
-  const localOrders = getLocal<AdminOrder[]>(LOCAL_STORAGE_KEYS.ORDERS, DEFAULT_ORDERS);
-  let updatedOrder: AdminOrder | null = null;
-  const updatedOrders = localOrders.map((o) => {
-    if (o.id === orderId) {
-      updatedOrder = { ...o, status: newStatus, updated_at: now };
-      return updatedOrder;
-    }
-    return o;
-  });
-  setLocal(LOCAL_STORAGE_KEYS.ORDERS, updatedOrders);
-
-  return updatedOrder;
+  return mappedOrder;
 }
 
 export async function fetchOrderStatusHistory(orderId: string): Promise<OrderStatusHistory[]> {
-  try {
-    const { data, error } = await supabase
-      .from('order_status_history')
-      .select('*')
-      .eq('order_id', orderId)
-      .order('created_at', { ascending: false });
-
-    if (!error && data && data.length > 0) {
-      return data as OrderStatusHistory[];
-    }
-  } catch (err) {
-    console.warn('Supabase history fetch failed:', err);
+  const apiRes = await invokeAdminAction<{ history?: OrderStatusHistory[] }>('list_order_history', {
+    orderId,
+  });
+  if (!apiRes.ok) {
+    throw new Error(apiRes.error || 'Failed to load order status history via /api/admin-action.');
   }
-
-  const localHistory = getLocal<OrderStatusHistory[]>(
-    LOCAL_STORAGE_KEYS.ORDER_HISTORY,
-    DEFAULT_STATUS_HISTORY
-  );
-  return localHistory.filter((h) => h.order_id === orderId);
+  return Array.isArray(apiRes.data?.history) ? apiRes.data.history : [];
 }
 
 /**
- * Realtime subscription on the 'orders' table
+ * Live order monitor for Admin panels:
+ * Uses secure polling via /api/admin-action (never unauthenticated client-side orders SELECT)
+ * so new orders & status changes sync cleanly even under strict RLS.
  */
 export function subscribeToOrders(
   onInsert: (order: AdminOrder) => void,
-  onUpdate: (order: AdminOrder) => void
+  onUpdate: (order: AdminOrder) => void,
+  pollIntervalMs: number = 15000
 ) {
-  const channel = supabase
-    .channel('infinity-orders-realtime-global')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'orders' },
-      (payload) => {
-        const o = payload.new as any;
-        if (!o || !o.id) return;
-        setTimeout(async () => {
-          const { data: fullOrder } = await supabase
-            .from('orders')
-            .select('*, order_items(*)')
-            .eq('id', o.id)
-            .single();
+  let active = true;
+  let initialized = false;
+  const knownStatuses = new Map<string, string>();
 
-          const src = fullOrder || o;
-          const delLoc = src.delivery_location || '';
-          const zoneMatch = delLoc.split(',')[0]?.trim() || src.delivery_zone || 'Academic Complex & Main Campus';
-          const roomMatch = delLoc.split(',').slice(1).join(',').trim() || src.room_details || '';
+  const syncOnce = async () => {
+    if (!active) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    if (!getStoredAdminToken()) {
+      const { data } = await supabase.auth.getSession();
+      if (!data?.session?.access_token) return;
+    }
 
-          let resolvedItems = Array.isArray(src.items) && src.items.length > 0 ? src.items : [];
-          if ((!resolvedItems || resolvedItems.length === 0) && Array.isArray(src.order_items)) {
-            resolvedItems = src.order_items.map((oi: any) => ({
-              id: oi.id || oi.product_id || 'item',
-              name: oi.product_name_snapshot || oi.product_name || oi.name || 'Campus Item',
-              price: Number(oi.price_snapshot ?? oi.price ?? oi.unit_price ?? 0),
-              quantity: Number(oi.quantity || 1),
-              image_url: oi.image_url || '',
-            }));
-          }
+    try {
+      const latest = await fetchOrders();
+      if (!active) return;
 
-          const mapped: AdminOrder = {
-            id: src.id,
-            order_number: src.order_number || src.id,
-            customer_name: src.customer_name || (typeof src.delivery_address === 'object' && src.delivery_address?.fullName) || 'Campus Student',
-            customer_phone: src.customer_phone || src.phone || (typeof src.delivery_address === 'object' && src.delivery_address?.phone) || '',
-            customer_id: src.customer_id,
-            delivery_zone: src.delivery_zone || zoneMatch,
-            room_details: src.room_details || roomMatch || 'Hostel Room',
-            delivery_address: typeof src.delivery_address === 'object' && src.delivery_address !== null
-              ? src.delivery_address
-              : {
-                  fullName: src.customer_name || 'Campus Student',
-                  phone: src.customer_phone || src.phone || '',
-                  area: src.delivery_zone || zoneMatch,
-                  roomNo: src.room_details || roomMatch,
-                  notes: src.delivery_note || src.notes || undefined,
-                },
-            items: resolvedItems,
-            total_amount: Number(src.total ?? src.total_amount ?? 0),
-            status: (src.status as OrderStatus) || 'Pending',
-            payment_method: src.payment_method || 'Cash on Delivery',
-            created_at: src.created_at || src.timestamp || new Date().toISOString(),
-            updated_at: src.updated_at,
-          };
-          onInsert(mapped);
-        }, 350);
+      if (!initialized) {
+        for (const o of latest) {
+          knownStatuses.set(o.id, String(o.status || ''));
+        }
+        initialized = true;
+        return;
       }
-    )
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'orders' },
-      (payload) => {
-        const o = payload.new as any;
-        if (!o || !o.id) return;
-        const mapped: AdminOrder = {
-          id: o.id,
-          order_number: o.order_number || o.id,
-          customer_name: o.customer_name || o.delivery_address?.fullName || 'Campus Student',
-          customer_phone: o.customer_phone || o.delivery_address?.phone || '',
-          delivery_zone: o.delivery_zone || o.delivery_address?.area || 'Campus Zone',
-          room_details: o.room_details || o.delivery_address?.roomNo || 'Room',
-          items: Array.isArray(o.items) ? o.items : [],
-          total_amount: Number(o.total_amount ?? o.total ?? 0),
-          status: (o.status as OrderStatus) || 'Pending',
-          payment_method: o.payment_method || 'Cash on Delivery',
-          created_at: o.created_at || new Date().toISOString(),
-          updated_at: o.updated_at || new Date().toISOString(),
-        };
-        onUpdate(mapped);
+
+      for (const o of latest) {
+        const prevStatus = knownStatuses.get(o.id);
+        const currentStatus = String(o.status || '');
+        if (prevStatus === undefined) {
+          knownStatuses.set(o.id, currentStatus);
+          onInsert(o);
+        } else if (prevStatus !== currentStatus) {
+          knownStatuses.set(o.id, currentStatus);
+          onUpdate(o);
+        }
       }
-    )
-    .subscribe();
+    } catch {
+      // Errors are surfaced by explicit component loads; background poll stays silent
+    }
+  };
+
+  syncOnce();
+  const timer = setInterval(syncOnce, pollIntervalMs);
 
   return () => {
-    supabase.removeChannel(channel);
+    active = false;
+    clearInterval(timer);
   };
 }
 
@@ -1642,101 +1668,51 @@ export async function adjustInventoryStock(
   reason: 'Restock' | 'Sale' | 'Damaged' | 'Audit Adjustment',
   notes?: string
 ) {
-  const localProducts = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, DEFAULT_ADMIN_PRODUCTS);
-  const target = localProducts.find((p) => p.id === productId);
-  if (!target) return null;
-
   const cleanNotes = sanitizeTextInput(notes || `${reason} of ${Math.abs(changeAmount)} units`, 240);
-  let previousStock = Number(target.stock_count || 0);
-  let newStock = Math.max(0, previousStock + changeAmount);
-  const now = new Date().toISOString();
 
-  const apiRes = await invokeAdminAction<{ ok?: boolean; previousStock?: number; newStock?: number }>(
-    'adjust_inventory',
-    { productId, changeAmount, reason, notes: cleanNotes }
-  );
+  const apiRes = await invokeAdminAction<{
+    ok?: boolean;
+    previousStock?: number;
+    newStock?: number;
+    product?: any;
+    transaction?: InventoryTransaction;
+  }>('adjust_inventory', { productId, changeAmount, reason, notes: cleanNotes });
 
-  if (apiRes.ok && typeof apiRes.data?.newStock === 'number') {
-    previousStock = Number(apiRes.data.previousStock ?? previousStock);
-    newStock = Number(apiRes.data.newStock);
-  } else if (apiRes.endpointMissing) {
-    try {
-      await supabase
-        .from('products')
-        .update({
-          stock_count: newStock,
-          stock_quantity: newStock,
-          in_stock: newStock > 0,
-        })
-        .eq('id', productId);
-
-      await supabase.from('inventory_transactions').insert([
-        {
-          id: `tx-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          product_id: productId,
-          change_amount: changeAmount,
-          previous_stock: previousStock,
-          new_stock: newStock,
-          reason,
-          notes: cleanNotes,
-          created_at: now,
-        },
-      ]);
-    } catch {}
+  if (!apiRes.ok || typeof apiRes.data?.newStock !== 'number') {
+    throw new Error(apiRes.error || 'Failed to adjust inventory stock via /api/admin-action.');
   }
 
-  const tx: InventoryTransaction = {
-    id: `tx-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-    product_id: productId,
-    product_name: target.name,
-    change_amount: changeAmount,
-    previous_stock: previousStock,
-    new_stock: newStock,
-    reason,
-    notes: cleanNotes,
-    created_at: now,
+  const newStock = Number(apiRes.data.newStock);
+  const updatedProduct = apiRes.data.product ? mapRawAdminProduct(apiRes.data.product) : null;
+
+  const localProducts = getLocal<AdminProduct[]>(LOCAL_STORAGE_KEYS.PRODUCTS, []);
+  if (updatedProduct) {
+    setLocal(
+      LOCAL_STORAGE_KEYS.PRODUCTS,
+      localProducts.some((p) => p.id === productId)
+        ? localProducts.map((p) => (p.id === productId ? updatedProduct : p))
+        : [updatedProduct, ...localProducts]
+    );
+  }
+
+  return {
+    product: updatedProduct,
+    transaction: apiRes.data.transaction || null,
+    newStock,
   };
-
-  const updatedProducts = localProducts.map((p) =>
-    p.id === productId
-      ? { ...p, stock_count: newStock, in_stock: newStock > 0 }
-      : p
-  );
-  setLocal(LOCAL_STORAGE_KEYS.PRODUCTS, updatedProducts);
-
-  const localTx = getLocal<InventoryTransaction[]>(
-    LOCAL_STORAGE_KEYS.INVENTORY_TX,
-    DEFAULT_INVENTORY_TX
-  );
-  setLocal(LOCAL_STORAGE_KEYS.INVENTORY_TX, [tx, ...localTx]);
-
-  return { product: target, transaction: tx, newStock };
 }
 
 export async function fetchInventoryTransactions(productId?: string): Promise<InventoryTransaction[]> {
-  try {
-    let query = supabase
-      .from('inventory_transactions')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (productId) {
-      query = query.eq('product_id', productId);
-    }
-
-    const { data, error } = await query;
-    if (!error && data && data.length > 0) {
-      return data as InventoryTransaction[];
-    }
-  } catch (err) {
-    console.warn('Supabase transactions fetch failed:', err);
-  }
-
-  const localTx = getLocal<InventoryTransaction[]>(
-    LOCAL_STORAGE_KEYS.INVENTORY_TX,
-    DEFAULT_INVENTORY_TX
+  const apiRes = await invokeAdminAction<{ transactions?: InventoryTransaction[] }>(
+    'list_inventory_transactions',
+    productId ? { productId } : {}
   );
-  return productId ? localTx.filter((t) => t.product_id === productId) : localTx;
+  if (!apiRes.ok) {
+    throw new Error(
+      apiRes.error || 'Failed to load inventory transactions via /api/admin-action.'
+    );
+  }
+  return Array.isArray(apiRes.data?.transactions) ? apiRes.data.transactions : [];
 }
 
 export async function fetchProfiles(): Promise<UserProfile[]> {
@@ -1842,65 +1818,58 @@ export async function syncUserProfileToSupabase(
    5. SEED INITIAL SUPABASE DATA (1-CLICK HELPER)
    ============================================================ */
 export async function seedSupabaseDemoData(): Promise<{ success: boolean; message: string }> {
-  try {
-    // 1. Seed Products
-    const productsToInsert = DEFAULT_ADMIN_PRODUCTS.map((p) => ({
-      id: p.id,
-      name: p.name,
-      category: p.category,
-      price: p.price,
-      original_price: p.original_price,
-      stock_count: p.stock_count,
-      low_stock_threshold: p.low_stock_threshold,
-      image: p.image,
-      unit: p.unit,
-      description: p.description,
-      in_stock: p.in_stock,
-      is_popular: p.is_popular,
-      is_late_night: p.is_late_night,
-      is_flash_deal: p.is_flash_deal,
-      created_at: p.created_at,
-    }));
+  const productsToInsert = DEFAULT_ADMIN_PRODUCTS.map((p) => ({
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    price: p.price,
+    original_price: p.original_price,
+    stock_count: p.stock_count,
+    low_stock_threshold: p.low_stock_threshold,
+    image: p.image,
+    unit: p.unit,
+    description: p.description,
+    in_stock: p.in_stock,
+    is_popular: p.is_popular,
+    is_late_night: p.is_late_night,
+    is_flash_deal: p.is_flash_deal,
+    created_at: p.created_at,
+  }));
 
-    await supabase.from('products').upsert(productsToInsert, { onConflict: 'id' });
+  const ordersToInsert = DEFAULT_ORDERS.map((o) => ({
+    id: o.id,
+    order_number: o.order_number,
+    customer_name: o.customer_name,
+    customer_phone: o.customer_phone,
+    delivery_address: {
+      fullName: o.customer_name,
+      phone: o.customer_phone,
+      area: o.delivery_zone,
+      roomNo: o.room_details,
+    },
+    items: o.items,
+    total_amount: o.total_amount,
+    status: o.status,
+    payment_method: o.payment_method,
+    created_at: o.created_at,
+  }));
 
-    // 2. Seed Profiles
-    await supabase.from('profiles').upsert(DEFAULT_PROFILES, { onConflict: 'id' });
+  const apiRes = await invokeAdminAction<{ ok?: boolean; message?: string }>('seed_demo_data', {
+    products: productsToInsert,
+    orders: ordersToInsert,
+  });
 
-    // 3. Seed Orders
-    const ordersToInsert = DEFAULT_ORDERS.map((o) => ({
-      id: o.id,
-      order_number: o.order_number,
-      customer_name: o.customer_name,
-      customer_phone: o.customer_phone,
-      delivery_address: {
-        fullName: o.customer_name,
-        phone: o.customer_phone,
-        area: o.delivery_zone,
-        roomNo: o.room_details,
-      },
-      items: o.items,
-      total_amount: o.total_amount,
-      status: o.status,
-      payment_method: o.payment_method,
-      created_at: o.created_at,
-    }));
-
-    await supabase.from('orders').upsert(ordersToInsert, { onConflict: 'id' });
-
-    // 4. Seed Status History
-    await supabase.from('order_status_history').upsert(DEFAULT_STATUS_HISTORY, { onConflict: 'id' });
-
-    // 5. Seed Inventory Transactions
-    await supabase.from('inventory_transactions').upsert(DEFAULT_INVENTORY_TX, { onConflict: 'id' });
-
-    return { success: true, message: 'Successfully seeded campus data to Supabase!' };
-  } catch (err: any) {
+  if (!apiRes.ok) {
     return {
       success: false,
-      message: err?.message || 'Failed to seed data. Check table schemas or RLS rules.',
+      message: apiRes.error || 'Failed to seed campus data via /api/admin-action.',
     };
   }
+
+  return {
+    success: true,
+    message: apiRes.data?.message || 'Successfully seeded campus data to Supabase!',
+  };
 }
 
 /* ============================================================

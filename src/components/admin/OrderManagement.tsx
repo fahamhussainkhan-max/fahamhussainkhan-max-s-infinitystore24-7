@@ -60,14 +60,16 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
     newStatus: OrderStatus;
   } | null>(null);
   const [transitionNotes, setTransitionNotes] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadOrders = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
       const data = await fetchOrders();
       setOrders(data);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setErrorMessage(e?.message || 'Failed to load orders from /api/admin-action.');
     } finally {
       setLoading(false);
     }
@@ -100,23 +102,21 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
 
   const handleQuickAdvance = async (order: AdminOrder, nextStatus: OrderStatus) => {
     setUpdatingId(order.id);
+    setErrorMessage(null);
+    const prevOrders = [...orders];
     // Optimistically update card badge immediately
     setOrders((prev) =>
       prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o))
     );
     try {
-      const updated = await updateOrderStatus(
+      await updateOrderStatus(
         order.id,
         nextStatus,
         `Quick transition to ${nextStatus} by Campus Admin`
       );
-      if (!updated) {
-        // Revert on error
-        await loadOrders();
-      }
-    } catch (e) {
-      console.error(e);
-      await loadOrders();
+    } catch (e: any) {
+      setOrders(prevOrders);
+      setErrorMessage(e?.message || 'Failed to update order status.');
     } finally {
       setUpdatingId(null);
     }
@@ -126,24 +126,23 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
     if (!transitionTarget) return;
     const { orderId, newStatus } = transitionTarget;
     setUpdatingId(orderId);
+    setErrorMessage(null);
+    const prevOrders = [...orders];
     // Optimistically update card badge immediately
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     );
     try {
-      const updated = await updateOrderStatus(
+      await updateOrderStatus(
         orderId,
         newStatus,
         transitionNotes.trim() || `Status updated to ${newStatus}`
       );
       setTransitionTarget(null);
       setTransitionNotes('');
-      if (!updated) {
-        await loadOrders();
-      }
-    } catch (e) {
-      console.error(e);
-      await loadOrders();
+    } catch (e: any) {
+      setOrders(prevOrders);
+      setErrorMessage(e?.message || 'Failed to update order status.');
     } finally {
       setUpdatingId(null);
     }
@@ -152,11 +151,13 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
   const handleOpenHistory = async (order: AdminOrder) => {
     setSelectedOrderForHistory(order);
     setLoadingHistory(true);
+    setErrorMessage(null);
     try {
       const history = await fetchOrderStatusHistory(order.id);
       setHistoryLogs(history);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setHistoryLogs([]);
+      setErrorMessage(e?.message || 'Failed to load order status history.');
     } finally {
       setLoadingHistory(false);
     }
@@ -293,6 +294,22 @@ export const OrderManagement: React.FC<OrderManagementProps> = ({
 
   return (
     <div className="space-y-6">
+      {errorMessage && (
+        <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs font-bold flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={loadOrders}
+            className="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold shrink-0 cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs">
         <div>

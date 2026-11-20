@@ -14,7 +14,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import {
-  fetchProducts,
+  fetchAdminProducts,
   adjustInventoryStock,
   fetchInventoryTransactions,
   createProduct,
@@ -36,7 +36,7 @@ export const InventoryManagement: React.FC = () => {
   >('Restock');
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Add Product modal state
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
@@ -52,17 +52,24 @@ export const InventoryManagement: React.FC = () => {
     description: '',
   });
 
+  const showNotice = (type: 'success' | 'error', message: string) => {
+    setNotice({ type, message });
+    if (type === 'success') {
+      setTimeout(() => setNotice(null), 3500);
+    }
+  };
+
   const loadInventory = async () => {
     setLoading(true);
     try {
       const [prods, txs] = await Promise.all([
-        fetchProducts(),
-        fetchInventoryTransactions(),
+        fetchAdminProducts(),
+        fetchInventoryTransactions().catch(() => []),
       ]);
       setProducts(prods);
       setTransactions(txs);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      showNotice('error', e?.message || 'Failed to load inventory data from /api/admin-action.');
     } finally {
       setLoading(false);
     }
@@ -85,13 +92,12 @@ export const InventoryManagement: React.FC = () => {
         product.id,
         amount,
         'Restock',
-        `Quick restock of +${amount} units via admin inventory`
+        `Quick restock of ${amount > 0 ? `+${amount}` : amount} units via admin inventory`
       );
-      setNotice(`Restocked +${amount} units for ${product.name}`);
-      setTimeout(() => setNotice(null), 3500);
+      showNotice('success', `Updated stock (${amount > 0 ? `+${amount}` : amount} units) for ${product.name}`);
       await loadInventory();
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      showNotice('error', e?.message || `Failed to update stock for ${product.name}.`);
     }
   };
 
@@ -113,15 +119,15 @@ export const InventoryManagement: React.FC = () => {
         adjustmentNotes || `${adjustmentReason} adjustment`
       );
 
-      setNotice(
+      showNotice(
+        'success',
         `Recorded ${finalAmount > 0 ? `+${finalAmount}` : finalAmount} units in 'inventory_transactions'.`
       );
-      setTimeout(() => setNotice(null), 3500);
 
       setSelectedProduct(null);
       await loadInventory();
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      showNotice('error', e?.message || 'Failed to record stock adjustment.');
     } finally {
       setSubmitting(false);
     }
@@ -148,8 +154,7 @@ export const InventoryManagement: React.FC = () => {
         in_stock: Number(newProduct.stock_count) > 0,
       });
 
-      setNotice(`Product "${newProduct.name}" added to catalog with ${newProduct.stock_count} units!`);
-      setTimeout(() => setNotice(null), 4000);
+      showNotice('success', `Product "${newProduct.name}" added to catalog with ${newProduct.stock_count} units!`);
 
       setIsAddProductModalOpen(false);
       setNewProduct({
@@ -164,8 +169,8 @@ export const InventoryManagement: React.FC = () => {
       });
 
       await loadInventory();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      showNotice('error', err?.message || 'Failed to create new product.');
     } finally {
       setIsAddingProduct(false);
     }
@@ -187,12 +192,22 @@ export const InventoryManagement: React.FC = () => {
     <div className="space-y-6">
       {/* Notice */}
       {notice && (
-        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold flex items-center justify-between shadow-sm">
+        <div
+          className={`p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between shadow-sm ${
+            notice.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>{notice}</span>
+            {notice.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+            )}
+            <span>{notice.message}</span>
           </div>
-          <button onClick={() => setNotice(null)} className="hover:opacity-70">
+          <button type="button" onClick={() => setNotice(null)} className="hover:opacity-70 cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>

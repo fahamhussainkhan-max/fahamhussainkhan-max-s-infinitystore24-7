@@ -9,6 +9,7 @@ export {
   isSupabaseConfigured,
   fetchDashboardMetrics,
   fetchProducts,
+  fetchAdminProducts,
   fetchStorefrontProducts,
   fetchCategories,
   fetchStorefrontCategories,
@@ -31,4 +32,10 @@ export {
   recordCampusOrder,
   handleQuickOrder,
   placeFastOrder,
+  unlockAdminWithPassphrase,
+  verifyAdminToken,
+  getStoredAdminToken,
+  clearStoredAdminSession,
+  getStoreStatusAdmin,
+  toggleStoreStatus,
 } from './lib/supabase';

@@ -14,7 +14,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import {
-  fetchProducts,
+  fetchAdminProducts,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -60,10 +60,10 @@ export const ProductManagement: React.FC = () => {
   const loadCatalog = async () => {
     setLoading(true);
     try {
-      const data = await fetchProducts();
+      const data = await fetchAdminProducts();
       setProducts(data);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      showNotice('error', e?.message || 'Failed to load products catalog from /api/admin-action.');
     } finally {
       setLoading(false);
     }
@@ -244,10 +244,14 @@ export const ProductManagement: React.FC = () => {
           }`}
         >
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            {actionNotice.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+            )}
             <span>{actionNotice.message}</span>
           </div>
-          <button onClick={() => setActionNotice(null)} className="hover:opacity-70">
+          <button type="button" onClick={() => setActionNotice(null)} className="hover:opacity-70 cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>

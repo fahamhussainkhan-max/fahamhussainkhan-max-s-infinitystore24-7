@@ -44,15 +44,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
-  const [seedMessage, setSeedMessage] = useState<string | null>(null);
+  const [seedMessage, setSeedMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
       const data = await fetchDashboardMetrics();
       setMetrics(data);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setErrorMessage(e?.message || 'Failed to load dashboard metrics from /api/admin-action.');
     } finally {
       setLoading(false);
     }
@@ -66,10 +68,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setSeeding(true);
     setSeedMessage(null);
     const res = await seedSupabaseDemoData();
-    setSeedMessage(res.message);
-    await loadData();
+    setSeedMessage({ ok: res.success, text: res.message });
+    if (res.success) {
+      await loadData();
+    }
     setSeeding(false);
-    setTimeout(() => setSeedMessage(null), 4000);
+    if (res.success) {
+      setTimeout(() => setSeedMessage(null), 4000);
+    }
   };
 
   const getStatusBadge = (status: OrderStatus) => {
@@ -135,10 +141,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </div>
 
+      {errorMessage && (
+        <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-bold flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={loadData}
+            className="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold shrink-0 cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {seedMessage && (
-        <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold flex items-center justify-between">
-          <span>{seedMessage}</span>
-          <button onClick={() => setSeedMessage(null)} className="text-blue-500 hover:text-blue-800 font-bold">×</button>
+        <div
+          className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+            seedMessage.ok
+              ? 'bg-blue-50 border-blue-200 text-blue-900'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
+          <span>{seedMessage.text}</span>
+          <button type="button" onClick={() => setSeedMessage(null)} className="font-bold cursor-pointer">
+            ×
+          </button>
         </div>
       )}
 

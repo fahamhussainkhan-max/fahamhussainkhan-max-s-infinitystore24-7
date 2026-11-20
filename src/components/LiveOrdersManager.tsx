@@ -18,8 +18,7 @@ import {
   ChevronRight,
   Filter,
 } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
-import { fetchOrders, updateOrderStatus } from '../lib/supabase';
+import { fetchOrders, updateOrderStatus, subscribeToOrders } from '../lib/supabase';
 import { playOrderAlertChime } from '../utils/audioAlert';
 
 export type LiveOrderStatus =
@@ -63,6 +62,7 @@ export const LiveOrdersManager: React.FC = () => {
   const [zoneFilter, setZoneFilter] = useState<string>('all');
   const [lastAlertTime, setLastAlertTime] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Audio element fallback
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -78,44 +78,6 @@ export const LiveOrdersManager: React.FC = () => {
     setLastAlertTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   };
 
-  // 1. Fetch initial orders via secured admin helper (/api/admin-action with authenticated fallback)
-  const fetchActiveOrders = async () => {
-    setLoading(true);
-    try {
-      const adminOrders = await fetchOrders();
-      const mapped: LiveOrder[] = adminOrders.map((o: any) => {
-        const rawItems = Array.isArray(o.items) ? o.items : [];
-        return {
-          id: o.id,
-          order_number: o.order_number ? (String(o.order_number).startsWith('#') ? String(o.order_number) : `#${o.order_number}`) : o.id,
-          customer_name: o.customer_name || o.delivery_address?.fullName || 'Campus Student',
-          customer_phone: o.customer_phone || o.phone || o.delivery_address?.phone || '',
-          delivery_zone: o.delivery_zone || o.delivery_address?.area || 'Campus Hostels',
-          room_details: o.room_details || o.delivery_address?.roomNo || '',
-          items: rawItems.map((it: any) => ({
-            id: it.id || it.product_id,
-            name: it.product_name_snapshot || it.product_name || it.name || 'Campus Item',
-            quantity: Number(it.quantity || 1),
-            price: Number(it.price_snapshot ?? it.price ?? it.unit_price ?? 0),
-            image_url: it.image_url || '',
-          })),
-          total_amount: Number(o.total_amount || o.total || 0),
-          delivery_fee: o.delivery_fee !== undefined ? Number(o.delivery_fee) : undefined,
-          handling_fee: o.handling_fee !== undefined ? Number(o.handling_fee) : undefined,
-          status: normalizeStatus(o.status),
-          payment_method: o.payment_method || 'Cash on Delivery',
-          created_at: o.created_at || new Date().toISOString(),
-          notes: o.delivery_note || o.notes || o.delivery_address?.notes,
-        };
-      });
-      setOrders(mapped);
-    } catch {
-      // Handled gracefully
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const normalizeStatus = (raw: string): LiveOrderStatus => {
     const s = String(raw || '').toLowerCase().trim();
     if (s === 'confirmed') return 'Confirmed';
@@ -127,151 +89,100 @@ export const LiveOrdersManager: React.FC = () => {
     return 'Pending';
   };
 
+  const mapAdminOrderToLive = (o: any): LiveOrder => {
+    const rawItems = Array.isArray(o.items) ? o.items : [];
+    return {
+      id: o.id,
+      order_number: o.order_number
+        ? String(o.order_number).startsWith('#')
+          ? String(o.order_number)
+          : `#${o.order_number}`
+        : o.id,
+      customer_name: o.customer_name || o.delivery_address?.fullName || 'Campus Student',
+      customer_phone: o.customer_phone || o.phone || o.delivery_address?.phone || '',
+      delivery_zone: o.delivery_zone || o.delivery_address?.area || 'Campus Hostels',
+      room_details: o.room_details || o.delivery_address?.roomNo || '',
+      items: rawItems.map((it: any) => ({
+        id: it.id || it.product_id,
+        name: it.product_name_snapshot || it.product_name || it.name || 'Campus Item',
+        quantity: Number(it.quantity || 1),
+        price: Number(it.price_snapshot ?? it.price ?? it.unit_price ?? 0),
+        image_url: it.image_url || '',
+      })),
+      total_amount: Number(o.total_amount || o.total || 0),
+      delivery_fee: o.delivery_fee !== undefined ? Number(o.delivery_fee) : undefined,
+      handling_fee: o.handling_fee !== undefined ? Number(o.handling_fee) : undefined,
+      status: normalizeStatus(o.status),
+      payment_method: o.payment_method || 'Cash on Delivery',
+      created_at: o.created_at || new Date().toISOString(),
+      notes: o.delivery_note || o.notes || o.delivery_address?.notes,
+    };
+  };
+
+  // 1. Fetch active orders strictly through /api/admin-action (server service role)
+  const fetchActiveOrders = async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const adminOrders = await fetchOrders();
+      setOrders(adminOrders.map(mapAdminOrderToLive));
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Failed to load orders from /api/admin-action.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchActiveOrders();
 
-    // 2. Listen for incoming orders in Realtime via Supabase channel (INSERT and UPDATE)
-    const channel = supabase
-      .channel('kitchen-orders-realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'orders' },
-        (payload: any) => {
-          const newRow = payload.new;
-          if (!newRow || !newRow.id) return;
-
-          // Fetch full order with items (slight delay ensures order_items batch insert completed)
-          setTimeout(async () => {
-            const { data: fullOrder } = await supabase
-              .from('orders')
-              .select('*, order_items(*)')
-              .eq('id', newRow.id)
-              .single();
-
-            const src = fullOrder || newRow;
-            const rawItems = Array.isArray(src.order_items) && src.order_items.length > 0
-              ? src.order_items
-              : (Array.isArray(src.items) ? src.items : []);
-
-            const mappedOrder: LiveOrder = {
-              id: src.id,
-              order_number: src.order_number ? `#${src.order_number}` : src.id,
-              customer_name: src.customer_name || src.delivery_address?.fullName || 'Campus Student',
-              customer_phone: src.customer_phone || src.phone || src.delivery_address?.phone || '',
-              delivery_zone: src.delivery_zone || src.delivery_location || src.delivery_address?.area || 'Campus Hostels',
-              room_details: src.room_details || src.delivery_address?.roomNo || '',
-              items: rawItems.map((it: any) => ({
-                id: it.id || it.product_id,
-                name: it.product_name_snapshot || it.product_name || it.name || 'Campus Item',
-                quantity: Number(it.quantity || 1),
-                price: Number(it.price_snapshot ?? it.price ?? it.subtotal ?? 0),
-                image_url: it.image_url || '',
-              })),
-              total_amount: Number(src.total || src.total_amount || 0),
-              delivery_fee: Number(src.delivery_fee || 0),
-              handling_fee: Number(src.handling_fee || 0),
-              status: normalizeStatus(src.status),
-              payment_method: src.payment_method || 'Cash on Delivery',
-              created_at: src.created_at || new Date().toISOString(),
-              notes: src.delivery_note || src.notes || src.delivery_address?.notes,
-            };
-
-            // Prepend new order and trigger audio alert
-            setOrders((prev) => [mappedOrder, ...prev.filter((o) => o.id !== mappedOrder.id)]);
-            playAlert();
-            setActionNotice(`🔔 New Order #${mappedOrder.order_number} received!`);
-            setTimeout(() => setActionNotice(null), 5000);
-          }, 350);
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'orders' },
-        (payload: any) => {
-          const updated = payload.new;
-          if (!updated || !updated.id) return;
-          const normalized = normalizeStatus(updated.status);
-
-          // On UPDATE events, immediately update the local state so the card status badge changes without requiring a page refresh
-          setOrders((prev) =>
-            prev.map((o) =>
-              o.id === updated.id
-                ? {
-                    ...o,
-                    status: normalized,
-                    delivery_zone: updated.delivery_zone || o.delivery_zone,
-                    room_details: updated.room_details || o.room_details,
-                    customer_name: updated.customer_name || o.customer_name,
-                    customer_phone: updated.customer_phone || o.customer_phone,
-                    total_amount: Number(updated.total_amount || updated.total || o.total_amount),
-                    items: Array.isArray(updated.items) ? updated.items : o.items,
-                  }
-                : o
-            )
-          );
-          setActionNotice(`⚡ Order status updated to "${normalized}"`);
-          setTimeout(() => setActionNotice(null), 3000);
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'order_items' },
-        (payload: any) => {
-          const item = payload.new;
-          if (!item || !item.order_id) return;
-          setOrders((prev) =>
-            prev.map((o) => {
-              if (o.id !== item.order_id) return o;
-              const existingIndex = o.items.findIndex(
-                (it) => it.id === item.id || it.id === item.product_id
-              );
-              const formattedItem = {
-                id: item.id || item.product_id,
-                name: item.product_name_snapshot || item.product_name || item.name || 'Campus Item',
-                quantity: Number(item.quantity || 1),
-                price: Number(item.price_snapshot ?? item.price ?? 0),
-                image_url: item.image_url || item.image || '',
-              };
-              if (existingIndex >= 0) {
-                const updatedItems = [...o.items];
-                updatedItems[existingIndex] = formattedItem;
-                return { ...o, items: updatedItems };
-              }
-              return { ...o, items: [...o.items, formattedItem] };
-            })
-          );
-        }
-      )
-      .subscribe();
+    // 2. Live sync via secured /api/admin-action polling (works cleanly under strict RLS)
+    const unsubscribe = subscribeToOrders(
+      (newOrder) => {
+        const mappedOrder = mapAdminOrderToLive(newOrder);
+        setOrders((prev) => [mappedOrder, ...prev.filter((o) => o.id !== mappedOrder.id)]);
+        playAlert();
+        setActionNotice(`🔔 New Order ${mappedOrder.order_number} received!`);
+        setTimeout(() => setActionNotice(null), 5000);
+      },
+      (updatedOrder) => {
+        const mappedOrder = mapAdminOrderToLive(updatedOrder);
+        setOrders((prev) =>
+          prev.map((o) => (o.id === mappedOrder.id ? { ...o, ...mappedOrder } : o))
+        );
+        setActionNotice(`⚡ Order ${mappedOrder.order_number} updated to "${mappedOrder.status}"`);
+        setTimeout(() => setActionNotice(null), 3000);
+      },
+      12000
+    );
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, [soundEnabled]);
 
-  // 3. Status Advancement Handler routed via secured updateOrderStatus (/api/admin-action)
+  // 3. Status Advancement Handler routed strictly via /api/admin-action
   const handleAdvanceStatus = async (orderId: string, nextStatus: LiveOrderStatus) => {
     const prevOrders = [...orders];
+    setErrorMessage(null);
 
     // Optimistic UI update so card status badge changes immediately
     setOrders((prev) =>
       prev.map((ord) => (ord.id === orderId ? { ...ord, status: nextStatus } : ord))
     );
 
-    const updatedOrder = await updateOrderStatus(
-      orderId,
-      nextStatus as any,
-      `Advanced to ${nextStatus} by dispatch operator`
-    );
-
-    if (!updatedOrder) {
-      setActionNotice('Failed to update status: Unauthorized or network error');
+    try {
+      await updateOrderStatus(
+        orderId,
+        nextStatus as any,
+        `Advanced to ${nextStatus} by dispatch operator`
+      );
+      setActionNotice(`Order #${orderId.slice(0, 8)} updated to "${nextStatus}"`);
+      setTimeout(() => setActionNotice(null), 3000);
+    } catch (err: any) {
       setOrders(prevOrders);
-      return;
+      setErrorMessage(err?.message || 'Failed to update order status via /api/admin-action.');
     }
-
-    setActionNotice(`Order #${orderId.slice(0, 8)} updated to "${nextStatus}"`);
-    setTimeout(() => setActionNotice(null), 3000);
   };
 
   // Helper for delivery area badges
@@ -425,6 +336,23 @@ export const LiveOrdersManager: React.FC = () => {
         src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"
         preload="auto"
       />
+
+      {/* Error Alert Banner */}
+      {errorMessage && (
+        <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs font-bold flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={fetchActiveOrders}
+            className="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold shrink-0 cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Action Notice Bar */}
       {actionNotice && (

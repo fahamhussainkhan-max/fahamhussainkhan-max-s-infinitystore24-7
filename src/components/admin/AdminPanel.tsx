@@ -33,8 +33,13 @@ import { AdminLogin } from './AdminLogin';
 import {
   subscribeToOrders,
   supabase,
-  invokeAdminAction,
   toggleStoreStatus,
+  getStoreStatusAdmin,
+  getStoredAdminSession,
+  clearStoredAdminSession,
+  verifyAdminToken,
+  ADMIN_AUTH_REQUIRED_EVENT,
+  AdminSessionUser,
 } from '../../lib/supabase';
 import { AdminOrder } from '../../types';
 import { playOrderAlertChime } from '../../utils/audioAlert';
@@ -45,112 +50,48 @@ interface AdminPanelProps {
 
 export type AdminTab = 'live-orders' | 'orders' | 'inventory' | 'products' | 'dashboard';
 
-interface StaffUser {
-  email: string;
-  role: string;
-  name: string;
-}
-
 const ALLOWED_STAFF_ROLES = new Set(['staff', 'admin', 'super_admin']);
 
 export const AdminPanel: React.FC<AdminPanelProps> = () => {
-  const [currentUser, setCurrentUser] = useState<StaffUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<AdminSessionUser | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [unlockModalReason, setUnlockModalReason] = useState<string | null>(null);
+  const [sessionEpoch, setSessionEpoch] = useState(0);
 
-  const verifyAdminSession = async (
-    userId: string,
-    email: string,
-    accessToken?: string,
-    fallbackFullName?: string
-  ): Promise<StaffUser | null> => {
-    const cleanEmail = email.toLowerCase().trim();
-    if (!userId || !cleanEmail) return null;
-
-    if (accessToken) {
-      const apiRes = await invokeAdminAction<{
-        authorized?: boolean;
-        user?: { email: string; role: string; name: string };
-      }>('verify_admin', {}, accessToken);
-
-      if (apiRes.ok && apiRes.data?.authorized && apiRes.data.user) {
-        if (ALLOWED_STAFF_ROLES.has(String(apiRes.data.user.role))) {
-          return {
-            email: apiRes.data.user.email || cleanEmail,
-            role: String(apiRes.data.user.role),
-            name: apiRes.data.user.name || cleanEmail.split('@')[0],
-          };
-        }
-        return null;
-      }
-
-      if (!apiRes.endpointMissing) {
-        return null;
-      }
-    }
-
-    // Fallback when serverless endpoint is not mounted (local Vite dev): verify role in DB tables
-    const { data: adminRow } = await supabase
-      .from('admin_users')
-      .select('role, is_active, full_name')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (adminRow && adminRow.is_active !== false && ALLOWED_STAFF_ROLES.has(String(adminRow.role))) {
-      return {
-        email: cleanEmail,
-        role: String(adminRow.role),
-        name: String(adminRow.full_name || fallbackFullName || cleanEmail.split('@')[0]),
-      };
-    }
-
-    const { data: roleRow } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (roleRow?.role && ALLOWED_STAFF_ROLES.has(String(roleRow.role))) {
-      return {
-        email: cleanEmail,
-        role: String(roleRow.role),
-        name: String(fallbackFullName || cleanEmail.split('@')[0]),
-      };
-    }
-
-    return null;
-  };
-
-  // Strictly verify Supabase JWT session on mount — never blindly trust localStorage
+  // Strictly verify signed sessionStorage token or Supabase Auth JWT via /api/admin-action
   useEffect(() => {
     let mounted = true;
 
     const restoreSession = async () => {
       try {
+        // 1. Check short-lived signed passphrase token in sessionStorage first
+        const storedSession = getStoredAdminSession();
+        if (storedSession?.token) {
+          const verified = await verifyAdminToken(storedSession.token);
+          if (!mounted) return;
+          if (verified.ok && verified.user && ALLOWED_STAFF_ROLES.has(verified.user.role)) {
+            setCurrentUser(verified.user);
+            return;
+          }
+          clearStoredAdminSession();
+        }
+
+        // 2. Otherwise check active Supabase Auth session via /api/admin-action
         const { data } = await supabase.auth.getSession();
         const session = data?.session;
-        if (session?.user) {
-          const verifiedUser = await verifyAdminSession(
-            session.user.id,
-            session.user.email || '',
-            session.access_token,
-            session.user.user_metadata?.full_name
-          );
-
+        if (session?.access_token) {
+          const verified = await verifyAdminToken(session.access_token);
           if (!mounted) return;
-          if (verifiedUser) {
-            setCurrentUser(verifiedUser);
-            localStorage.setItem('infinity_staff_session', JSON.stringify(verifiedUser));
-          } else {
-            localStorage.removeItem('infinity_staff_session');
-            setCurrentUser(null);
-            await supabase.auth.signOut().catch(() => {});
+          if (verified.ok && verified.user && ALLOWED_STAFF_ROLES.has(verified.user.role)) {
+            setCurrentUser(verified.user);
+            return;
           }
-        } else {
-          localStorage.removeItem('infinity_staff_session');
-          if (mounted) setCurrentUser(null);
+          await supabase.auth.signOut().catch(() => {});
         }
+
+        if (mounted) setCurrentUser(null);
       } catch {
-        localStorage.removeItem('infinity_staff_session');
+        clearStoredAdminSession();
         if (mounted) setCurrentUser(null);
       } finally {
         if (mounted) setCheckingSession(false);
@@ -158,30 +99,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
     };
     restoreSession();
 
+    const handleAuthRequired = (evt: Event) => {
+      const detail = (evt as CustomEvent<{ message?: string }>)?.detail;
+      if (!mounted) return;
+      setUnlockModalReason(
+        detail?.message || 'Your admin session expired or is locked. Please unlock to continue.'
+      );
+    };
+
+    window.addEventListener(ADMIN_AUTH_REQUIRED_EVENT, handleAuthRequired);
+
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const verifiedUser = await verifyAdminSession(
-          session.user.id,
-          session.user.email || '',
-          session.access_token,
-          session.user.user_metadata?.full_name
-        );
-        if (!mounted) return;
-        if (verifiedUser) {
-          setCurrentUser(verifiedUser);
-          localStorage.setItem('infinity_staff_session', JSON.stringify(verifiedUser));
-        } else {
-          localStorage.removeItem('infinity_staff_session');
-          setCurrentUser(null);
-        }
-      } else if (event === 'SIGNED_OUT') {
-        localStorage.removeItem('infinity_staff_session');
+      if (event === 'SIGNED_OUT' && !getStoredAdminSession()) {
         if (mounted) setCurrentUser(null);
+        return;
+      }
+      if (session?.access_token && !getStoredAdminSession()) {
+        const verified = await verifyAdminToken(session.access_token);
+        if (!mounted) return;
+        if (verified.ok && verified.user && ALLOWED_STAFF_ROLES.has(verified.user.role)) {
+          setCurrentUser(verified.user);
+          setUnlockModalReason(null);
+        }
       }
     });
 
     return () => {
       mounted = false;
+      window.removeEventListener(ADMIN_AUTH_REQUIRED_EVENT, handleAuthRequired);
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -213,42 +158,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
   const [isStoreOpen, setIsStoreOpen] = useState(true);
   const [togglingStore, setTogglingStore] = useState(false);
 
-  // Sync store_settings live in Admin
+  // Sync store_settings via /api/admin-action when unlocked
   useEffect(() => {
+    if (!currentUser) return;
+    let active = true;
     const fetchStatus = async () => {
-      try {
-        const { data } = await supabase
-          .from('store_settings')
-          .select('*')
-          .eq('id', 'primary')
-          .single();
-        if (data && typeof data.is_open === 'boolean') {
-          setIsStoreOpen(data.is_open);
-        }
-      } catch (err: any) {
-        console.warn('Notice fetching store settings in Admin:', err?.message || err);
+      const res = await getStoreStatusAdmin();
+      if (active && res.ok) {
+        setIsStoreOpen(res.isOpen);
       }
     };
 
     fetchStatus();
-
-    const channel = supabase
-      .channel('public:store_settings:admin-header')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'store_settings' },
-        (payload: any) => {
-          if (payload.new && typeof payload.new.is_open === 'boolean') {
-            setIsStoreOpen(payload.new.is_open);
-          }
-        }
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
+      active = false;
     };
-  }, []);
+  }, [currentUser, sessionEpoch]);
 
   const handleToggleStoreStatus = async () => {
     setTogglingStore(true);
@@ -259,9 +184,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
         throw new Error(res.error || 'Action failed');
       }
       setIsStoreOpen(newStatus);
-      setRealtimeToast(`Store is now ${newStatus ? 'OPEN (Accepting orders)' : 'CLOSED (Orders paused)'}`);
+      setRealtimeToast(
+        `Store is now ${newStatus ? 'OPEN (Accepting orders)' : 'CLOSED (Orders paused)'}`
+      );
+      setTimeout(() => setRealtimeToast(null), 4000);
     } catch (err: any) {
-      setRealtimeToast('Error updating store status: ' + (err?.message || 'Action failed'));
+      setRealtimeToast('Error: ' + (err?.message || 'Failed to update store status'));
     } finally {
       setTogglingStore(false);
     }
@@ -322,12 +250,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
   }, [currentUser, soundEnabled]);
 
   const handleSignOut = async () => {
+    clearStoredAdminSession();
+    localStorage.removeItem('infinity_staff_session');
     try {
       await supabase.auth.signOut();
     } catch {
       // Handled
     }
-    localStorage.removeItem('infinity_staff_session');
+    setUnlockModalReason(null);
     setCurrentUser(null);
   };
 
@@ -340,20 +270,46 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
     );
   }
 
-  // If staff is not signed in, show secure login screen strictly
+  // If staff is not unlocked/signed in, show secure Admin Unlock / Login screen strictly
   if (!currentUser) {
     return (
       <AdminLogin
-        onSuccess={(user) => setCurrentUser(user)}
+        mode="page"
+        initialMessage={unlockModalReason}
+        onSuccess={(user) => {
+          setCurrentUser(user);
+          setUnlockModalReason(null);
+          setSessionEpoch((e) => e + 1);
+        }}
       />
     );
   }
 
+  const isErrorToast = Boolean(realtimeToast && realtimeToast.toLowerCase().startsWith('error'));
+
   return (
     <div className="min-h-screen bg-[#0E1523] flex font-sans text-gray-900 select-none">
-      {/* Realtime Toast Notification */}
+      {/* Re-Unlock Modal overlay if signed session token expires mid-session */}
+      {unlockModalReason && (
+        <AdminLogin
+          mode="modal"
+          initialMessage={unlockModalReason}
+          onClose={() => setUnlockModalReason(null)}
+          onSuccess={(user) => {
+            setCurrentUser(user);
+            setUnlockModalReason(null);
+            setSessionEpoch((e) => e + 1);
+          }}
+        />
+      )}
+
+      {/* Realtime / Action Toast Notification */}
       {realtimeToast && (
-        <div className="fixed top-5 right-5 z-50 p-4 rounded-2xl bg-[#0A84FF] text-white text-xs font-bold shadow-2xl flex items-center gap-3 border border-white/20 animate-fade-in">
+        <div
+          className={`fixed top-5 right-5 z-50 p-4 rounded-2xl text-white text-xs font-bold shadow-2xl flex items-center gap-3 border border-white/20 animate-fade-in ${
+            isErrorToast ? 'bg-red-600' : 'bg-[#0A84FF]'
+          }`}
+        >
           <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
           <span>{realtimeToast}</span>
           <button
@@ -694,9 +650,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
         </header>
 
         {/* Workspace Body */}
-        <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto" key={sessionEpoch}>
           {activeTab === 'live-orders' && <LiveOrdersManager />}
-          {activeTab === 'orders' && <OrderManagement />}
+          {activeTab === 'orders' && (
+            <OrderManagement
+              realtimeEventCount={realtimeEventCount}
+              onOpenLiveKitchen={() => switchTab('live-orders')}
+            />
+          )}
           {activeTab === 'inventory' && <InventoryManagement />}
           {activeTab === 'products' && <ProductManagement />}
           {activeTab === 'dashboard' && (
